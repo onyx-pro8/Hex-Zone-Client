@@ -4,7 +4,7 @@ import ZoneBuilderMap from '../components/ZoneBuilderMap';
 import { buildZonePayload, polygonAreaKm2, serializeCellCsv } from '../lib/h3';
 import { createZone } from '../lib/api';
 
-const zoneTypes = ['warn', 'alert', 'geofence', 'emergency', 'restricted', 'custom_1', 'custom_2'];
+const zoneTypes = ['geofence', 'emergency', 'custom_1', 'custom_2'];
 const CLOSE_DISTANCE_METERS = 35;
 
 function toRad(value: number) {
@@ -41,7 +41,7 @@ export default function ZoneBuilder() {
   const [polygonPoints, setPolygonPoints] = useState<[number, number][]>([]);
   const [zoneName, setZoneName] = useState('Downtown Grid');
   const [description, setDescription] = useState('Core geofence coverage around the operational area.');
-  const [zoneType, setZoneType] = useState('warn');
+  const [zoneType, setZoneType] = useState('geofence');
   const [status, setStatus] = useState('');
 
   const areaKm2 = useMemo(() => polygonAreaKm2(polygonPoints), [polygonPoints]);

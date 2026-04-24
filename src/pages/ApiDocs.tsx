@@ -419,7 +419,7 @@ const DEFAULT_JSON: Record<string, string> = {
   "zones-create": `{
   "zone_id": "ZONE-7A29",
   "name": "Main Zone",
-  "zone_type": "warn",
+  "zone_type": "geofence",
   "h3_cells": ["8928308280fffff"]
 }`,
   "zones-patch": `{

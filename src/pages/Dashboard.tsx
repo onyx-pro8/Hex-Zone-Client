@@ -46,9 +46,6 @@ type MapperMode = "h3" | "polygon";
 type ActiveTool = null | "measure";
 type ZoneTypeMode =
   | "geofence"
-  | "warn"
-  | "alert"
-  | "restricted"
   | "proximity"
   | "dynamic"
   | "custom_1"
@@ -311,9 +308,6 @@ function savedZoneRecordId(zone: SavedZone): string {
 
 function normalizeZoneTypeValue(raw: unknown): ZoneTypeMode {
   const value = String(raw ?? "").toLowerCase();
-  if (value === "warn") return "warn";
-  if (value === "alert") return "alert";
-  if (value === "restricted") return "restricted";
   if (value === "proximity") return "proximity";
   if (value === "dynamic") return "dynamic";
   if (value === "custom_1") return "custom_1";
@@ -794,16 +788,8 @@ export default function Dashboard() {
   );
   const canEditCurrentSelection =
     isCreatingNewZone || (!!activeZoneEntry && activeSavedZoneEditable);
-  const usesMapGeometry =
-    zoneType === "geofence" ||
-    zoneType === "warn" ||
-    zoneType === "alert" ||
-    zoneType === "restricted";
+  const usesMapGeometry = zoneType === "geofence";
   const typeVisual = useMemo(() => {
-    if (zoneType === "warn") return { color: "#F59E0B", label: "Warn" };
-    if (zoneType === "alert") return { color: "#EF4444", label: "Alert" };
-    if (zoneType === "restricted")
-      return { color: "#8B5CF6", label: "Restricted" };
     if (zoneType === "proximity")
       return { color: "#06B6D4", label: "Proximity" };
     if (zoneType === "dynamic") return { color: "#22C55E", label: "Dynamic" };
@@ -1858,9 +1844,6 @@ export default function Dashboard() {
                 className={`w-full rounded-md border border-slate-700/80 ${panel} px-3 py-2 text-sm text-white focus:border-[#00E5D1]/60 focus:outline-none focus:ring-1 focus:ring-[#00E5D1]/25`}
               >
                 <option value="geofence">Geofence</option>
-                <option value="warn">Warn</option>
-                <option value="alert">Alert</option>
-                <option value="restricted">Restricted</option>
                 <option value="proximity">Proximity-to-source</option>
                 <option value="dynamic">Dynamic-size</option>
                 <option value="custom_1">Communal ID</option>
