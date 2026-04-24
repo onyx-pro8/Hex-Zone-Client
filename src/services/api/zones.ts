@@ -8,9 +8,6 @@ export type ZoneType =
   | "proximity"
   | "object"
   | "geofence"
-  | "warn"
-  | "alert"
-  | "restricted"
   | "custom_1"
   | "custom_2";
 
