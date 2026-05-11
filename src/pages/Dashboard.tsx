@@ -1940,11 +1940,11 @@ export default function Dashboard() {
         <span className="text-sm text-slate-300">{userLabel}</span>
       </header>
 
-      {zoneId.trim() !== "" ? (
+      {user?.role === "administrator" && zoneId.trim() !== "" ? (
         <GuestRequestsDashboardSection zoneId={zoneId.trim()} />
       ) : null}
 
-      {zoneId.trim() !== "" ? (
+      {user?.role === "administrator" && zoneId.trim() !== "" ? (
         <div className="border-b border-slate-800/80 px-4 py-4 sm:px-6">
           <GuestAccessQrSection zoneId={zoneId.trim()} compact />
         </div>
