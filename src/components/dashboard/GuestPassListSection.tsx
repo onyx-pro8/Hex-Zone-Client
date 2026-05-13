@@ -19,7 +19,7 @@ import {
   type GuestPassStatus,
 } from "../../services/api/guestPasses";
 
-type Props = { zoneId: string };
+type Props = { zoneId: string; isAdmin: boolean };
 
 const COLLAPSED_COUNT = 3;
 
@@ -49,7 +49,7 @@ function formatDate(iso: string): string {
   }
 }
 
-export function GuestPassListSection({ zoneId }: Props) {
+export function GuestPassListSection({ zoneId, isAdmin }: Props) {
   const { token } = useAuth();
   const normalizedZoneId = zoneId.trim();
 
@@ -96,10 +96,7 @@ export function GuestPassListSection({ zoneId }: Props) {
     try {
       const parsed =
         typeof lastMessage === "string" ? JSON.parse(lastMessage) : lastMessage;
-      if (
-        parsed?.type === "PERMISSION_MESSAGE" &&
-        parsed?.data?.guest_pass
-      ) {
+      if (parsed?.type === "PERMISSION_MESSAGE" && parsed?.data?.guest_pass) {
         void refresh();
       }
     } catch {
@@ -145,7 +142,9 @@ export function GuestPassListSection({ zoneId }: Props) {
           disabled={loading}
           className="inline-flex items-center gap-2 rounded-lg border border-slate-700/80 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-300 transition hover:border-[#00E5D1]/40 hover:text-[#00E5D1] disabled:opacity-60"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+          <RefreshCw
+            className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+          />
           Refresh
         </button>
       </div>
@@ -165,17 +164,14 @@ export function GuestPassListSection({ zoneId }: Props) {
 
       <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {passes.length === 0 && !loading && (
-          <p className="text-sm text-slate-500">
-            No guest pass requests yet.
-          </p>
+          <p className="text-sm text-slate-500">No guest pass requests yet.</p>
         )}
 
         {visible.map((pass) => {
           const expired = isExpired(pass);
           const showAcceptReject =
-            pass.status === "PENDING" && !expired;
-          const showRevoke =
-            pass.status === "ACCEPTED" && !expired;
+            pass.status === "PENDING" && !expired && isAdmin;
+          const showRevoke = pass.status === "ACCEPTED" && !expired && isAdmin;
 
           return (
             <article
@@ -192,7 +188,9 @@ export function GuestPassListSection({ zoneId }: Props) {
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em]">
-                  <span className={`rounded-full px-2 py-0.5 ${statusBadge(pass.status)}`}>
+                  <span
+                    className={`rounded-full px-2 py-0.5 ${statusBadge(pass.status)}`}
+                  >
                     {pass.status}
                   </span>
                   {expired && (
@@ -204,13 +202,13 @@ export function GuestPassListSection({ zoneId }: Props) {
               </div>
 
               <div className="mt-3 space-y-1 text-xs text-slate-400">
-                {pass.notes && (
-                  <p className="text-slate-300">{pass.notes}</p>
-                )}
+                {pass.notes && <p className="text-slate-300">{pass.notes}</p>}
                 {pass.requested_by_name && (
                   <p>
                     Requested by:{" "}
-                    <span className="text-slate-200">{pass.requested_by_name}</span>
+                    <span className="text-slate-200">
+                      {pass.requested_by_name}
+                    </span>
                   </p>
                 )}
                 <p>
@@ -279,7 +277,8 @@ export function GuestPassListSection({ zoneId }: Props) {
               </>
             ) : (
               <>
-                <ChevronDown className="h-3.5 w-3.5" /> Show more ({hiddenCount})
+                <ChevronDown className="h-3.5 w-3.5" /> Show more ({hiddenCount}
+                )
               </>
             )}
           </button>

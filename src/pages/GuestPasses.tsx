@@ -31,7 +31,7 @@ export default function GuestPasses() {
     { key: "list", label: "Guest Pass Requests", adminOnly: true },
   ];
 
-  const visibleTabs = tabs.filter((t) => !t.adminOnly || isAdmin);
+  const visibleTabs = tabs;
   const showTabs = visibleTabs.length > 1;
 
   return (
@@ -68,8 +68,8 @@ export default function GuestPasses() {
 
         <div className="px-4 py-5 sm:px-6">
           {activeTab === "request" && <GuestPassRequestForm zoneId={zoneId} />}
-          {activeTab === "list" && isAdmin && (
-            <GuestPassListSection zoneId={zoneId} />
+          {activeTab === "list" && (
+            <GuestPassListSection zoneId={zoneId} isAdmin={isAdmin} />
           )}
         </div>
       </div>
