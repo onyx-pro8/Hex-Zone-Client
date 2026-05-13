@@ -1919,7 +1919,7 @@ export default function Dashboard() {
     "mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500";
 
   return (
-    <div className="relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2 overflow-hidden rounded-lg border border-slate-800/60 bg-[#0B0E11]">
+    <div className="w-full min-w-0 max-w-full overflow-x-clip rounded-lg border border-slate-800/60 bg-[#0B0E11]">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 px-4 py-3 sm:px-6">
         <span className="text-xs font-bold uppercase tracking-[0.2em] text-white">
           H3 Hexagon Mapper
@@ -1950,8 +1950,8 @@ export default function Dashboard() {
         </div>
       ) : null}
 
-      <div className="flex min-h-[min(100dvh,920px)] flex-1 flex-col lg:min-h-[calc(100dvh-11rem)] lg:flex-row">
-        <aside className="flex w-full flex-col border-slate-800/80 lg:w-[400px] lg:shrink-0 lg:border-r">
+      <div className="flex min-h-[min(100dvh,920px)] flex-1 flex-col lg:min-h-[calc(100dvh-11rem)] lg:flex-row lg:min-w-0">
+        <aside className="flex w-full min-w-0 flex-col border-slate-800/80 lg:w-[400px] lg:max-w-[400px] lg:shrink-0 lg:border-r">
           <div className="max-h-[50vh] flex-1 space-y-4 overflow-y-auto p-4 sm:p-5 lg:max-h-none">
             <div>
               <p className={labelClass}>Zone ID</p>
@@ -2642,7 +2642,7 @@ export default function Dashboard() {
           </div>
         </aside>
 
-        <div className="relative min-h-[360px] flex-1 lg:min-h-0">
+        <div className="relative min-h-[360px] min-w-0 flex-1 lg:min-h-0">
           <HexMapperMap
             center={mapCenter}
             mapFitBounds={mapFitBounds}

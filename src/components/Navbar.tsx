@@ -306,7 +306,7 @@ export default function Navbar() {
   return (
     <header className="border-b border-slate-800/80 bg-transparent backdrop-blur-xl fixed w-full z-50">
       <div
-        className={`mx-auto flex w-full max-w-full items-center gap-3 px-12 py-4 ${
+        className={`mx-auto flex w-full max-w-full items-center gap-3 sm:px-12 px-6 py-4 ${
           !showSessionNav ? "justify-between" : ""
         }`}
       >

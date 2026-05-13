@@ -44,13 +44,16 @@ function AppMain() {
     return () => registerGuestSessionAuthNavigate(null);
   }, [navigate]);
   const guestWideLayout = pathname.startsWith("/guest/");
+  const dashboardFullBleed = pathname === "/dashboard";
   return (
     <main
       className={[
         "mx-auto flex-1 pt-28",
-        guestWideLayout
-          ? "w-full min-w-0 max-w-none px-4 sm:px-6 lg:px-10"
-          : "max-w-7xl px-5",
+        dashboardFullBleed
+          ? "w-full min-w-0 max-w-none px-0"
+          : guestWideLayout
+            ? "w-full min-w-0 max-w-none px-4 sm:px-6 lg:px-10"
+            : "max-w-7xl px-5",
       ].join(" ")}
     >
       <Routes>
