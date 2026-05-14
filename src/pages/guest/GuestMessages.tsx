@@ -12,6 +12,10 @@ import {
 } from "../../services/api/guestMessages";
 import { guestApiBasePath } from "../../services/api/guestSession";
 import { mapGuestAccessErrorCode } from "../../services/api/accessPermissions";
+import {
+  isPermissionDirectVisibility,
+  isPermissionZonePendingBroadcastVisibility,
+} from "../../lib/permissionVisibility";
 
 const POLL_MS = 4000;
 const THREAD_LIMIT = 80;
@@ -282,18 +286,36 @@ export default function GuestMessages() {
               {messages.map((m) => {
                 const t = String(m.type ?? "").toUpperCase();
                 const isPermission = t === "PERMISSION";
+                const zoneBroadcast =
+                  isPermission && isPermissionZonePendingBroadcastVisibility(m.permission_visibility);
+                const privateAudit = isPermission && isPermissionDirectVisibility(m.permission_visibility);
                 return (
                   <li
                     key={m.id}
                     className={`rounded-md border px-3 py-2 ${
-                      isPermission
-                        ? "border-amber-500/30 bg-amber-950/20"
-                        : "border-slate-800/80 bg-slate-900/50"
+                      zoneBroadcast
+                        ? "border-amber-500/50 bg-amber-950/35"
+                        : isPermission
+                          ? "border-amber-500/30 bg-amber-950/20"
+                          : "border-slate-800/80 bg-slate-900/50"
                     }`}
                   >
                     <p className="text-[10px] uppercase tracking-wider text-slate-500">
                       {t}
                       {m.created_at ? ` · ${m.created_at}` : ""}
+                      {zoneBroadcast ? (
+                        <span
+                          className="ml-2 font-medium text-amber-200"
+                          title="Unscheduled guest waiting for approval"
+                        >
+                          · Zone alert
+                        </span>
+                      ) : null}
+                      {privateAudit ? (
+                        <span className="ml-2 text-slate-400" title="Private staff audit">
+                          · Private
+                        </span>
+                      ) : null}
                       {isPermission ? (
                         <span className="ml-2 text-amber-200/95"> · read-only in thread</span>
                       ) : null}

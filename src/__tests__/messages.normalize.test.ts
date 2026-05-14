@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { normalizeMessage } from "../services/api/messages";
+import {
+  normalizeMessage,
+  sortInboxAccessMessages,
+  type Message,
+} from "../services/api/messages";
 
 describe("normalizeMessage", () => {
   it("keeps PERMISSION rows when top-level message body is empty but msg carries metadata", () => {
@@ -131,5 +135,84 @@ describe("normalizeMessage", () => {
       created_at: "2026-01-01T00:00:00Z",
     });
     expect(legacyPrivate).toBeNull();
+  });
+
+  it("maps PERMISSION permission_visibility and guest_id null from API", () => {
+    const m = normalizeMessage({
+      id: "uuid-perm-1",
+      zone_id: "ZN-1",
+      sender_id: 10,
+      receiver_id: 20,
+      created_at: "2026-03-01T12:00:00Z",
+      type: "PERMISSION",
+      message: "Walk-in waiting",
+      guest_id: null,
+      permission_visibility: "direct",
+    });
+    expect(m?.permission_visibility).toBe("direct");
+    expect(m?.guest_id).toBeNull();
+    expect(m?.message).toBe("Walk-in waiting");
+  });
+
+  it("reads permission_visibility from msg / raw_payload when typed PERMISSION", () => {
+    const fromMsg = normalizeMessage({
+      id: "p2",
+      zone_id: "ZN-1",
+      sender_id: 1,
+      receiver_id: null,
+      created_at: "2026-03-01T12:00:00Z",
+      type: "PERMISSION",
+      message: "x",
+      msg: { permission_visibility: "zone_pending_broadcast" },
+    });
+    expect(fromMsg?.permission_visibility).toBe("zone_pending_broadcast");
+
+    const fromRaw = normalizeMessage({
+      id: "p3",
+      zone_id: "ZN-1",
+      sender_id: 1,
+      receiver_id: null,
+      created_at: "2026-03-01T12:00:00Z",
+      type: "PERMISSION",
+      message: "y",
+      raw_payload: { permission_visibility: "direct" },
+    });
+    expect(fromRaw?.permission_visibility).toBe("direct");
+  });
+});
+
+describe("sortInboxAccessMessages", () => {
+  it("pins zone_pending_broadcast PERMISSION rows to the top", () => {
+    const older: Message = {
+      id: "a",
+      zone_id: "Z",
+      sender_id: 1,
+      receiver_id: null,
+      type: "PERMISSION",
+      category: "Access",
+      scope: "private",
+      visibility: "private",
+      message: "old",
+      created_at: "2026-01-01T00:00:00Z",
+      raw_payload: null,
+      permission_visibility: "direct",
+    };
+    const newerBroadcast: Message = {
+      id: "b",
+      zone_id: "Z",
+      sender_id: 1,
+      receiver_id: null,
+      type: "PERMISSION",
+      category: "Access",
+      scope: "private",
+      visibility: "private",
+      message: "walk-in",
+      created_at: "2026-01-02T00:00:00Z",
+      raw_payload: null,
+      permission_visibility: "zone_pending_broadcast",
+    };
+    const sorted = sortInboxAccessMessages([older, newerBroadcast]);
+    expect(sorted[0]?.id).toBe("b");
+    expect(sorted[1]?.id).toBe("a");
   });
 });

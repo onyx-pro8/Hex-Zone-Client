@@ -72,21 +72,30 @@ function normalizeApiData<T>(raw: unknown): T {
 function normalizeEnvelopeError(raw: unknown): string | null {
   if (!raw || typeof raw !== "object") return null;
   if (!("status" in raw)) return null;
-  const row = raw as ApiEnvelope<unknown>;
+  const row = raw as Record<string, unknown>;
   if (row.status !== "error") return null;
-  const envelopeError =
-    row.error && typeof row.error === "object" ? row.error.message : null;
-  return envelopeError || row.message || "Request failed";
+  const topMsg = typeof row.message === "string" ? row.message.trim() : "";
+  const nested =
+    row.error && typeof row.error === "object" && row.error !== null
+      ? String((row.error as { message?: string }).message ?? "").trim()
+      : "";
+  return topMsg || nested || "Request failed";
 }
 
 function toErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
+    const status = error.response?.status;
     const envelopeError = normalizeEnvelopeError(error.response?.data);
-    if (envelopeError) return envelopeError;
+    if (envelopeError) {
+      if (status === 401) return `${envelopeError} Please sign in again.`;
+      return envelopeError;
+    }
     const message =
       (error.response?.data as { message?: string } | undefined)?.message ||
       error.message;
-    return message || "Request failed";
+    const base = message || "Request failed";
+    if (status === 401) return `${base} Please sign in again.`;
+    return base;
   }
   if (error instanceof Error) return error.message;
   return "Request failed";

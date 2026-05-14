@@ -7,13 +7,24 @@ import {
   type MessageScope,
   type MessageType,
 } from "../../lib/messageTypes";
+import {
+  isPermissionZonePendingBroadcastVisibility,
+  normalizePermissionVisibilityToken,
+} from "../../lib/permissionVisibility";
 
 export type MessageVisibility = MessageScope;
 
 /** Placeholder `sender_id` when the logical sender is a guest (UUID) without a numeric owner id. */
 export const GUEST_LOGICAL_SENDER_ID = 0;
 
+/**
+ * Member inbox row from `GET /messages` (numeric or UUID string `id`, merged with Access events).
+ * Use `permission_visibility` when `type === "PERMISSION"`; tolerate absence for older servers.
+ */
+export type ZoneMessageResponse = Message;
+
 export type Message = {
+  /** Server may return a number or UUID string for Access events. */
   id: string;
   zone_id: string;
   sender_id: number;
@@ -27,6 +38,13 @@ export type Message = {
   raw_payload: Record<string, unknown> | null;
   /** Present when the row is guest-originated Access traffic (mirrored CHAT/PERMISSION) without numeric sender. */
   guest_sender_id?: string;
+  /**
+   * Access-row guest reference from the API (`guest_id`). May be JSON null for some guest-pass lifecycle rows.
+   * Distinct from `guest_sender_id` (logical sender when numeric sender is absent).
+   */
+  guest_id?: string | null;
+  /** When `type === "PERMISSION"`, optional visibility hint from the backend. */
+  permission_visibility?: string | null;
 };
 
 export type ListMessagesParams = {
@@ -124,6 +142,85 @@ export function extractGuestSenderId(
     tryObj(msgRecord) ??
     tryObj(structuredPayload) ??
     null
+  );
+}
+
+/** API `guest_id` on Access rows (may be JSON null); not used for logical-sender resolution. */
+function readAccessGuestIdContract(
+  row: Record<string, unknown>,
+  msgRecord: Record<string, unknown> | null,
+  rowStructuredPayload: Record<string, unknown> | null,
+  type: MessageType,
+): string | null | undefined {
+  if (type !== "PERMISSION" && type !== "CHAT") return undefined;
+  const read = (o: Record<string, unknown> | null): string | null | undefined => {
+    if (!o) return undefined;
+    if (Object.prototype.hasOwnProperty.call(o, "guest_id")) {
+      const v = o.guest_id;
+      if (v === null) return null;
+      if (typeof v === "string") {
+        const t = v.trim();
+        return t.length > 0 ? t : null;
+      }
+      return undefined;
+    }
+    if (Object.prototype.hasOwnProperty.call(o, "guestId")) {
+      const v = o.guestId;
+      if (v === null) return null;
+      if (typeof v === "string") {
+        const t = v.trim();
+        return t.length > 0 ? t : null;
+      }
+      return undefined;
+    }
+    return undefined;
+  };
+  const top = read(row);
+  if (top !== undefined) return top;
+  const mid = read(msgRecord);
+  if (mid !== undefined) return mid;
+  return read(rowStructuredPayload);
+}
+
+function extractPermissionVisibility(
+  row: Record<string, unknown>,
+  msgRecord: Record<string, unknown> | null,
+  rowStructuredPayload: Record<string, unknown> | null,
+  type: MessageType,
+): string | null | undefined {
+  if (type !== "PERMISSION") return undefined;
+  const pick = (o: Record<string, unknown> | null): string | null | undefined => {
+    if (!o) return undefined;
+    if (Object.prototype.hasOwnProperty.call(o, "permission_visibility")) {
+      return normalizePermissionVisibilityToken(o.permission_visibility);
+    }
+    if (Object.prototype.hasOwnProperty.call(o, "permissionVisibility")) {
+      return normalizePermissionVisibilityToken(o.permissionVisibility);
+    }
+    return undefined;
+  };
+  return pick(row) ?? pick(msgRecord) ?? pick(rowStructuredPayload);
+}
+
+/** Pin zone pending broadcast PERMISSION rows to the top of the Access section. */
+export function sortInboxAccessMessages(list: Message[]): Message[] {
+  return [...list].sort((a, b) => {
+    const pa =
+      a.type === "PERMISSION" && isPermissionZonePendingBroadcastVisibility(a.permission_visibility)
+        ? 1
+        : 0;
+    const pb =
+      b.type === "PERMISSION" && isPermissionZonePendingBroadcastVisibility(b.permission_visibility)
+        ? 1
+        : 0;
+    if (pa !== pb) return pb - pa;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+}
+
+export function sortInboxGeneralMessages(list: Message[]): Message[] {
+  return [...list].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   );
 }
 
@@ -265,6 +362,13 @@ export function normalizeMessage(raw: unknown): Message | null {
       (rowStructuredPayload ? coerceMessageScope(rowStructuredPayload.scope) : null);
     if (scopeHint) scope = scopeHint;
   }
+  const contractGuestId = readAccessGuestIdContract(row, msgRecord, rowStructuredPayload, type);
+  const permissionVisibility = extractPermissionVisibility(
+    row,
+    msgRecord,
+    rowStructuredPayload,
+    type,
+  );
   return {
     id: String(id),
     zone_id: zoneId,
@@ -279,6 +383,10 @@ export function normalizeMessage(raw: unknown): Message | null {
     raw_payload,
     ...(useGuestLogicalSender && guestSenderIdRaw
       ? { guest_sender_id: guestSenderIdRaw }
+      : {}),
+    ...(contractGuestId !== undefined ? { guest_id: contractGuestId } : {}),
+    ...(permissionVisibility !== undefined
+      ? { permission_visibility: permissionVisibility }
       : {}),
   };
 }

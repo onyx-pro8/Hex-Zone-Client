@@ -236,15 +236,28 @@ export default function Messages() {
         message.guest_sender_id != null &&
         (message.guest_sender_id.toLowerCase().includes(q) ||
           (q.length > 0 && "guest".startsWith(q)));
+      const guestIdMatch =
+        message.guest_id != null &&
+        typeof message.guest_id === "string" &&
+        message.guest_id.toLowerCase().includes(q);
       return (
         message.message.toLowerCase().includes(q) ||
         message.zone_id.toLowerCase().includes(q) ||
         String(message.sender_id).includes(q) ||
         String(message.receiver_id ?? "").includes(q) ||
-        guestSenderMatch
+        guestSenderMatch ||
+        guestIdMatch
       );
     });
   }, [messages, zoneFilter, scopeFilter, categoryFilter, typeFilter, dateFilter, search]);
+
+  const sortedFilteredMessages = useMemo(
+    () =>
+      [...filteredMessages].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      ),
+    [filteredMessages],
+  );
 
   const activeMessage =
     filteredMessages.find((msg) => msg.id === activeMessageId) ?? null;
@@ -501,7 +514,7 @@ export default function Messages() {
             <p className="text-sm text-slate-500">Syncing messages…</p>
           ) : null}
           <MessageList
-            messages={filteredMessages}
+            messages={sortedFilteredMessages}
             activeId={activeMessageId}
             onSelect={setActiveMessageId}
           />

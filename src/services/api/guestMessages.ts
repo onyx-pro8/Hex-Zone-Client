@@ -159,6 +159,10 @@ export type GuestApiMessage = {
   from_owner_id?: string;
   to_owner_id?: string;
   created_at?: string;
+  /** When the backend includes a structured blob (e.g. permission_visibility). */
+  raw_payload?: Record<string, unknown> | null;
+  /** From `raw_payload.permission_visibility` or top-level when type is PERMISSION. */
+  permission_visibility?: string | null;
 };
 
 function normalizeGuestMessages(raw: unknown): GuestApiMessage[] {
@@ -190,14 +194,37 @@ function normalizeGuestMessages(raw: unknown): GuestApiMessage[] {
     const type = (
       readString(r, ["type", "message_type", "messageType"]) ?? "CHAT"
     ).toUpperCase();
+    const rawPayload =
+      r.raw_payload != null && typeof r.raw_payload === "object" && !Array.isArray(r.raw_payload)
+        ? (r.raw_payload as Record<string, unknown>)
+        : null;
+    let permission_visibility: string | null | undefined;
+    if (type === "PERMISSION") {
+      const topPv = readString(r, ["permission_visibility", "permissionVisibility"]);
+      const nestedPv = rawPayload
+        ? readString(rawPayload, ["permission_visibility", "permissionVisibility"])
+        : undefined;
+      if (topPv !== undefined) permission_visibility = topPv;
+      else if ("permission_visibility" in r && r.permission_visibility === null) permission_visibility = null;
+      else if (nestedPv !== undefined) permission_visibility = nestedPv;
+      else if (
+        rawPayload &&
+        "permission_visibility" in rawPayload &&
+        rawPayload.permission_visibility === null
+      ) {
+        permission_visibility = null;
+      }
+    }
     out.push({
       id,
       zone_id,
       type,
       text: readString(r, ["text", "message", "body"]),
-      from_owner_id: readString(r, ["from_owner_id", "fromOwnerId", "sender_id", "senderId"]),
-      to_owner_id: readString(r, ["to_owner_id", "toOwnerId", "receiver_id", "receiverId"]),
+      from_owner_id: readString(r, ["from_owner_id", "fromOwnerId", "sender_id", "senderId", "from"]),
+      to_owner_id: readString(r, ["to_owner_id", "toOwnerId", "receiver_id", "receiverId", "to"]),
       created_at: readString(r, ["created_at", "createdAt", "time"]),
+      ...(rawPayload ? { raw_payload: rawPayload } : {}),
+      ...(permission_visibility !== undefined ? { permission_visibility } : {}),
     });
   }
   return out;

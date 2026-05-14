@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listMessages, type Message } from "../services/api/messages";
-import { parseMessageSocketPayload } from "../services/socket/messageSocket";
+import { parseInboxSocketRefetchSignal } from "../services/socket/messageSocket";
 import { useAuth } from "./useAuth";
 import { useAppState } from "../state/app/AppStateContext";
 import { useWebSocket } from "./useWebSocket";
@@ -18,19 +18,37 @@ export function useMessageFeed(zoneIds: string[]) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const ownerId = Number(user?.id);
+  const refetchDebounceRef = useRef<number | undefined>(undefined);
 
-  const applyMessage = useCallback(
-    (incoming: Message) => {
-      setLocalMessages((prev) => {
-        const exists = prev.some((msg) => msg.id === incoming.id);
-        const next = exists
-          ? prev.map((msg) => (msg.id === incoming.id ? incoming : msg))
-          : [incoming, ...prev];
-        return sortByNewest(next);
-      });
-    },
-    [],
-  );
+  const hydrateInbox = useCallback(async () => {
+    if (!Number.isFinite(ownerId) || ownerId <= 0 || !token) {
+      return;
+    }
+    const result = await listMessages({
+      owner_id: ownerId,
+      skip: 0,
+      limit: 100,
+    });
+    if (result.error) {
+      setError(result.error);
+    } else {
+      const batch = result.data ?? [];
+      setError(null);
+      if (batch.length > 0) {
+        setLocalMessages(sortByNewest(batch));
+      } else {
+        setLocalMessages([]);
+        setGlobalMessages([]);
+      }
+    }
+  }, [ownerId, token, setGlobalMessages]);
+
+  const scheduleInboxRefetchFromSocket = useCallback(() => {
+    window.clearTimeout(refetchDebounceRef.current);
+    refetchDebounceRef.current = window.setTimeout(() => {
+      void hydrateInbox();
+    }, 400);
+  }, [hydrateInbox]);
 
   const { lastMessage, status } = useWebSocket({
     token,
@@ -39,11 +57,15 @@ export function useMessageFeed(zoneIds: string[]) {
 
   useEffect(() => {
     if (!lastMessage) return;
-    const incoming = parseMessageSocketPayload(lastMessage);
-    if (incoming) {
-      applyMessage(incoming);
-    }
-  }, [lastMessage, applyMessage]);
+    if (!parseInboxSocketRefetchSignal(lastMessage)) return;
+    scheduleInboxRefetchFromSocket();
+  }, [lastMessage, scheduleInboxRefetchFromSocket]);
+
+  useEffect(() => {
+    return () => {
+      if (refetchDebounceRef.current) window.clearTimeout(refetchDebounceRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (status === "closed" && token) {

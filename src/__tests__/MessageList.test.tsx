@@ -59,4 +59,46 @@ describe("MessageList", () => {
     expect(screen.getByText("Alarm")).toBeInTheDocument();
     expect(screen.getAllByText("public")[0]).toBeInTheDocument();
   });
+
+  it("shows Zone alert and Private badges for PERMISSION visibility hints", () => {
+    render(
+      <MessageList
+        activeId={null}
+        onSelect={() => {}}
+        messages={[
+          {
+            id: "m4",
+            zone_id: "ZONE-4",
+            sender_id: 2,
+            receiver_id: 99,
+            type: "PERMISSION",
+            category: "Access",
+            scope: "private",
+            visibility: "private",
+            message: "Walk-in pending",
+            created_at: "2026-01-01T00:00:00Z",
+            raw_payload: null,
+            permission_visibility: "zone_pending_broadcast",
+          },
+          {
+            id: "m5",
+            zone_id: "ZONE-5",
+            sender_id: 2,
+            receiver_id: 3,
+            type: "PERMISSION",
+            category: "Access",
+            scope: "private",
+            visibility: "private",
+            message: "Staff audit",
+            created_at: "2026-01-01T00:00:00Z",
+            raw_payload: null,
+            permission_visibility: "direct",
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText("Zone alert")).toBeInTheDocument();
+    expect(screen.getByText("Private")).toBeInTheDocument();
+  });
 });

@@ -83,6 +83,27 @@ export function parseMessageSocketPayload(raw: string): Message | null {
   return null;
 }
 
+/**
+ * True when the socket frame should trigger a debounced refetch of GET /messages
+ * (WS payloads are signals, not authoritative merged history for PERMISSION).
+ */
+export function parseInboxSocketRefetchSignal(raw: string): boolean {
+  try {
+    const parsed = JSON.parse(raw) as { type?: unknown };
+    const t = parsed.type;
+    if (typeof t !== "string") return false;
+    return (
+      t === "NEW_MESSAGE" ||
+      t === "PERMISSION_MESSAGE" ||
+      t === "NEW_GEO_MESSAGE" ||
+      t === "unexpected_guest" ||
+      t === "guest_is_here"
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** Parse message-feature envelope events and keep NEW_MESSAGE backward compatible. */
 export function parseMessageFeatureSocketEvent(
   raw: string,
