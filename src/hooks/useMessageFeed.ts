@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { listMessages, type Message } from "../services/api/messages";
+import { listMessageFeatureBlocks, type MessageFeatureBlock } from "../services/api/messageFeature";
+import { filterMessagesForBlocks } from "../lib/messageBlocks";
 import { parseInboxSocketRefetchSignal } from "../services/socket/messageSocket";
 import { useAuth } from "./useAuth";
 import { useAppState } from "../state/app/AppStateContext";
@@ -15,33 +17,49 @@ export function useMessageFeed(zoneIds: string[]) {
   const { token, user } = useAuth();
   const { setMessages: setGlobalMessages } = useAppState();
   const [messages, setLocalMessages] = useState<Message[]>([]);
+  const [blockRules, setBlockRules] = useState<MessageFeatureBlock[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const ownerId = Number(user?.id);
   const refetchDebounceRef = useRef<number | undefined>(undefined);
 
-  const hydrateInbox = useCallback(async () => {
-    if (!Number.isFinite(ownerId) || ownerId <= 0 || !token) {
-      return;
-    }
-    const result = await listMessages({
-      owner_id: ownerId,
-      skip: 0,
-      limit: 100,
-    });
-    if (result.error) {
-      setError(result.error);
-    } else {
-      const batch = result.data ?? [];
-      setError(null);
-      if (batch.length > 0) {
-        setLocalMessages(sortByNewest(batch));
+  const applyInboxBatch = useCallback(
+    (batch: Message[], blocks: MessageFeatureBlock[]) => {
+      const visible = filterMessagesForBlocks(batch, blocks);
+      if (visible.length > 0) {
+        setLocalMessages(sortByNewest(visible));
       } else {
         setLocalMessages([]);
         setGlobalMessages([]);
       }
+    },
+    [setGlobalMessages],
+  );
+
+  const hydrateInbox = useCallback(async () => {
+    if (!Number.isFinite(ownerId) || ownerId <= 0 || !token) {
+      return;
     }
-  }, [ownerId, token, setGlobalMessages]);
+    const [messagesResult, blocksResult] = await Promise.all([
+      listMessages({
+        owner_id: ownerId,
+        skip: 0,
+        limit: 100,
+      }),
+      listMessageFeatureBlocks(),
+    ]);
+    const rules = blocksResult.error ? blockRules : (blocksResult.data ?? []);
+    if (!blocksResult.error) {
+      setBlockRules(rules);
+    }
+    if (messagesResult.error) {
+      setError(messagesResult.error);
+    } else {
+      const batch = messagesResult.data ?? [];
+      setError(null);
+      applyInboxBatch(batch, rules);
+    }
+  }, [ownerId, token, blockRules, applyInboxBatch]);
 
   const scheduleInboxRefetchFromSocket = useCallback(() => {
     window.clearTimeout(refetchDebounceRef.current);
@@ -88,23 +106,24 @@ export function useMessageFeed(zoneIds: string[]) {
 
     const poll = async () => {
       setLoading(true);
-      /** Hydrates admin list from GET /messages/?owner_id=…&skip&limit */
-      const result = await listMessages({
-        owner_id: ownerId,
-        skip: 0,
-        limit: 100,
-      });
+      const [messagesResult, blocksResult] = await Promise.all([
+        listMessages({
+          owner_id: ownerId,
+          skip: 0,
+          limit: 100,
+        }),
+        listMessageFeatureBlocks(),
+      ]);
       if (!active) return;
-      if (result.error) {
-        setError(result.error);
+      const rules = blocksResult.error ? blockRules : (blocksResult.data ?? []);
+      if (!blocksResult.error) {
+        setBlockRules(rules);
+      }
+      if (messagesResult.error) {
+        setError(messagesResult.error);
       } else {
-        const batch = result.data ?? [];
-        if (batch.length > 0) {
-          setLocalMessages(sortByNewest(batch));
-        } else {
-          setLocalMessages([]);
-          setGlobalMessages([]);
-        }
+        setError(null);
+        applyInboxBatch(messagesResult.data ?? [], rules);
       }
       setLoading(false);
       pollTimer = window.setTimeout(poll, 8000);
@@ -116,7 +135,7 @@ export function useMessageFeed(zoneIds: string[]) {
       active = false;
       if (pollTimer) window.clearTimeout(pollTimer);
     };
-  }, [token, setGlobalMessages, ownerId]);
+  }, [token, setGlobalMessages, ownerId, blockRules, applyInboxBatch]);
 
   useEffect(() => {
     setGlobalMessages(messages);
@@ -127,5 +146,5 @@ export function useMessageFeed(zoneIds: string[]) {
     [messages],
   );
 
-  return { messages, zones, loading, error };
+  return { messages, zones, loading, error, refreshInbox: hydrateInbox };
 }

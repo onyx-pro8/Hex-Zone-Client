@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Smartphone } from "lucide-react";
 import { MessageList } from "../components/messages/MessageList";
 import { MessageDetail } from "../components/messages/MessageDetail";
+import { MessageBlocksPanel } from "../components/messages/MessageBlocksPanel";
 import { useMessageFeed } from "../hooks/useMessageFeed";
 import { sendMessage, type MessageVisibility } from "../services/api/messages";
 import { getOwners, type OwnerListItem } from "../services/api/auth";
@@ -88,7 +89,7 @@ export default function Messages() {
     if (dbZoneIds.length > 0) return dbZoneIds;
     return userZoneId ? [String(userZoneId)] : [];
   }, [dbZoneIds, userZoneId]);
-  const { messages, zones, loading, error } = useMessageFeed(messageZoneIds);
+  const { messages, zones, loading, error, refreshInbox } = useMessageFeed(messageZoneIds);
   const allZoneIds = useMemo(
     () => Array.from(new Set([...dbZoneIds, ...zones])),
     [dbZoneIds, zones],
@@ -521,6 +522,12 @@ export default function Messages() {
         </div>
         <div className="space-y-4">
           <MessageDetail message={activeMessage} />
+          {Number.isFinite(ownerId) && ownerId > 0 ? (
+            <MessageBlocksPanel
+              currentOwnerId={ownerId}
+              onBlocksChanged={() => void refreshInbox()}
+            />
+          ) : null}
           <section className="space-y-3 rounded-2xl border border-slate-800/80 bg-slate-950/80 p-5">
             <p className="text-xs font-medium uppercase tracking-[0.25em] text-slate-500">
               Compose
