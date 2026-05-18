@@ -17,7 +17,7 @@ import { h3ToPolygon } from "../lib/h3";
 import type { GeoPolygonShape, LatLng } from "../lib/geoPoly";
 import type { FitBoundsCorners } from "../lib/mapBounds";
 
-export type MapInteractionMode = "h3" | "polygon" | "measure" | "none";
+export type MapInteractionMode = "h3" | "polygon" | "measure" | "place" | "none";
 
 export type MapFitBoundsRequest = { key: number } & FitBoundsCorners;
 export type SavedZoneCellLayer = {
@@ -91,6 +91,8 @@ type HexMapperMapProps = {
   onContextMenu: (lat: number, lng: number, clientX: number, clientY: number) => void;
   onCursorCoords?: (lat: number, lng: number) => void;
   interactive: boolean;
+  /** When true, saved layers do not capture clicks (pin / place source on map). */
+  passMapClicks?: boolean;
 };
 
 function MapRecenter({ center }: { center: [number, number] }) {
@@ -174,6 +176,7 @@ function MapInteractionBridge({
   useMapEvent("click", (e) => {
     if (!interactive) return;
     if (interactionMode === "none") return;
+    // "place" forwards map clicks for proximity / object source picking.
     if (suppressMapClickRef.current) {
       suppressMapClickRef.current = false;
       return;
@@ -507,8 +510,10 @@ export default function HexMapperMap({
   onContextMenu,
   onCursorCoords,
   interactive,
+  passMapClicks = false,
 }: HexMapperMapProps) {
   const suppressMapClickRef = useRef(false);
+  const layerInteractive = !passMapClicks;
   const [useFallbackTiles, setUseFallbackTiles] = useState(false);
 
   useEffect(() => {
@@ -563,6 +568,7 @@ export default function HexMapperMap({
             return (
               <Polygon
                 key={`${layer.key}:${cellId}`}
+                interactive={layerInteractive}
                 positions={positions}
                 pathOptions={{
                   color: layer.color,
@@ -587,6 +593,7 @@ export default function HexMapperMap({
           return (
             <Polygon
               key={cellId}
+              interactive={layerInteractive}
               positions={positions}
               pathOptions={{
                 color: h3Color,
@@ -608,6 +615,7 @@ export default function HexMapperMap({
             return (
               <Polygon
                 key={`${layer.key}:${p.id}`}
+                interactive={layerInteractive}
                 positions={positionRings as LatLngExpression[][]}
                 pathOptions={{
                   color: layer.color,
@@ -623,6 +631,7 @@ export default function HexMapperMap({
         {helperCircles.map((circle) => (
           <Circle
             key={circle.key}
+            interactive={layerInteractive}
             center={circle.center}
             radius={circle.radiusMeters}
             pathOptions={{

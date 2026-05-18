@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import * as turf from "@turf/turf";
 import { cellToParent, getResolution, isValidCell } from "h3-js";
-import { Copy, Download, MapPin, Ruler, Trash2, Upload } from "lucide-react";
+import {
+  Copy,
+  Download,
+  LocateFixed,
+  MapPin,
+  Ruler,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import HexMapperMap, {
   h3CellsAtPoint,
   type MapFitBoundsRequest,
@@ -76,6 +84,8 @@ type ZoneTypeMode =
   | "communal_id"
   | "government_local_code"
   | "object";
+
+type ProximitySourceMode = "current_location" | "map_pin";
 
 type HexMapperExport = {
   version: 1;
@@ -406,6 +416,55 @@ function objectZoneRadiusMeters(zone: SavedZone): number {
   const config = zoneConfigMap(zone);
   const radius = Number(config.radius_meters);
   return Number.isFinite(radius) && radius > 0 ? radius : 250;
+}
+
+function proximitySourceModeFromZone(zone: SavedZone): ProximitySourceMode {
+  const config = zoneConfigMap(zone);
+  const raw = String(
+    config.source_type ?? config.proximity_source_type ?? "",
+  ).toLowerCase();
+  if (raw === "map_pin" || raw === "map" || raw === "pin") return "map_pin";
+  if (
+    raw === "current_location" ||
+    raw === "gps" ||
+    raw === "location" ||
+    raw === "my_location"
+  ) {
+    return "current_location";
+  }
+  return "map_pin";
+}
+
+function proximityRadiusFromZone(zone: SavedZone, fallback: number): number {
+  const config = zoneConfigMap(zone);
+  const radius = Number(config.radius_meters);
+  return Number.isFinite(radius) && radius > 0 ? radius : fallback;
+}
+
+function loadProximityFromZone(
+  zone: SavedZone,
+  fallbackRadius: number,
+): {
+  sourceMode: ProximitySourceMode;
+  center: [number, number] | null;
+  radiusMeters: number;
+} {
+  const circles = parseCircleDraftsFromZone(zone, "proximity", {
+    proximityRadiusMeters: fallbackRadius,
+    dynamicMinRadiusMeters: 200,
+    dynamicMaxRadiusMeters: 1000,
+  });
+  const center =
+    extractZoneCenter(zone) ?? (circles.length > 0 ? circles[0].center : null);
+  const radiusMeters =
+    circles.length > 0
+      ? circles[0].radiusMeters
+      : proximityRadiusFromZone(zone, fallbackRadius);
+  return {
+    sourceMode: proximitySourceModeFromZone(zone),
+    center,
+    radiusMeters,
+  };
 }
 
 function normalizeLongitude(value: number): number {
@@ -772,6 +831,12 @@ export default function Dashboard() {
   const [description] = useState("Zone from dashboard console.");
   const [zoneType, setZoneType] = useState<ZoneTypeMode>("geofence");
   const [proximityRadiusMeters, setProximityRadiusMeters] = useState(500);
+  const [proximitySourceMode, setProximitySourceMode] =
+    useState<ProximitySourceMode>("map_pin");
+  const [proximityCenter, setProximityCenter] = useState<[number, number] | null>(
+    null,
+  );
+  const [proximityLocating, setProximityLocating] = useState(false);
   const [dynamicMinRadiusMeters, setDynamicMinRadiusMeters] = useState(200);
   const [dynamicMaxRadiusMeters, setDynamicMaxRadiusMeters] = useState(1000);
   const [communalCode, setCommunalCode] = useState("");
@@ -781,7 +846,6 @@ export default function Dashboard() {
   const [objectRadiusMeters, setObjectRadiusMeters] = useState(250);
   const [objectCenter, setObjectCenter] = useState<[number, number] | null>(null);
   const [objectSearchQuery, setObjectSearchQuery] = useState("");
-  const [proximityCircles, setProximityCircles] = useState<DraftCircle[]>([]);
   const [dynamicCircles, setDynamicCircles] = useState<DraftCircle[]>([]);
 
   const [mapperMode, setMapperMode] = useState<MapperMode>("h3");
@@ -952,17 +1016,49 @@ export default function Dashboard() {
     return () => ac.abort();
   }, [user?.id, user?.address]);
 
+  const captureProximityLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setSaveStatus("Location is not available in this browser.");
+      return;
+    }
+    setProximityLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        setProximityCenter([lat, lng]);
+        setMapCenter([lat, lng]);
+        setProximityLocating(false);
+        setSaveStatus("Current location set as zone source.");
+      },
+      () => {
+        setProximityLocating(false);
+        setSaveStatus("Could not read your location. Try Pin on map instead.");
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
+  }, []);
+
   useEffect(() => {
     if (isCreatingNewZone) return;
     if (zoneEntries.length === 0) return;
+    if (activeSavedZoneKey != null) {
+      const stillActive = zoneEntries.some(
+        (entry) => entry.key === activeSavedZoneKey,
+      );
+      if (stillActive) return;
+    }
     const chosen =
-      (activeSavedZoneKey != null &&
-        zoneEntries.find((entry) => entry.key === activeSavedZoneKey)) ||
       zoneEntries.find(
         (entry) =>
           Array.isArray(entry.zone.h3_cells) && entry.zone.h3_cells.length > 0,
       ) ||
       zoneEntries.find((entry) => zoneToPolygons(entry.zone).length > 0) ||
+      zoneEntries.find(
+        (entry) =>
+          normalizeZoneTypeValue(entry.zone.type ?? entry.zone.zone_type) ===
+          "proximity",
+      ) ||
       zoneEntries[0] ||
       null;
     if (!chosen) return;
@@ -981,15 +1077,15 @@ export default function Dashboard() {
     setRemovedCellIds(new Set());
     setRemovedPolygonKeys(new Set());
     setPolygons(zoneToPolygons(chosen.zone));
-    setProximityCircles(
-      normalizedType === "proximity"
-        ? parseCircleDraftsFromZone(chosen.zone, "proximity", {
-            proximityRadiusMeters: 500,
-            dynamicMinRadiusMeters: 200,
-            dynamicMaxRadiusMeters: 1000,
-          })
-        : [],
-    );
+    if (normalizedType === "proximity") {
+      const proximity = loadProximityFromZone(chosen.zone, 500);
+      setProximitySourceMode(proximity.sourceMode);
+      setProximityCenter(proximity.center);
+      setProximityRadiusMeters(proximity.radiusMeters);
+    } else {
+      setProximitySourceMode("map_pin");
+      setProximityCenter(null);
+    }
     setDynamicCircles(
       normalizedType === "dynamic"
         ? parseCircleDraftsFromZone(chosen.zone, "dynamic", {
@@ -1144,10 +1240,26 @@ export default function Dashboard() {
 
   const mapInteraction = useMemo(() => {
     if (activeTool === "measure") return "measure" as const;
+    if (
+      zoneType === "proximity" ||
+      zoneType === "object" ||
+      zoneType === "dynamic"
+    ) {
+      return "place" as const;
+    }
     if (mapperMode === "h3") return "h3" as const;
     if (mapperMode === "polygon") return "polygon" as const;
     return "none" as const;
-  }, [activeTool, mapperMode]);
+  }, [activeTool, mapperMode, zoneType]);
+
+  const passMapClicks = useMemo(() => {
+    if (!canEditCurrentSelection) return false;
+    if (zoneType === "proximity" && proximitySourceMode === "map_pin") {
+      return true;
+    }
+    if (zoneType === "object") return true;
+    return false;
+  }, [canEditCurrentSelection, zoneType, proximitySourceMode]);
 
   const handleMapClick = useCallback(
     (lat: number, lng: number) => {
@@ -1183,26 +1295,11 @@ export default function Dashboard() {
         if (zoneType === "proximity" || zoneType === "dynamic") {
           const point: [number, number] = [lat, lng];
           if (zoneType === "proximity") {
-            setProximityCircles((prev) => {
-              const hit = prev.find(
-                (circle) => distanceMeters(circle.center, point) <= circle.radiusMeters,
-              );
-              if (hit) {
-                setSaveStatus("Proximity circle removed.");
-                return prev.filter((c) => c.id !== hit.id);
-              }
-              setSaveStatus(
-                "Proximity circle added. Click inside a circle to remove it.",
-              );
-              return [
-                ...prev,
-                {
-                  id: `proximity-${Date.now()}-${Math.random()}`,
-                  center: point,
-                  radiusMeters: proximityRadiusMeters,
-                },
-              ];
-            });
+            if (proximitySourceMode !== "map_pin") {
+              setProximitySourceMode("map_pin");
+            }
+            setProximityCenter(point);
+            setSaveStatus("Source pinned. Adjust radius to resize the zone.");
             return;
           }
           setDynamicCircles((prev) => {
@@ -1447,6 +1544,7 @@ export default function Dashboard() {
       polygons,
       selectedPolygonId,
       proximityRadiusMeters,
+      proximitySourceMode,
       dynamicMinRadiusMeters,
       dynamicMaxRadiusMeters,
       usesMapGeometry,
@@ -1692,7 +1790,7 @@ export default function Dashboard() {
       usesMapGeometry
         ? canSaveGeometry
         : zoneType === "proximity"
-          ? proximityRadiusMeters > 0 && proximityCircles.length > 0
+          ? proximityRadiusMeters > 0 && proximityCenter != null
           : zoneType === "dynamic"
             ? dynamicMinRadiusMeters > 0 &&
               dynamicMaxRadiusMeters >= dynamicMinRadiusMeters &&
@@ -1731,17 +1829,19 @@ export default function Dashboard() {
     setSaveStatus("Saving…");
     try {
       const compatibilityZoneType = zoneType;
-      const proximityCenters = proximityCircles.map((circle) => ({
-        latitude: circle.center[0],
-        longitude: circle.center[1],
-      }));
-      const proximityCircleDefs = proximityCircles.map((circle) => ({
-        center: {
-          latitude: circle.center[0],
-          longitude: circle.center[1],
-        },
-        radius_meters: circle.radiusMeters,
-      }));
+      const proximityCenterPayload = proximityCenter
+        ? {
+            latitude: proximityCenter[0],
+            longitude: proximityCenter[1],
+          }
+        : {
+            latitude: mapCenter[0],
+            longitude: mapCenter[1],
+          };
+      const proximityCircleDef = {
+        center: proximityCenterPayload,
+        radius_meters: proximityRadiusMeters,
+      };
       const dynamicCenters = dynamicCircles.map((circle) => ({
         latitude: circle.center[0],
         longitude: circle.center[1],
@@ -1759,12 +1859,9 @@ export default function Dashboard() {
       const geometryPayload: Record<string, unknown> =
         zoneType === "proximity"
           ? {
-              center: proximityCenters[0] ?? {
-                latitude: mapCenter[0],
-                longitude: mapCenter[1],
-              },
-              centers: proximityCenters,
-              circles: proximityCircleDefs,
+              center: proximityCenterPayload,
+              centers: [proximityCenterPayload],
+              circles: [proximityCircleDef],
             }
           : zoneType === "dynamic"
             ? {
@@ -1795,7 +1892,8 @@ export default function Dashboard() {
         ...(zoneType === "proximity"
           ? {
               radius_meters: proximityRadiusMeters,
-              radii_meters: proximityCircles.map((circle) => circle.radiusMeters),
+              radii_meters: [proximityRadiusMeters],
+              source_type: proximitySourceMode,
             }
           : {}),
         ...(zoneType === "dynamic"
@@ -1888,15 +1986,18 @@ export default function Dashboard() {
     setRemovedCellIds(new Set());
     setRemovedPolygonKeys(new Set());
     setPolygons(zoneToPolygons(zone));
-    setProximityCircles(
-      normalizedType === "proximity"
-        ? parseCircleDraftsFromZone(zone, "proximity", {
-            proximityRadiusMeters: proximityRadiusMeters || 500,
-            dynamicMinRadiusMeters: dynamicMinRadiusMeters || 200,
-            dynamicMaxRadiusMeters: dynamicMaxRadiusMeters || 1000,
-          })
-        : [],
-    );
+    if (normalizedType === "proximity") {
+      const proximity = loadProximityFromZone(
+        zone,
+        proximityRadiusMeters || 500,
+      );
+      setProximitySourceMode(proximity.sourceMode);
+      setProximityCenter(proximity.center);
+      setProximityRadiusMeters(proximity.radiusMeters);
+    } else {
+      setProximitySourceMode("map_pin");
+      setProximityCenter(null);
+    }
     setDynamicCircles(
       normalizedType === "dynamic"
         ? parseCircleDraftsFromZone(zone, "dynamic", {
@@ -1974,7 +2075,9 @@ export default function Dashboard() {
     setRemovedCellIds(new Set());
     setRemovedPolygonKeys(new Set());
     setPolygons([]);
-    setProximityCircles([]);
+    setProximitySourceMode("map_pin");
+    setProximityCenter(null);
+    setProximityRadiusMeters(500);
     setDynamicCircles([]);
     setCommunalCode("");
     setGovernmentLocalCode("");
@@ -1997,7 +2100,6 @@ export default function Dashboard() {
     setRemovedCellIds(new Set());
     setRemovedPolygonKeys(new Set());
     setPolygons([]);
-    setProximityCircles([]);
     setDynamicCircles([]);
     setObjectReferenceId("");
     setObjectPlaceName("");
@@ -2020,14 +2122,12 @@ export default function Dashboard() {
         .map((entry, idx) => {
           const active = activeSavedZoneKey != null && entry.key === activeSavedZoneKey;
           if (!showAllZones && !active) return null;
-          const cells = active
-            ? selectedCells.filter((c) => !removedCellIds.has(c))
-            : Array.isArray(entry.zone.h3_cells)
-              ? entry.zone.h3_cells.filter(
-                  (v): v is string =>
-                    typeof v === "string" && !removedCellIds.has(v),
-                )
-              : [];
+          const cells = Array.isArray(entry.zone.h3_cells)
+            ? entry.zone.h3_cells.filter(
+                (v): v is string =>
+                  typeof v === "string" && !removedCellIds.has(v),
+              )
+            : [];
           if (cells.length === 0) return null;
           const layerColor = active
             ? "#FBBF24"
@@ -2041,7 +2141,7 @@ export default function Dashboard() {
           } satisfies SavedZoneCellLayer;
         })
         .filter((v): v is SavedZoneCellLayer => v !== null),
-    [zoneEntries, activeSavedZoneKey, selectedCells, removedCellIds, showAllZones],
+    [zoneEntries, activeSavedZoneKey, removedCellIds, showAllZones],
   );
 
   const savedZonePolygonLayers = useMemo<SavedZonePolygonLayer[]>(
@@ -2050,7 +2150,7 @@ export default function Dashboard() {
         .map((entry, idx) => {
           const active = activeSavedZoneKey != null && entry.key === activeSavedZoneKey;
           if (!showAllZones && !active) return null;
-          const zonePolys = active ? polygons : zoneToPolygons(entry.zone);
+          const zonePolys = zoneToPolygons(entry.zone);
           const filtered = zonePolys.filter(
             (p) => !removedPolygonKeys.has(polygonKey(p)),
           );
@@ -2067,7 +2167,7 @@ export default function Dashboard() {
           } satisfies SavedZonePolygonLayer;
         })
         .filter((v): v is SavedZonePolygonLayer => v !== null),
-    [zoneEntries, activeSavedZoneKey, polygons, removedPolygonKeys, showAllZones],
+    [zoneEntries, activeSavedZoneKey, removedPolygonKeys, showAllZones],
   );
   const helperCircles = useMemo(() => {
     const circles: Array<{
@@ -2086,23 +2186,22 @@ export default function Dashboard() {
         : normalizeZoneTypeValue(entry.zone.type ?? entry.zone.zone_type);
 
       if (normalizedType === "proximity") {
-        const zoneCircles = active
-          ? proximityCircles
-          : parseCircleDraftsFromZone(entry.zone, "proximity", {
-              proximityRadiusMeters: 500,
-              dynamicMinRadiusMeters: 200,
-              dynamicMaxRadiusMeters: 1000,
-            });
-        circles.push(
-          ...zoneCircles.map((c, idx) => ({
-            key: `p-${entry.key}-${c.id}-${idx}`,
-            center: c.center,
-            radiusMeters: c.radiusMeters,
+        const center = active
+          ? proximityCenter
+          : extractZoneCenter(entry.zone);
+        const radius = active
+          ? proximityRadiusMeters
+          : proximityRadiusFromZone(entry.zone, 500);
+        if (center && radius > 0) {
+          circles.push({
+            key: `p-${entry.key}`,
+            center,
+            radiusMeters: radius,
             color: "#06B6D4",
-            fillOpacity: active ? 0.18 : 0.1,
+            fillOpacity: active ? 0.2 : 0.1,
             dashArray: "8 6",
-          })),
-        );
+          });
+        }
       }
 
       if (normalizedType === "dynamic") {
@@ -2158,18 +2257,20 @@ export default function Dashboard() {
       }
     });
 
-    // Keep unsaved new-zone circles visible even without a selected saved zone.
-    if (isCreatingNewZone && zoneType === "proximity") {
-      circles.push(
-        ...proximityCircles.map((c, idx) => ({
-          key: `draft-p-${c.id}-${idx}`,
-          center: c.center,
-          radiusMeters: c.radiusMeters,
-          color: "#06B6D4",
-          fillOpacity: 0.18,
-          dashArray: "8 6",
-        })),
-      );
+    if (
+      isCreatingNewZone &&
+      zoneType === "proximity" &&
+      proximityCenter &&
+      proximityRadiusMeters > 0
+    ) {
+      circles.push({
+        key: "draft-proximity",
+        center: proximityCenter,
+        radiusMeters: proximityRadiusMeters,
+        color: "#06B6D4",
+        fillOpacity: 0.2,
+        dashArray: "8 6",
+      });
     }
     if (isCreatingNewZone && zoneType === "dynamic") {
       circles.push(
@@ -2220,7 +2321,8 @@ export default function Dashboard() {
     isCreatingNewZone,
     zoneType,
     dynamicCircles,
-    proximityCircles,
+    proximityCenter,
+    proximityRadiusMeters,
     objectCenter,
     objectRadiusMeters,
   ]);
@@ -2329,6 +2431,15 @@ export default function Dashboard() {
         return;
       }
 
+      if (zoneKind === "proximity") {
+        const center = extractZoneCenter(zone);
+        const radius = proximityRadiusFromZone(zone, proximityRadiusMeters || 500);
+        if (center && radius > 0) {
+          focusObjectZone(center, radius);
+        }
+        return;
+      }
+
       const polygonsForZone = zoneToPolygons(zone);
 
       if (zoneKind === "geofence") {
@@ -2354,7 +2465,7 @@ export default function Dashboard() {
       const focusCell = Array.isArray(zone.h3_cells) ? zone.h3_cells[0] : undefined;
       if (focusCell) focusH3Cell(focusCell);
     },
-    [focusH3Cell, focusObjectZone, focusPolygonShape, focusPolygonShapes],
+    [focusH3Cell, focusObjectZone, focusPolygonShape, focusPolygonShapes, proximityRadiusMeters],
   );
 
   const didInitialZonesFitRef = useRef(false);
@@ -2491,7 +2602,13 @@ export default function Dashboard() {
               <select
                 id="zone-type"
                 value={zoneType}
-                onChange={(e) => setZoneType(normalizeZoneTypeValue(e.target.value))}
+                onChange={(e) => {
+                  const next = normalizeZoneTypeValue(e.target.value);
+                  setZoneType(next);
+                  if (next === "proximity") {
+                    setProximitySourceMode("map_pin");
+                  }
+                }}
                 className={`w-full rounded-md border border-slate-700/80 ${panel} px-3 py-2 text-sm text-white focus:border-[#00E5D1]/60 focus:outline-none focus:ring-1 focus:ring-[#00E5D1]/25`}
               >
                 <option value="geofence">Geofence</option>
@@ -2503,7 +2620,8 @@ export default function Dashboard() {
                 <option value="object">Object zoning</option>
               </select>
               <p className="mt-1 text-[10px] text-slate-500">
-                Geofence/Grid use map drawing. Other types use profile fields.
+                Geofence/Grid: draw on map. Proximity: one source + radius. Other
+                types use fields below.
               </p>
               <p className="mt-1 text-[10px]" style={{ color: typeVisual.color }}>
                 Active profile: {typeVisual.label}
@@ -2511,18 +2629,87 @@ export default function Dashboard() {
             </div>
 
             {zoneType === "proximity" && (
-              <div>
-                <label className={labelClass} htmlFor="zone-proximity-radius">
-                  Proximity radius (meters)
-                </label>
-                <input
-                  id="zone-proximity-radius"
-                  type="number"
-                  min={1}
-                  value={proximityRadiusMeters}
-                  onChange={(e) => setProximityRadiusMeters(Number(e.target.value) || 0)}
-                  className="w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
-                />
+              <div className="space-y-3">
+                <div>
+                  <p className={labelClass}>Source</p>
+                  <div className="mt-1 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProximitySourceMode("current_location");
+                        setSaveStatus(
+                          "Tap Use current location, or switch to Pin on map.",
+                        );
+                      }}
+                      className={`inline-flex items-center justify-center gap-1.5 rounded-md border px-2 py-2 text-xs font-medium transition ${
+                        proximitySourceMode === "current_location"
+                          ? "border-[#00E5D1] bg-[#00E5D1]/10 text-[#00E5D1]"
+                          : "border-slate-700/80 bg-[#151a20] text-slate-300"
+                      }`}
+                    >
+                      <LocateFixed className="h-3.5 w-3.5" />
+                      My location
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProximitySourceMode("map_pin");
+                        setSaveStatus("Click the map to set the source point.");
+                      }}
+                      className={`inline-flex items-center justify-center gap-1.5 rounded-md border px-2 py-2 text-xs font-medium transition ${
+                        proximitySourceMode === "map_pin"
+                          ? "border-[#00E5D1] bg-[#00E5D1]/10 text-[#00E5D1]"
+                          : "border-slate-700/80 bg-[#151a20] text-slate-300"
+                      }`}
+                    >
+                      <MapPin className="h-3.5 w-3.5" />
+                      Pin on map
+                    </button>
+                  </div>
+                </div>
+                {proximitySourceMode === "current_location" ? (
+                  <button
+                    type="button"
+                    onClick={captureProximityLocation}
+                    disabled={proximityLocating}
+                    className="w-full rounded-md border border-slate-600 py-2 text-xs text-slate-200 hover:border-[#00E5D1]/50 disabled:opacity-60"
+                  >
+                    {proximityLocating
+                      ? "Reading location…"
+                      : "Use current location"}
+                  </button>
+                ) : (
+                  <p className="text-[10px] text-slate-500">
+                    Click the map once to place the source. One circle per zone.
+                  </p>
+                )}
+                <div>
+                  <label className={labelClass} htmlFor="zone-proximity-radius">
+                    Proximity radius ({proximityRadiusMeters} m)
+                  </label>
+                  <input
+                    id="zone-proximity-radius-slider"
+                    type="range"
+                    min={10}
+                    max={20000}
+                    step={10}
+                    value={Math.min(Math.max(proximityRadiusMeters, 10), 20000)}
+                    onChange={(e) =>
+                      setProximityRadiusMeters(Number(e.target.value) || 10)
+                    }
+                    className="mt-1 w-full accent-[#00E5D1]"
+                  />
+                  <input
+                    id="zone-proximity-radius"
+                    type="number"
+                    min={1}
+                    value={proximityRadiusMeters}
+                    onChange={(e) =>
+                      setProximityRadiusMeters(Number(e.target.value) || 0)
+                    }
+                    className="mt-2 w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
+                  />
+                </div>
               </div>
             )}
 
@@ -3027,7 +3214,7 @@ export default function Dashboard() {
                     <p className="text-xs text-red-300">{zonesError}</p>
                   ) : (
                     <>
-                      <div className="flex gap-2 overflow-x-auto pb-1">
+                      <div className="flex w-full min-w-0 gap-2 overflow-x-auto pb-1">
                         {zoneEntries.map((entry) => {
                           const zone = entry.zone;
                           const isActive =
@@ -3291,6 +3478,7 @@ export default function Dashboard() {
             }}
             onCursorCoords={(lat, lng) => setCursor({ lat, lng })}
             interactive
+            passMapClicks={passMapClicks}
           />
 
           {drawingActive && usesMapGeometry && mapperMode === "polygon" && (
