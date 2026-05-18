@@ -37,6 +37,14 @@ vi.mock("../components/AddressAutocompleteInput", () => ({
   AddressAutocompleteInput: () => <div data-testid="address-input" />,
 }));
 
+const mockValidateZoneReference = vi.fn();
+const mockGenerateZoneReference = vi.fn();
+
+vi.mock("../services/api/zoneReferences", () => ({
+  validateZoneReference: (...args: unknown[]) => mockValidateZoneReference(...args),
+  generateZoneReference: (...args: unknown[]) => mockGenerateZoneReference(...args),
+}));
+
 vi.mock("../hooks/useAuth", () => ({
   useAuth: () => ({
     user: {
@@ -53,6 +61,30 @@ vi.mock("../hooks/useAuth", () => ({
 vi.mock("../hooks/useZones", () => ({
   useZones: (...args: unknown[]) => mockUseZones(...args),
 }));
+
+const communalValidationResponse = {
+  valid: true,
+  zone_type: "communal_id",
+  reference_id: "COMM-1",
+  display_name: "Test Community",
+  geometry: {
+    geo_fence_polygon: {
+      type: "Polygon",
+      coordinates: [
+        [
+          [106.812, -6.198],
+          [106.822, -6.198],
+          [106.822, -6.208],
+          [106.812, -6.208],
+          [106.812, -6.198],
+        ],
+      ],
+    },
+  },
+  config: { communal_id: "COMM-1" },
+  h3_cells: [] as string[],
+  source: "catalog",
+};
 
 const baseZones = [
   {
@@ -83,6 +115,12 @@ describe("Dashboard zone management", () => {
   beforeEach(() => {
     mockMap.mockClear();
     mockUseZones.mockReset();
+    mockValidateZoneReference.mockReset();
+    mockGenerateZoneReference.mockReset();
+    mockValidateZoneReference.mockResolvedValue({
+      data: communalValidationResponse,
+      error: null,
+    });
   });
 
   it("switches active tab and show-all toggle controls rendered layers", async () => {
@@ -106,6 +144,14 @@ describe("Dashboard zone management", () => {
       const layers = latestProps().savedZoneCellLayers as Array<{
         cells: string[];
       }>;
+      expect(layers).toHaveLength(2);
+    });
+
+    fireEvent.click(screen.getByLabelText("Show all zones on map"));
+    await waitFor(() => {
+      const layers = latestProps().savedZoneCellLayers as Array<{
+        cells: string[];
+      }>;
       expect(layers).toHaveLength(1);
       expect(layers[0].cells).toEqual(["a"]);
     });
@@ -119,7 +165,7 @@ describe("Dashboard zone management", () => {
       expect(layers[0].cells).toEqual(["b"]);
     });
 
-    fireEvent.click(screen.getByLabelText("Show all zones"));
+    fireEvent.click(screen.getByLabelText("Show all zones on map"));
     await waitFor(() => {
       const layers = latestProps().savedZoneCellLayers as Array<{
         cells: string[];
@@ -173,6 +219,8 @@ describe("Dashboard zone management", () => {
     fireEvent.change(screen.getByLabelText("Communal ID"), {
       target: { value: "COMM-1" },
     });
+    fireEvent.click(screen.getByRole("button", { name: /Validate ID/i }));
+    await waitFor(() => expect(mockValidateZoneReference).toHaveBeenCalled());
     fireEvent.click(screen.getByRole("button", { name: /Create zone/i }));
 
     await waitFor(() => expect(saveZone).toHaveBeenCalledTimes(1));
@@ -201,6 +249,12 @@ describe("Dashboard zone management", () => {
     fireEvent.change(screen.getByLabelText("Communal ID"), {
       target: { value: "COMM-2" },
     });
+    mockValidateZoneReference.mockResolvedValueOnce({
+      data: { ...communalValidationResponse, reference_id: "COMM-2" },
+      error: null,
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Validate ID/i }));
+    await waitFor(() => expect(mockValidateZoneReference).toHaveBeenCalled());
     fireEvent.click(screen.getByRole("button", { name: /Save zone/i }));
 
     await waitFor(() => expect(updateSavedZone).toHaveBeenCalledTimes(1));

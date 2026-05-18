@@ -3318,7 +3318,7 @@ export default function Dashboard() {
                           setGovernmentStreet(e.target.value);
                           setGovernmentValidation(null);
                         }}
-                        placeholder="Khreshchatyk"
+                        placeholder="Queen Street West"
                         className="mt-1 w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
                       />
                     </div>
@@ -3333,7 +3333,7 @@ export default function Dashboard() {
                           setGovernmentStreetNumber(e.target.value);
                           setGovernmentValidation(null);
                         }}
-                        placeholder="22"
+                        placeholder="100"
                         className="mt-1 w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
                       />
                     </div>
@@ -3422,8 +3422,8 @@ export default function Dashboard() {
                 ) : (
                   <p className="text-[10px] text-slate-500">
                     {governmentAddressMode === "street"
-                      ? "e.g. Khreshchatyk 22, 01001 Kyiv, Ukraine  ·  or Queen Street West 100, M5H 2N2 Toronto, Canada"
-                      : "e.g. M5H 2N2, Toronto, Canada  ·  or 01001, Kyiv, Ukraine"}
+                      ? "Example: Queen Street West 100, M5H 2N2, Toronto, Canada — any country via OpenStreetMap."
+                      : "Example: 00510, Helsinki, Finland — any country name or ISO code (FI)."}
                   </p>
                 )}
               </div>

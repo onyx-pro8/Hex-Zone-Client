@@ -1,4 +1,3 @@
-import * as turf from "@turf/turf";
 import L from "leaflet";
 import { h3ToPolygon } from "./h3";
 import type { GeoPolygonShape } from "./geoPoly";
@@ -94,13 +93,11 @@ export function cornersFromCircle(
   const [lat, lng] = center;
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   if (!Number.isFinite(radiusMeters) || radiusMeters <= 0) return null;
-  const circle = turf.circle([lng, lat], radiusMeters / 1000, {
-    units: "kilometers",
-    steps: 32,
-  });
-  const bbox = turf.bbox(circle);
+  const dLat = radiusMeters / 111_320;
+  const cosLat = Math.cos((lat * Math.PI) / 180);
+  const dLng = radiusMeters / (111_320 * Math.max(0.2, Math.abs(cosLat)));
   return {
-    southWest: [bbox[1], bbox[0]],
-    northEast: [bbox[3], bbox[2]],
+    southWest: [lat - dLat, lng - dLng],
+    northEast: [lat + dLat, lng + dLng],
   };
 }

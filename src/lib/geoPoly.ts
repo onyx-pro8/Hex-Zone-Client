@@ -184,7 +184,7 @@ export function insertPolygonOuterVertex(
   });
 }
 
-/** Approximate circle as a polygon ring (meters). */
+/** Approximate circle as a polygon ring (meters). Pure math — avoids @turf/circle types. */
 export function circleToPolygonRing(
   center: LatLng,
   radiusMeters: number,
@@ -192,10 +192,23 @@ export function circleToPolygonRing(
 ): LatLng[] {
   const [lat, lng] = center;
   if (!Number.isFinite(radiusMeters) || radiusMeters <= 0) return [];
-  const ring = turf.circle([lng, lat], radiusMeters / 1000, {
-    units: "kilometers",
-    steps,
-  });
-  const coords = ring.geometry.coordinates[0] as [number, number][];
-  return coords.map(([lon, la]) => [la, lon] as LatLng);
+  const ring: LatLng[] = [];
+  const latRad = (lat * Math.PI) / 180;
+  const angular = radiusMeters / 6371000;
+  const cosLat = Math.cos(latRad);
+  for (let i = 0; i <= steps; i++) {
+    const bearing = (2 * Math.PI * i) / steps;
+    const lat2 = Math.asin(
+      Math.sin(latRad) * Math.cos(angular) +
+        cosLat * Math.sin(angular) * Math.cos(bearing),
+    );
+    const lng2 =
+      (lng * Math.PI) / 180 +
+      Math.atan2(
+        Math.sin(bearing) * Math.sin(angular) * cosLat,
+        Math.cos(angular) - Math.sin(latRad) * Math.sin(lat2),
+      );
+    ring.push([(lat2 * 180) / Math.PI, (lng2 * 180) / Math.PI]);
+  }
+  return ring;
 }

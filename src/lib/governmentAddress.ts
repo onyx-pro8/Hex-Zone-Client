@@ -53,19 +53,19 @@ export function countryToIso2(country: string): string | null {
   if (upper.length === 2 && /^[A-Z]{2}$/.test(upper)) {
     return upper.toLowerCase();
   }
-  // Known names only — server resolves any country via OpenStreetMap.
   return COUNTRY_NAME_TO_ISO2[upper] ?? null;
 }
 
-/** Build reference id country segment (known ISO2 or uppercase name). */
-function countryKeyForReference(country: string): string {
-  return countryToIso2(country) ?? cleanPart(country).toUpperCase();
+/** Client-side hint only; server resolves any country via OpenStreetMap. */
+export function isKnownCountryLabel(country: string): boolean {
+  return countryToIso2(country) != null;
 }
 
 export function buildGovernmentReferenceId(
   fields: GovernmentAddressFields,
 ): string {
-  const country = countryKeyForReference(fields.country);
+  const country =
+    countryToIso2(fields.country) ?? fields.country.trim().toUpperCase();
   const city = cleanPart(fields.city).toUpperCase();
   const postal = cleanPart(fields.postalCode).toUpperCase();
   if (fields.addressMode === "street") {
