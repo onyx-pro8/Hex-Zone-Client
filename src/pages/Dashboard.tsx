@@ -60,6 +60,22 @@ import {
   photonPlaceReferenceId,
   searchPhotonAddresses,
 } from "../lib/addressSearch";
+import {
+  applyGovernmentFieldsFromConfig,
+  buildGovernmentReferenceId,
+  governmentAddressMatchesValidation,
+  governmentAddressToConfig,
+  governmentAddressValidatePayload,
+  governmentReferenceIdFromConfig,
+  isGovernmentAddressComplete,
+  type GovernmentAddressFields,
+  type GovernmentAddressMode,
+} from "../lib/governmentAddress";
+import {
+  generateZoneReference,
+  validateZoneReference,
+  type ZoneReferenceValidateResult,
+} from "../services/api/zoneReferences";
 
 const accent = "#00E5D1";
 const panel = "bg-[#151a20]";
@@ -76,6 +92,20 @@ const ZONE_MAP_COLORS = [
 type MapperMode = "h3" | "polygon";
 type GeofenceDrawTool = "polygon" | "circle";
 type ActiveTool = null | "measure";
+type ValidReferenceValidation = {
+  valid: true;
+  referenceId: string;
+  displayName?: string;
+  geometry: Record<string, unknown>;
+  config: Record<string, unknown>;
+  h3Cells: string[];
+  source?: string;
+};
+
+type ReferenceValidationState =
+  | ValidReferenceValidation
+  | { valid: false; message: string };
+
 type ZoneTypeMode =
   | "geofence"
   | "grid"
@@ -379,6 +409,78 @@ function zoneConfigMap(zone: SavedZone): Record<string, unknown> {
   return zone.config && typeof zone.config === "object"
     ? (zone.config as Record<string, unknown>)
     : {};
+}
+
+function referenceValidationFromZone(
+  zone: SavedZone,
+  codeKey: "communal_id" | "local_code",
+): ReferenceValidationState | null {
+  const config = zoneConfigMap(zone);
+  const raw =
+    codeKey === "communal_id"
+      ? config.communal_id
+      : config.local_code ?? config.area_code;
+  const referenceId =
+    typeof raw === "string"
+      ? codeKey === "communal_id"
+        ? raw.trim().toUpperCase()
+        : raw.replace(/\s+/g, "").toUpperCase()
+      : "";
+  if (!referenceId) return null;
+  const polys = zoneToPolygons(zone);
+  const rawFence = zoneGeoFenceRaw(zone);
+  if (polys.length === 0 && rawFence == null) return null;
+  const geometry =
+    zone.geometry && typeof zone.geometry === "object"
+      ? ({ ...(zone.geometry as Record<string, unknown>) } as Record<
+          string,
+          unknown
+        >)
+      : ({} as Record<string, unknown>);
+  if (rawFence != null) {
+    geometry.geo_fence_polygon = normalizeGeoFencePolygonValue(rawFence);
+  }
+  return {
+    valid: true,
+    referenceId,
+    displayName: zone.name ?? undefined,
+    geometry,
+    config,
+    h3Cells: Array.isArray(zone.h3_cells) ? [...zone.h3_cells] : [],
+    source: "existing_zone",
+  };
+}
+
+function communalValidationFromZone(zone: SavedZone): ReferenceValidationState | null {
+  return referenceValidationFromZone(zone, "communal_id");
+}
+
+function governmentValidationFromZone(zone: SavedZone): ReferenceValidationState | null {
+  const config = zoneConfigMap(zone);
+  const referenceId = governmentReferenceIdFromConfig(config);
+  if (!referenceId) return null;
+  const polys = zoneToPolygons(zone);
+  const rawFence = zoneGeoFenceRaw(zone);
+  if (polys.length === 0 && rawFence == null) return null;
+  const geometry =
+    zone.geometry && typeof zone.geometry === "object"
+      ? ({ ...(zone.geometry as Record<string, unknown>) } as Record<
+          string,
+          unknown
+        >)
+      : ({} as Record<string, unknown>);
+  if (rawFence != null) {
+    geometry.geo_fence_polygon = normalizeGeoFencePolygonValue(rawFence);
+  }
+  return {
+    valid: true,
+    referenceId,
+    displayName: zone.name ?? undefined,
+    geometry,
+    config,
+    h3Cells: Array.isArray(zone.h3_cells) ? [...zone.h3_cells] : [],
+    source: "existing_zone",
+  };
 }
 
 function extractZoneCenter(zone: SavedZone): [number, number] | null {
@@ -840,7 +942,37 @@ export default function Dashboard() {
   const [dynamicMinRadiusMeters, setDynamicMinRadiusMeters] = useState(200);
   const [dynamicMaxRadiusMeters, setDynamicMaxRadiusMeters] = useState(1000);
   const [communalCode, setCommunalCode] = useState("");
-  const [governmentLocalCode, setGovernmentLocalCode] = useState("");
+  const [communalValidation, setCommunalValidation] =
+    useState<ReferenceValidationState | null>(null);
+  const [communalValidating, setCommunalValidating] = useState(false);
+  const [governmentAddressMode, setGovernmentAddressMode] =
+    useState<GovernmentAddressMode>("postal");
+  const [governmentPostalCode, setGovernmentPostalCode] = useState("");
+  const [governmentCity, setGovernmentCity] = useState("");
+  const [governmentCountry, setGovernmentCountry] = useState("");
+  const [governmentStreet, setGovernmentStreet] = useState("");
+  const [governmentStreetNumber, setGovernmentStreetNumber] = useState("");
+  const [governmentValidation, setGovernmentValidation] =
+    useState<ReferenceValidationState | null>(null);
+  const [governmentValidating, setGovernmentValidating] = useState(false);
+  const governmentFields = useMemo(
+    (): GovernmentAddressFields => ({
+      addressMode: governmentAddressMode,
+      postalCode: governmentPostalCode,
+      city: governmentCity,
+      country: governmentCountry,
+      street: governmentStreet,
+      streetNumber: governmentStreetNumber,
+    }),
+    [
+      governmentAddressMode,
+      governmentPostalCode,
+      governmentCity,
+      governmentCountry,
+      governmentStreet,
+      governmentStreetNumber,
+    ],
+  );
   const [objectReferenceId, setObjectReferenceId] = useState("");
   const [objectPlaceName, setObjectPlaceName] = useState("");
   const [objectRadiusMeters, setObjectRadiusMeters] = useState(250);
@@ -963,19 +1095,69 @@ export default function Dashboard() {
     (canCreateZone ? "" : "You have reached your allowed zone limit.");
   const canEditCurrentSelection =
     isCreatingNewZone || (!!activeZoneEntry && activeSavedZoneEditable);
+  /** Validate / preview reference IDs (Type 2–3); does not require save permission. */
+  const canValidateReferenceZone = useMemo(() => {
+    if (isCreatingNewZone) return true;
+    if (activeZoneEntry != null) return true;
+    return canCreateZone;
+  }, [isCreatingNewZone, activeZoneEntry, canCreateZone]);
+  const communalValidated = useMemo(() => {
+    if (communalValidation?.valid !== true) return false;
+    return communalCode.trim().toUpperCase() === communalValidation.referenceId;
+  }, [communalValidation, communalCode]);
+  const governmentValidated = useMemo(() => {
+    if (governmentValidation?.valid !== true) return false;
+    return governmentAddressMatchesValidation(
+      governmentFields,
+      governmentValidation.referenceId,
+    );
+  }, [governmentValidation, governmentFields]);
+  const activeReferenceValidation = useMemo((): ValidReferenceValidation | null => {
+    if (zoneType === "communal_id" && communalValidation?.valid === true) {
+      return communalValidation;
+    }
+    if (
+      zoneType === "government_local_code" &&
+      governmentValidation?.valid === true
+    ) {
+      return governmentValidation;
+    }
+    return null;
+  }, [zoneType, communalValidation, governmentValidation]);
   const usesMapGeometry = zoneType === "geofence" || zoneType === "grid";
   const typeVisual = useMemo(() => {
     if (zoneType === "grid") return { color: "#F59E0B", label: "Grid" };
     if (zoneType === "proximity")
       return { color: "#06B6D4", label: "Proximity" };
     if (zoneType === "dynamic") return { color: "#22C55E", label: "Dynamic" };
-    if (zoneType === "communal_id")
-      return { color: "#64748B", label: "Communal ID (Pending)" };
-    if (zoneType === "government_local_code")
-      return { color: "#64748B", label: "Gov Local Code (Pending)" };
+    if (zoneType === "communal_id") {
+      const validated =
+        communalValidation?.valid === true &&
+        communalCode.trim().toUpperCase() === communalValidation.referenceId;
+      return validated
+        ? { color: "#8B5CF6", label: "Communal ID" }
+        : { color: "#64748B", label: "Communal ID (validate first)" };
+    }
+    if (zoneType === "government_local_code") {
+      const validated =
+        governmentValidation?.valid === true &&
+        governmentAddressMatchesValidation(
+          governmentFields,
+          governmentValidation.referenceId,
+        );
+      return validated
+        ? { color: "#0EA5E9", label: "Gov Local Code" }
+        : { color: "#64748B", label: "Gov Local Code (validate first)" };
+    }
     if (zoneType === "object") return { color: "#A855F7", label: "Object" };
     return { color: accent, label: "Geofence" };
-  }, [zoneType]);
+  }, [
+    zoneType,
+    communalValidation,
+    communalCode,
+    governmentValidation,
+    governmentFields,
+  ]);
 
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -1099,8 +1281,24 @@ export default function Dashboard() {
     setCommunalCode(
       typeof chosenConfig.communal_id === "string" ? chosenConfig.communal_id : "",
     );
-    setGovernmentLocalCode(
-      typeof chosenConfig.local_code === "string" ? chosenConfig.local_code : "",
+    setCommunalValidation(
+      normalizedType === "communal_id"
+        ? communalValidationFromZone(chosen.zone)
+        : null,
+    );
+    {
+      const govFields = applyGovernmentFieldsFromConfig(chosenConfig);
+      setGovernmentAddressMode(govFields.addressMode);
+      setGovernmentPostalCode(govFields.postalCode);
+      setGovernmentCity(govFields.city);
+      setGovernmentCountry(govFields.country);
+      setGovernmentStreet(govFields.street);
+      setGovernmentStreetNumber(govFields.streetNumber);
+    }
+    setGovernmentValidation(
+      normalizedType === "government_local_code"
+        ? governmentValidationFromZone(chosen.zone)
+        : null,
     );
     setObjectReferenceId(
       typeof chosenConfig.object_id === "string" ? chosenConfig.object_id : "",
@@ -1796,9 +1994,11 @@ export default function Dashboard() {
               dynamicMaxRadiusMeters >= dynamicMinRadiusMeters &&
               dynamicCircles.length > 0
             : zoneType === "communal_id"
-              ? communalCode.trim().length > 0
+              ? communalValidated &&
+                (polygonsToSave.length > 0 || cellsToSave.length > 0)
               : zoneType === "government_local_code"
-                ? governmentLocalCode.trim().length > 0
+                ? governmentValidated &&
+                  (polygonsToSave.length > 0 || cellsToSave.length > 0)
                 : zoneType === "object"
                   ? objectReferenceId.trim().length > 0 &&
                     objectRadiusMeters > 0 &&
@@ -1813,9 +2013,9 @@ export default function Dashboard() {
             : zoneType === "dynamic"
               ? "Set valid dynamic min/max radius values before saving."
               : zoneType === "communal_id"
-                ? "Enter communal ID before saving."
+                ? "Validate the communal ID and confirm the map preview before saving."
                 : zoneType === "government_local_code"
-                  ? "Enter government local code before saving."
+                  ? "Validate the address and confirm the map preview before saving."
                   : "Set object ID, radius, and anchor point before saving.",
       );
       return;
@@ -1856,8 +2056,22 @@ export default function Dashboard() {
           circle.maxRadiusMeters ??
           Math.max(dynamicMaxRadiusMeters, dynamicMinRadiusMeters),
       }));
+      const referenceGeoFence = activeReferenceValidation
+        ? normalizeGeoFencePolygonValue(
+            activeReferenceValidation.geometry.geo_fence_polygon ??
+              activeReferenceValidation.geometry,
+          )
+        : geoFenceForSave;
+      const referenceCellsToSave = activeReferenceValidation
+        ? activeReferenceValidation.h3Cells
+        : cellsToSave;
       const geometryPayload: Record<string, unknown> =
-        zoneType === "proximity"
+        activeReferenceValidation
+          ? {
+              ...activeReferenceValidation.geometry,
+              geo_fence_polygon: referenceGeoFence,
+            }
+          : zoneType === "proximity"
           ? {
               center: proximityCenterPayload,
               centers: [proximityCenterPayload],
@@ -1888,7 +2102,7 @@ export default function Dashboard() {
               geo_fence_polygon: geoFenceForSave,
             };
       const configPayload: Record<string, unknown> = {
-        h3_cells: cellsToSave,
+        h3_cells: activeReferenceValidation ? referenceCellsToSave : cellsToSave,
         ...(zoneType === "proximity"
           ? {
               radius_meters: proximityRadiusMeters,
@@ -1910,10 +2124,17 @@ export default function Dashboard() {
             }
           : {}),
         ...(zoneType === "communal_id"
-          ? { communal_id: communalCode.trim() }
+          ? {
+              communal_id: communalCode.trim().toUpperCase(),
+              ...(communalValidation?.valid === true
+                ? communalValidation.config
+                : {}),
+            }
           : {}),
         ...(zoneType === "government_local_code"
-          ? { local_code: governmentLocalCode.trim() }
+          ? governmentValidation?.valid === true
+            ? governmentValidation.config
+            : governmentAddressToConfig(governmentFields)
           : {}),
         ...(zoneType === "object"
           ? {
@@ -1930,8 +2151,10 @@ export default function Dashboard() {
         description,
         zone_type: compatibilityZoneType,
         type: zoneType,
-        h3_cells: cellsToSave,
-        geo_fence_polygon: geoFenceForSave,
+        h3_cells: activeReferenceValidation ? referenceCellsToSave : cellsToSave,
+        geo_fence_polygon: activeReferenceValidation
+          ? referenceGeoFence
+          : geoFenceForSave,
         geometry: geometryPayload,
         config: configPayload,
       };
@@ -2011,8 +2234,22 @@ export default function Dashboard() {
     setCommunalCode(
       typeof config.communal_id === "string" ? config.communal_id : "",
     );
-    setGovernmentLocalCode(
-      typeof config.local_code === "string" ? config.local_code : "",
+    setCommunalValidation(
+      normalizedType === "communal_id" ? communalValidationFromZone(zone) : null,
+    );
+    {
+      const govFields = applyGovernmentFieldsFromConfig(config);
+      setGovernmentAddressMode(govFields.addressMode);
+      setGovernmentPostalCode(govFields.postalCode);
+      setGovernmentCity(govFields.city);
+      setGovernmentCountry(govFields.country);
+      setGovernmentStreet(govFields.street);
+      setGovernmentStreetNumber(govFields.streetNumber);
+    }
+    setGovernmentValidation(
+      normalizedType === "government_local_code"
+        ? governmentValidationFromZone(zone)
+        : null,
     );
     setObjectReferenceId(
       typeof config.object_id === "string" ? config.object_id : "",
@@ -2080,7 +2317,14 @@ export default function Dashboard() {
     setProximityRadiusMeters(500);
     setDynamicCircles([]);
     setCommunalCode("");
-    setGovernmentLocalCode("");
+    setCommunalValidation(null);
+    setGovernmentAddressMode("postal");
+    setGovernmentPostalCode("");
+    setGovernmentCity("");
+    setGovernmentCountry("");
+    setGovernmentStreet("");
+    setGovernmentStreetNumber("");
+    setGovernmentValidation(null);
     setObjectReferenceId("");
     setObjectPlaceName("");
     setObjectSearchQuery("");
@@ -2351,6 +2595,221 @@ export default function Dashboard() {
     if (shapes[0]) focusPolygonShape(shapes[0]);
   }, [focusPolygonShape]);
 
+  const applyReferenceZoneFromApi = useCallback(
+    (
+      result: ZoneReferenceValidateResult,
+      options: {
+        setCode: (value: string) => void;
+        setValidation: (value: ReferenceValidationState | null) => void;
+        invalidMessage: string;
+        normalizeCode?: (raw: string) => string;
+      },
+    ) => {
+      if (!result.valid) {
+        options.setValidation({
+          valid: false,
+          message: result.message ?? options.invalidMessage,
+        });
+        setPolygons([]);
+        setSelectedCells([]);
+        return;
+      }
+      const normalize =
+        options.normalizeCode ?? ((raw: string) => raw.trim().toUpperCase());
+      const referenceId = normalize(result.reference_id);
+      options.setCode(referenceId);
+      options.setValidation({
+        valid: true,
+        referenceId,
+        displayName: result.display_name ?? undefined,
+        geometry: result.geometry ?? {},
+        config: result.config ?? {},
+        h3Cells: Array.isArray(result.h3_cells) ? [...result.h3_cells] : [],
+        source: result.source ?? undefined,
+      });
+      const rawFence =
+        result.geometry?.geo_fence_polygon ?? result.geometry;
+      const shapes = geoJsonPolygonToShapes(
+        normalizeGeoFencePolygonValue(rawFence),
+      );
+      setPolygons(shapes);
+      setRemovedPolygonKeys(new Set());
+      setSelectedCells(
+        Array.isArray(result.h3_cells) ? [...result.h3_cells] : [],
+      );
+      setRemovedCellIds(new Set());
+      if (!zoneName.trim() && result.display_name?.trim()) {
+        setZoneName(result.display_name.trim());
+      }
+      focusPolygonShapes(shapes);
+    },
+    [focusPolygonShapes, zoneName],
+  );
+
+  const applyCommunalFromApi = useCallback(
+    (result: ZoneReferenceValidateResult) => {
+      applyReferenceZoneFromApi(result, {
+        setCode: setCommunalCode,
+        setValidation: setCommunalValidation,
+        invalidMessage: "Communal ID could not be resolved.",
+      });
+    },
+    [applyReferenceZoneFromApi],
+  );
+
+  const applyGovernmentFromApi = useCallback(
+    (result: ZoneReferenceValidateResult) => {
+      if (!result.valid) {
+        setGovernmentValidation({
+          valid: false,
+          message: result.message ?? "Address could not be resolved.",
+        });
+        setPolygons([]);
+        setSelectedCells([]);
+        return;
+      }
+      const fields = applyGovernmentFieldsFromConfig(result.config ?? {});
+      setGovernmentAddressMode(fields.addressMode);
+      setGovernmentPostalCode(fields.postalCode);
+      setGovernmentCity(fields.city);
+      setGovernmentCountry(fields.country);
+      setGovernmentStreet(fields.street);
+      setGovernmentStreetNumber(fields.streetNumber);
+      const referenceId = buildGovernmentReferenceId(fields);
+      setGovernmentValidation({
+        valid: true,
+        referenceId,
+        displayName: result.display_name ?? undefined,
+        geometry: result.geometry ?? {},
+        config: result.config ?? {},
+        h3Cells: Array.isArray(result.h3_cells) ? [...result.h3_cells] : [],
+        source: result.source ?? undefined,
+      });
+      const rawFence =
+        result.geometry?.geo_fence_polygon ?? result.geometry;
+      const shapes = geoJsonPolygonToShapes(
+        normalizeGeoFencePolygonValue(rawFence),
+      );
+      setPolygons(shapes);
+      setRemovedPolygonKeys(new Set());
+      setSelectedCells(
+        Array.isArray(result.h3_cells) ? [...result.h3_cells] : [],
+      );
+      setRemovedCellIds(new Set());
+      if (!zoneName.trim() && result.display_name?.trim()) {
+        setZoneName(result.display_name.trim());
+      }
+      focusPolygonShapes(shapes);
+    },
+    [focusPolygonShapes, zoneName],
+  );
+
+  const validateCommunalId = useCallback(async () => {
+    const referenceId = communalCode.trim();
+    if (!referenceId) {
+      setSaveStatus("Enter a communal ID to validate.");
+      return;
+    }
+    setCommunalValidating(true);
+    setSaveStatus("Validating communal ID…");
+    try {
+      const { data, error } = await validateZoneReference({
+        zone_type: "communal_id",
+        reference_id: referenceId,
+      });
+      if (error || !data) {
+        setCommunalValidation({
+          valid: false,
+          message: error ?? "Validation request failed.",
+        });
+        setSaveStatus(error ?? "Validation request failed.");
+        return;
+      }
+      applyCommunalFromApi(data);
+      if (data.valid) {
+        setSaveStatus(
+          data.display_name
+            ? `Validated "${data.display_name}" — preview on map.`
+            : `Validated ${data.reference_id} — preview on map.`,
+        );
+      } else {
+        setSaveStatus(data.message ?? "Communal ID could not be resolved.");
+      }
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Validation request failed.";
+      setCommunalValidation({ valid: false, message });
+      setSaveStatus(message);
+    } finally {
+      setCommunalValidating(false);
+    }
+  }, [applyCommunalFromApi, communalCode]);
+
+  const generateCommunalId = useCallback(async () => {
+    setCommunalValidating(true);
+    setSaveStatus("Generating communal ID…");
+    try {
+      const { data, error } = await generateZoneReference({
+        zone_type: "communal_id",
+      });
+      if (error || !data) {
+        setSaveStatus(error ?? "Could not generate communal ID.");
+        return;
+      }
+      applyCommunalFromApi(data);
+      setSaveStatus(`Generated ${data.reference_id} — preview on map.`);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Could not generate communal ID.";
+      setSaveStatus(message);
+    } finally {
+      setCommunalValidating(false);
+    }
+  }, [applyCommunalFromApi]);
+
+  const validateGovernmentAddress = useCallback(async () => {
+    if (!isGovernmentAddressComplete(governmentFields)) {
+      setSaveStatus(
+        governmentFields.addressMode === "street"
+          ? "Enter street, postal code, city, and country."
+          : "Enter postal code, city, and country.",
+      );
+      return;
+    }
+    setGovernmentValidating(true);
+    setSaveStatus("Validating address…");
+    try {
+      const { data, error } = await validateZoneReference(
+        governmentAddressValidatePayload(governmentFields),
+      );
+      if (error || !data) {
+        setGovernmentValidation({
+          valid: false,
+          message: error ?? "Validation request failed.",
+        });
+        setSaveStatus(error ?? "Validation request failed.");
+        return;
+      }
+      applyGovernmentFromApi(data);
+      if (data.valid) {
+        setSaveStatus(
+          data.display_name
+            ? `Validated "${data.display_name}" — area polygon on map.`
+            : `Validated ${data.reference_id} — area polygon on map.`,
+        );
+      } else {
+        setSaveStatus(data.message ?? "Address could not be resolved.");
+      }
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Validation request failed.";
+      setGovernmentValidation({ valid: false, message });
+      setSaveStatus(message);
+    } finally {
+      setGovernmentValidating(false);
+    }
+  }, [applyGovernmentFromApi, governmentFields]);
+
   const focusObjectZone = useCallback(
     (center: [number, number], radiusMeters: number) => {
       const corners = cornersFromCircle(center, radiusMeters);
@@ -2605,6 +3064,12 @@ export default function Dashboard() {
                 onChange={(e) => {
                   const next = normalizeZoneTypeValue(e.target.value);
                   setZoneType(next);
+                  if (next !== "communal_id") {
+                    setCommunalValidation(null);
+                  }
+                  if (next !== "government_local_code") {
+                    setGovernmentValidation(null);
+                  }
                   if (next === "proximity") {
                     setProximitySourceMode("map_pin");
                   }
@@ -2749,32 +3214,218 @@ export default function Dashboard() {
             )}
 
             {zoneType === "communal_id" && (
-              <div>
+              <div className="space-y-2">
                 <label className={labelClass} htmlFor="zone-communal-id">
                   Communal ID
                 </label>
                 <input
                   id="zone-communal-id"
                   value={communalCode}
-                  onChange={(e) => setCommunalCode(e.target.value)}
+                  onChange={(e) => {
+                    setCommunalCode(e.target.value);
+                    setCommunalValidation(null);
+                  }}
                   placeholder="COMM-12345"
-                  className="w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
+                  className="w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white uppercase"
                 />
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void validateCommunalId()}
+                    disabled={communalValidating || !canValidateReferenceZone}
+                    className="rounded-md border border-[#8B5CF6]/50 bg-[#8B5CF6]/15 px-3 py-1.5 text-xs font-medium text-[#C4B5FD] hover:bg-[#8B5CF6]/25 disabled:opacity-50"
+                  >
+                    {communalValidating ? "Validating…" : "Validate ID"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void generateCommunalId()}
+                    disabled={communalValidating || !canValidateReferenceZone}
+                    className="rounded-md border border-slate-600/80 bg-slate-800/60 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700/60 disabled:opacity-50"
+                  >
+                    Generate ID
+                  </button>
+                </div>
+                {communalValidation?.valid === true && communalValidated ? (
+                  <p className="text-[10px] text-[#C4B5FD]">
+                    {communalValidation.displayName
+                      ? `${communalValidation.displayName} (${communalValidation.referenceId})`
+                      : communalValidation.referenceId}{" "}
+                    — map preview ready
+                    {communalValidation.source
+                      ? ` · ${communalValidation.source}`
+                      : ""}
+                  </p>
+                ) : communalValidation?.valid === false ? (
+                  <p className="text-[10px] text-rose-400">
+                    {communalValidation.message}
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-slate-500">
+                    Enter an ID or generate one, validate, then confirm the boundary on
+                    the map before saving.
+                  </p>
+                )}
               </div>
             )}
 
             {zoneType === "government_local_code" && (
-              <div>
-                <label className={labelClass} htmlFor="zone-gov-code">
-                  Government local code
-                </label>
-                <input
-                  id="zone-gov-code"
-                  value={governmentLocalCode}
-                  onChange={(e) => setGovernmentLocalCode(e.target.value)}
-                  placeholder="GOV-LOCAL-001"
-                  className="w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
-                />
+              <div className="space-y-3">
+                <div>
+                  <span className={labelClass}>Address type</span>
+                  <div className="mt-1 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGovernmentAddressMode("postal");
+                        setGovernmentValidation(null);
+                      }}
+                      className={`rounded-md border px-3 py-1.5 text-xs font-medium ${
+                        governmentAddressMode === "postal"
+                          ? "border-[#0EA5E9]/60 bg-[#0EA5E9]/20 text-[#7DD3FC]"
+                          : "border-slate-700/80 text-slate-400 hover:border-slate-600"
+                      }`}
+                    >
+                      Postal area
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGovernmentAddressMode("street");
+                        setGovernmentValidation(null);
+                      }}
+                      className={`rounded-md border px-3 py-1.5 text-xs font-medium ${
+                        governmentAddressMode === "street"
+                          ? "border-[#0EA5E9]/60 bg-[#0EA5E9]/20 text-[#7DD3FC]"
+                          : "border-slate-700/80 text-slate-400 hover:border-slate-600"
+                      }`}
+                    >
+                      Street address
+                    </button>
+                  </div>
+                </div>
+
+                {governmentAddressMode === "street" ? (
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2">
+                      <label className={labelClass} htmlFor="zone-gov-street">
+                        Street name
+                      </label>
+                      <input
+                        id="zone-gov-street"
+                        value={governmentStreet}
+                        onChange={(e) => {
+                          setGovernmentStreet(e.target.value);
+                          setGovernmentValidation(null);
+                        }}
+                        placeholder="Khreshchatyk"
+                        className="mt-1 w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className={labelClass} htmlFor="zone-gov-number">
+                        No.
+                      </label>
+                      <input
+                        id="zone-gov-number"
+                        value={governmentStreetNumber}
+                        onChange={(e) => {
+                          setGovernmentStreetNumber(e.target.value);
+                          setGovernmentValidation(null);
+                        }}
+                        placeholder="22"
+                        className="mt-1 w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
+                      />
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className={labelClass} htmlFor="zone-gov-postal">
+                      Postal code
+                    </label>
+                    <input
+                      id="zone-gov-postal"
+                      value={governmentPostalCode}
+                      onChange={(e) => {
+                        setGovernmentPostalCode(e.target.value);
+                        setGovernmentValidation(null);
+                      }}
+                      placeholder="M5H 2N2"
+                      className="mt-1 w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass} htmlFor="zone-gov-city">
+                      City
+                    </label>
+                    <input
+                      id="zone-gov-city"
+                      value={governmentCity}
+                      onChange={(e) => {
+                        setGovernmentCity(e.target.value);
+                        setGovernmentValidation(null);
+                      }}
+                      placeholder="Toronto"
+                      className="mt-1 w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className={labelClass} htmlFor="zone-gov-country">
+                    Country
+                  </label>
+                  <input
+                    id="zone-gov-country"
+                    value={governmentCountry}
+                    onChange={(e) => {
+                      setGovernmentCountry(e.target.value);
+                      setGovernmentValidation(null);
+                    }}
+                    placeholder="Canada"
+                    className="mt-1 w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
+                  />
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void validateGovernmentAddress()}
+                    disabled={governmentValidating || !canValidateReferenceZone}
+                    className="rounded-md border border-[#0EA5E9]/50 bg-[#0EA5E9]/15 px-3 py-1.5 text-xs font-medium text-[#7DD3FC] hover:bg-[#0EA5E9]/25 disabled:opacity-50"
+                  >
+                    {governmentValidating ? "Validating…" : "Validate address"}
+                  </button>
+                </div>
+                {!canValidateReferenceZone ? (
+                  <p className="text-[10px] text-amber-400/90">
+                    Click <span className="font-medium">+ New zone</span> or select
+                    an editable zone tab to validate an address.
+                  </p>
+                ) : null}
+                {governmentValidation?.valid === true && governmentValidated ? (
+                  <p className="text-[10px] text-[#7DD3FC]">
+                    {governmentValidation.displayName
+                      ? `${governmentValidation.displayName} (${governmentValidation.referenceId})`
+                      : governmentValidation.referenceId}{" "}
+                    — area polygon on map
+                    {governmentValidation.source
+                      ? ` · ${governmentValidation.source}`
+                      : ""}
+                  </p>
+                ) : governmentValidation?.valid === false ? (
+                  <p className="text-[10px] text-rose-400">
+                    {governmentValidation.message}
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-slate-500">
+                    {governmentAddressMode === "street"
+                      ? "e.g. Khreshchatyk 22, 01001 Kyiv, Ukraine  ·  or Queen Street West 100, M5H 2N2 Toronto, Canada"
+                      : "e.g. M5H 2N2, Toronto, Canada  ·  or 01001, Kyiv, Ukraine"}
+                  </p>
+                )}
               </div>
             )}
 
