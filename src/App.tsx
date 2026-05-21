@@ -25,6 +25,7 @@ import GuestDashboard from "./pages/guest/GuestDashboard";
 import GuestMessages from "./pages/guest/GuestMessages";
 import { AppStateProvider } from "./state/app/AppStateContext";
 import { useMessageFeatureBootstrap } from "./hooks/useMessageFeatureBootstrap";
+import { AlarmNotificationsHost } from "./components/AlarmNotificationsHost";
 
 function MessageFeatureBootstrap() {
   const { token } = useAuth();
@@ -157,6 +158,7 @@ export default function App() {
     <AuthProvider>
       <AppStateProvider>
         <MessageFeatureBootstrap />
+        <AlarmNotificationsHost />
         <div className="min-h-screen bg-slate-950 text-slate-100 flex min-w-0 flex-col overflow-x-hidden">
           <Navbar />
           <AppMain />
