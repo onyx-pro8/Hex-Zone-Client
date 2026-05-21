@@ -76,6 +76,11 @@ import {
   validateZoneReference,
   type ZoneReferenceValidateResult,
 } from "../services/api/zoneReferences";
+import {
+  previewDynamicZone,
+  type DynamicZonePreviewResult,
+} from "../services/api/zones";
+import { updateLocation as updateMemberLocation } from "../services/api/members";
 
 const accent = "#00E5D1";
 const panel = "bg-[#151a20]";
@@ -116,6 +121,225 @@ type ZoneTypeMode =
   | "object";
 
 type ProximitySourceMode = "current_location" | "map_pin";
+
+type DynamicTriggerOperator = ">=" | ">" | "<=" | "<" | "==";
+type DynamicTriggerResize = "min" | "max" | number;
+
+type DynamicMemberCountTrigger = {
+  type: "member_count";
+  operator: DynamicTriggerOperator;
+  value: number;
+  lookback_seconds: number;
+  resize_to: DynamicTriggerResize;
+};
+
+type DynamicTimeOfDayTrigger = {
+  type: "time_of_day";
+  start: string;
+  end: string;
+  resize_to: DynamicTriggerResize;
+};
+
+type DynamicSensorTrigger = {
+  type: "sensor";
+  message_types: string[];
+  lookback_seconds: number;
+  min_count: number;
+  resize_to: DynamicTriggerResize;
+};
+
+type DynamicTrigger =
+  | DynamicMemberCountTrigger
+  | DynamicTimeOfDayTrigger
+  | DynamicSensorTrigger;
+
+type DynamicTriggerDraft = DynamicTrigger & { id: string };
+
+const DYNAMIC_TRIGGER_OPERATORS: DynamicTriggerOperator[] = [
+  ">=",
+  ">",
+  "<=",
+  "<",
+  "==",
+];
+
+function makeDynamicTriggerId(): string {
+  return `trigger-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function defaultDynamicTriggerForType(
+  ttype: DynamicTrigger["type"],
+): DynamicTriggerDraft {
+  if (ttype === "member_count") {
+    return {
+      id: makeDynamicTriggerId(),
+      type: "member_count",
+      operator: ">=",
+      value: 5,
+      lookback_seconds: 300,
+      resize_to: "max",
+    };
+  }
+  if (ttype === "time_of_day") {
+    return {
+      id: makeDynamicTriggerId(),
+      type: "time_of_day",
+      start: "22:00",
+      end: "06:00",
+      resize_to: "min",
+    };
+  }
+  return {
+    id: makeDynamicTriggerId(),
+    type: "sensor",
+    message_types: ["SENSOR"],
+    lookback_seconds: 600,
+    min_count: 1,
+    resize_to: "max",
+  };
+}
+
+function parseDynamicTriggersFromConfig(
+  config: Record<string, unknown>,
+): DynamicTriggerDraft[] {
+  const raw = config.triggers;
+  if (!Array.isArray(raw)) return [];
+  const drafts: DynamicTriggerDraft[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    const resize = row.resize_to;
+    const resizeValue: DynamicTriggerResize =
+      resize === "min" || resize === "max"
+        ? resize
+        : typeof resize === "number" && Number.isFinite(resize)
+          ? resize
+          : "max";
+    if (row.type === "member_count") {
+      const operator = DYNAMIC_TRIGGER_OPERATORS.includes(
+        row.operator as DynamicTriggerOperator,
+      )
+        ? (row.operator as DynamicTriggerOperator)
+        : ">=";
+      drafts.push({
+        id: makeDynamicTriggerId(),
+        type: "member_count",
+        operator,
+        value: typeof row.value === "number" ? row.value : 0,
+        lookback_seconds:
+          typeof row.lookback_seconds === "number" && row.lookback_seconds > 0
+            ? row.lookback_seconds
+            : 300,
+        resize_to: resizeValue,
+      });
+    } else if (row.type === "time_of_day") {
+      drafts.push({
+        id: makeDynamicTriggerId(),
+        type: "time_of_day",
+        start: typeof row.start === "string" ? row.start : "22:00",
+        end: typeof row.end === "string" ? row.end : "06:00",
+        resize_to: resizeValue,
+      });
+    } else if (row.type === "sensor") {
+      const types = Array.isArray(row.message_types)
+        ? row.message_types.filter(
+            (t): t is string => typeof t === "string" && t.trim().length > 0,
+          )
+        : ["SENSOR"];
+      drafts.push({
+        id: makeDynamicTriggerId(),
+        type: "sensor",
+        message_types: types.length > 0 ? types : ["SENSOR"],
+        lookback_seconds:
+          typeof row.lookback_seconds === "number" && row.lookback_seconds > 0
+            ? row.lookback_seconds
+            : 600,
+        min_count:
+          typeof row.min_count === "number" && row.min_count > 0
+            ? row.min_count
+            : 1,
+        resize_to: resizeValue,
+      });
+    }
+  }
+  return drafts;
+}
+
+type DynamicInputsFromConfig = {
+  targetUserCount: number;
+  minRadiusMeters: number;
+  maxRadiusMeters: number;
+  resolvedCenter: [number, number] | null;
+  resolvedRadiusMeters: number | null;
+  matchedUserCount: number | null;
+};
+
+/**
+ * Read the three operator-supplied dynamic inputs (target, min, max) plus the
+ * server-derived center/radius/matched count from a saved zone's config.
+ * Falls back to sensible defaults when fields are missing so previously-saved
+ * zones from older shapes still hydrate without crashing.
+ */
+function readDynamicInputsFromConfig(
+  config: Record<string, unknown>,
+  geometry: Record<string, unknown> | null,
+): DynamicInputsFromConfig {
+  const target = Number((config as Record<string, unknown>).target_user_count);
+  const min = Number((config as Record<string, unknown>).min_radius_meters);
+  const max = Number((config as Record<string, unknown>).max_radius_meters);
+  const resolved = Number(
+    (config as Record<string, unknown>).resolved_radius_meters,
+  );
+  const matched = Number(
+    (config as Record<string, unknown>).matched_user_count,
+  );
+  const centerRaw =
+    geometry && typeof (geometry as Record<string, unknown>).center === "object"
+      ? ((geometry as Record<string, unknown>).center as Record<string, unknown>)
+      : null;
+  const centerLat = centerRaw ? Number(centerRaw.latitude) : NaN;
+  const centerLng = centerRaw ? Number(centerRaw.longitude) : NaN;
+  const resolvedCenter: [number, number] | null =
+    Number.isFinite(centerLat) && Number.isFinite(centerLng)
+      ? [centerLat, centerLng]
+      : null;
+  return {
+    targetUserCount: Number.isFinite(target) && target >= 1 ? Math.trunc(target) : 5,
+    minRadiusMeters: Number.isFinite(min) && min > 0 ? min : 200,
+    maxRadiusMeters: Number.isFinite(max) && max > 0 ? max : 1000,
+    resolvedCenter,
+    resolvedRadiusMeters:
+      Number.isFinite(resolved) && resolved > 0 ? resolved : null,
+    matchedUserCount: Number.isFinite(matched) && matched >= 0 ? Math.trunc(matched) : null,
+  };
+}
+
+function serializeDynamicTrigger(draft: DynamicTriggerDraft): DynamicTrigger {
+  if (draft.type === "member_count") {
+    return {
+      type: "member_count",
+      operator: draft.operator,
+      value: draft.value,
+      lookback_seconds: draft.lookback_seconds,
+      resize_to: draft.resize_to,
+    };
+  }
+  if (draft.type === "time_of_day") {
+    return {
+      type: "time_of_day",
+      start: draft.start,
+      end: draft.end,
+      resize_to: draft.resize_to,
+    };
+  }
+  return {
+    type: "sensor",
+    message_types: draft.message_types,
+    lookback_seconds: draft.lookback_seconds,
+    min_count: draft.min_count,
+    resize_to: draft.resize_to,
+  };
+}
 
 type HexMapperExport = {
   version: 1;
@@ -941,6 +1165,62 @@ export default function Dashboard() {
   const [proximityLocating, setProximityLocating] = useState(false);
   const [dynamicMinRadiusMeters, setDynamicMinRadiusMeters] = useState(200);
   const [dynamicMaxRadiusMeters, setDynamicMaxRadiusMeters] = useState(1000);
+  const [dynamicDefaultRadiusMeters, setDynamicDefaultRadiusMeters] = useState<
+    number | null
+  >(null);
+  const [dynamicTriggers, setDynamicTriggers] = useState<DynamicTriggerDraft[]>(
+    [],
+  );
+  /**
+   * Number of nearest users the server-resolved circle must cover. The server
+   * picks the center; the operator only specifies the count + radius band.
+   */
+  const [dynamicTargetUserCount, setDynamicTargetUserCount] = useState(5);
+  const [dynamicPreview, setDynamicPreview] =
+    useState<DynamicZonePreviewResult | null>(null);
+  const [dynamicPreviewLoading, setDynamicPreviewLoading] = useState(false);
+  const [dynamicPreviewError, setDynamicPreviewError] = useState<string | null>(
+    null,
+  );
+  /** Monotonic token so stale debounced previews don't overwrite the latest result. */
+  const dynamicPreviewSeqRef = useRef(0);
+
+  /**
+   * Apply dynamic inputs read from a saved zone (or its draft snapshot) into the
+   * three operator-facing fields, and seed `dynamicPreview` from the stored
+   * server-resolved center+radius so the map shows the disk immediately instead
+   * of flashing empty until the next preview round-trip lands.
+   */
+  const hydrateDynamicInputsFromConfig = useCallback(
+    (config: Record<string, unknown>, geometry?: Record<string, unknown> | null) => {
+      const parsed = readDynamicInputsFromConfig(config, geometry ?? null);
+      setDynamicTargetUserCount(parsed.targetUserCount);
+      setDynamicMinRadiusMeters(parsed.minRadiusMeters);
+      setDynamicMaxRadiusMeters(parsed.maxRadiusMeters);
+      if (parsed.resolvedCenter && parsed.resolvedRadiusMeters != null) {
+        setDynamicPreview({
+          infeasible: false,
+          reason: null,
+          center: {
+            latitude: parsed.resolvedCenter[0],
+            longitude: parsed.resolvedCenter[1],
+          },
+          resolved_radius_meters: parsed.resolvedRadiusMeters,
+          tight_radius_meters: null,
+          matched_user_count: parsed.matchedUserCount ?? parsed.targetUserCount,
+          matched_owner_ids: [],
+          population_size: 0,
+          target_user_count: parsed.targetUserCount,
+          min_radius_meters: parsed.minRadiusMeters,
+          max_radius_meters: parsed.maxRadiusMeters,
+        });
+      } else {
+        setDynamicPreview(null);
+      }
+      setDynamicPreviewError(null);
+    },
+    [],
+  );
   const [communalCode, setCommunalCode] = useState("");
   const [communalValidation, setCommunalValidation] =
     useState<ReferenceValidationState | null>(null);
@@ -978,7 +1258,6 @@ export default function Dashboard() {
   const [objectRadiusMeters, setObjectRadiusMeters] = useState(250);
   const [objectCenter, setObjectCenter] = useState<[number, number] | null>(null);
   const [objectSearchQuery, setObjectSearchQuery] = useState("");
-  const [dynamicCircles, setDynamicCircles] = useState<DraftCircle[]>([]);
 
   const [mapperMode, setMapperMode] = useState<MapperMode>("h3");
   const [resolution, setResolution] = useState(6);
@@ -1221,6 +1500,122 @@ export default function Dashboard() {
     );
   }, []);
 
+  /**
+   * Monotonically incremented whenever we successfully publish the operator's
+   * own location to `owners.latitude / longitude`. The dynamic-preview effect
+   * watches this so the next cluster search reflects the freshly-published
+   * coordinates without waiting for an input change.
+   */
+  const [dynamicLocationVersion, setDynamicLocationVersion] = useState(0);
+
+  /**
+   * When the operator enters dynamic-zone mode, push their browser geolocation
+   * to the server once so `owners.latitude / longitude` is populated. Without
+   * this, the resolver returns "no users found" for fresh accounts because the
+   * web Dashboard had no other path to write the canonical owner location.
+   * Failures (no geolocation API, denied permission, network) are swallowed —
+   * the preview UI will surface its own infeasible message.
+   */
+  const dynamicSelfLocationPushedRef = useRef(false);
+  useEffect(() => {
+    if (zoneType !== "dynamic") {
+      dynamicSelfLocationPushedRef.current = false;
+      return;
+    }
+    if (dynamicSelfLocationPushedRef.current) return;
+    if (!navigator.geolocation) return;
+    dynamicSelfLocationPushedRef.current = true;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        void updateMemberLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        }).then((result) => {
+          if (!result.error) {
+            setDynamicLocationVersion((v) => v + 1);
+          }
+        });
+      },
+      () => {
+        /* permission denied / geolocation failed — keep flag set to avoid prompt loops */
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+    );
+  }, [zoneType]);
+
+  /**
+   * Live dynamic-zone preview. The server scans active members of the caller's
+   * zone, picks the tightest cluster of `target_user_count` nearest users whose
+   * smallest enclosing circle fits within `[min, max]`, and returns the
+   * resolved center + radius. We debounce input changes (~300ms) and discard
+   * stale responses via a monotonic sequence token. No client-supplied center.
+   */
+  useEffect(() => {
+    if (zoneType !== "dynamic") {
+      setDynamicPreview(null);
+      setDynamicPreviewError(null);
+      setDynamicPreviewLoading(false);
+      return;
+    }
+    if (
+      !Number.isFinite(dynamicMinRadiusMeters) ||
+      !Number.isFinite(dynamicMaxRadiusMeters) ||
+      dynamicMinRadiusMeters <= 0 ||
+      dynamicMaxRadiusMeters < dynamicMinRadiusMeters
+    ) {
+      setDynamicPreview(null);
+      setDynamicPreviewError(
+        "Min radius must be > 0 and max radius must be >= min radius.",
+      );
+      setDynamicPreviewLoading(false);
+      return;
+    }
+    if (
+      !Number.isFinite(dynamicTargetUserCount) ||
+      dynamicTargetUserCount < 1 ||
+      dynamicTargetUserCount > 500
+    ) {
+      setDynamicPreview(null);
+      setDynamicPreviewError("Enter a target user count between 1 and 500.");
+      setDynamicPreviewLoading(false);
+      return;
+    }
+
+    const seq = (dynamicPreviewSeqRef.current += 1);
+    setDynamicPreviewLoading(true);
+    setDynamicPreviewError(null);
+
+    const timer = window.setTimeout(() => {
+      previewDynamicZone({
+        target_user_count: Math.trunc(dynamicTargetUserCount),
+        min_radius_meters: dynamicMinRadiusMeters,
+        max_radius_meters: dynamicMaxRadiusMeters,
+      })
+        .then((result) => {
+          if (seq !== dynamicPreviewSeqRef.current) return;
+          if (result.error || !result.data) {
+            setDynamicPreview(null);
+            setDynamicPreviewError(result.error ?? "Preview failed.");
+          } else {
+            setDynamicPreview(result.data);
+            setDynamicPreviewError(null);
+          }
+        })
+        .finally(() => {
+          if (seq !== dynamicPreviewSeqRef.current) return;
+          setDynamicPreviewLoading(false);
+        });
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    zoneType,
+    dynamicMinRadiusMeters,
+    dynamicMaxRadiusMeters,
+    dynamicTargetUserCount,
+    dynamicLocationVersion,
+  ]);
+
   useEffect(() => {
     if (isCreatingNewZone) return;
     if (zoneEntries.length === 0) return;
@@ -1268,16 +1663,27 @@ export default function Dashboard() {
       setProximitySourceMode("map_pin");
       setProximityCenter(null);
     }
-    setDynamicCircles(
-      normalizedType === "dynamic"
-        ? parseCircleDraftsFromZone(chosen.zone, "dynamic", {
-            proximityRadiusMeters: 500,
-            dynamicMinRadiusMeters: 200,
-            dynamicMaxRadiusMeters: 1000,
-          })
-        : [],
-    );
     const chosenConfig = zoneConfigMap(chosen.zone);
+    if (normalizedType === "dynamic") {
+      setDynamicTriggers(parseDynamicTriggersFromConfig(chosenConfig));
+      const defaultRadius = chosenConfig.default_radius_meters;
+      setDynamicDefaultRadiusMeters(
+        typeof defaultRadius === "number" && Number.isFinite(defaultRadius)
+          ? defaultRadius
+          : null,
+      );
+      hydrateDynamicInputsFromConfig(
+        chosenConfig,
+        chosen.zone.geometry && typeof chosen.zone.geometry === "object"
+          ? (chosen.zone.geometry as Record<string, unknown>)
+          : null,
+      );
+    } else {
+      setDynamicTriggers([]);
+      setDynamicDefaultRadiusMeters(null);
+      setDynamicPreview(null);
+      setDynamicPreviewError(null);
+    }
     setCommunalCode(
       typeof chosenConfig.communal_id === "string" ? chosenConfig.communal_id : "",
     );
@@ -1438,11 +1844,7 @@ export default function Dashboard() {
 
   const mapInteraction = useMemo(() => {
     if (activeTool === "measure") return "measure" as const;
-    if (
-      zoneType === "proximity" ||
-      zoneType === "object" ||
-      zoneType === "dynamic"
-    ) {
+    if (zoneType === "proximity" || zoneType === "object") {
       return "place" as const;
     }
     if (mapperMode === "h3") return "h3" as const;
@@ -1490,44 +1892,19 @@ export default function Dashboard() {
         return;
       }
       if (!usesMapGeometry) {
-        if (zoneType === "proximity" || zoneType === "dynamic") {
+        if (zoneType === "proximity") {
           const point: [number, number] = [lat, lng];
-          if (zoneType === "proximity") {
-            if (proximitySourceMode !== "map_pin") {
-              setProximitySourceMode("map_pin");
-            }
-            setProximityCenter(point);
-            setSaveStatus("Source pinned. Adjust radius to resize the zone.");
-            return;
+          if (proximitySourceMode !== "map_pin") {
+            setProximitySourceMode("map_pin");
           }
-          setDynamicCircles((prev) => {
-            const hit = prev.find(
-              (circle) =>
-                distanceMeters(circle.center, point) <=
-                Math.max(
-                  circle.maxRadiusMeters ?? 0,
-                  circle.minRadiusMeters ?? 0,
-                  circle.radiusMeters,
-                ),
-            );
-            if (hit) {
-              setSaveStatus("Dynamic circle removed.");
-              return prev.filter((c) => c.id !== hit.id);
-            }
-            setSaveStatus(
-              "Dynamic circle added. Click inside a circle to remove it.",
-            );
-            return [
-              ...prev,
-              {
-                id: `dynamic-${Date.now()}-${Math.random()}`,
-                center: point,
-                radiusMeters: Math.max(dynamicMaxRadiusMeters, dynamicMinRadiusMeters),
-                minRadiusMeters: dynamicMinRadiusMeters,
-                maxRadiusMeters: Math.max(dynamicMaxRadiusMeters, dynamicMinRadiusMeters),
-              },
-            ];
-          });
+          setProximityCenter(point);
+          setSaveStatus("Source pinned. Adjust radius to resize the zone.");
+          return;
+        }
+        if (zoneType === "dynamic") {
+          setSaveStatus(
+            "Dynamic zones are placed by the server. Adjust target users / min / max to refresh the preview.",
+          );
           return;
         }
         if (zoneType === "object") {
@@ -1743,8 +2120,6 @@ export default function Dashboard() {
       selectedPolygonId,
       proximityRadiusMeters,
       proximitySourceMode,
-      dynamicMinRadiusMeters,
-      dynamicMaxRadiusMeters,
       usesMapGeometry,
       zoneType,
       zones.length,
@@ -1984,15 +2359,21 @@ export default function Dashboard() {
 
     const canSaveGeometry =
       cellsToSave.length > 0 || polygonsToSave.length > 0;
+    const dynamicReady =
+      dynamicMinRadiusMeters > 0 &&
+      dynamicMaxRadiusMeters >= dynamicMinRadiusMeters &&
+      dynamicTargetUserCount >= 1 &&
+      dynamicPreview != null &&
+      !dynamicPreview.infeasible &&
+      dynamicPreview.center != null &&
+      dynamicPreview.resolved_radius_meters != null;
     const canSaveByType =
       usesMapGeometry
         ? canSaveGeometry
         : zoneType === "proximity"
           ? proximityRadiusMeters > 0 && proximityCenter != null
           : zoneType === "dynamic"
-            ? dynamicMinRadiusMeters > 0 &&
-              dynamicMaxRadiusMeters >= dynamicMinRadiusMeters &&
-              dynamicCircles.length > 0
+            ? dynamicReady
             : zoneType === "communal_id"
               ? communalValidated &&
                 (polygonsToSave.length > 0 || cellsToSave.length > 0)
@@ -2011,7 +2392,10 @@ export default function Dashboard() {
           : zoneType === "proximity"
             ? "Set a proximity radius before saving."
             : zoneType === "dynamic"
-              ? "Set valid dynamic min/max radius values before saving."
+              ? dynamicPreview?.infeasible
+                ? dynamicPreview.reason ??
+                  "Server could not find a cluster matching the current dynamic inputs."
+                : "Enter target users + min/max radii and wait for the live preview to resolve."
               : zoneType === "communal_id"
                 ? "Validate the communal ID and confirm the map preview before saving."
                 : zoneType === "government_local_code"
@@ -2042,20 +2426,22 @@ export default function Dashboard() {
         center: proximityCenterPayload,
         radius_meters: proximityRadiusMeters,
       };
-      const dynamicCenters = dynamicCircles.map((circle) => ({
-        latitude: circle.center[0],
-        longitude: circle.center[1],
-      }));
-      const dynamicCircleDefs = dynamicCircles.map((circle) => ({
-        center: {
-          latitude: circle.center[0],
-          longitude: circle.center[1],
-        },
-        min_radius_meters: circle.minRadiusMeters ?? dynamicMinRadiusMeters,
-        max_radius_meters:
-          circle.maxRadiusMeters ??
-          Math.max(dynamicMaxRadiusMeters, dynamicMinRadiusMeters),
-      }));
+      // Dynamic: server is authoritative for center+radius. We forward what the
+      // live preview already returned so the freshly-saved zone hydrates with a
+      // matching disk if the resolver is briefly unavailable; the server will
+      // re-resolve on save and overwrite these values.
+      const dynamicResolvedCenter =
+        zoneType === "dynamic" && dynamicPreview?.center
+          ? {
+              latitude: dynamicPreview.center.latitude,
+              longitude: dynamicPreview.center.longitude,
+            }
+          : null;
+      const dynamicResolvedRadius =
+        zoneType === "dynamic" &&
+        dynamicPreview?.resolved_radius_meters != null
+          ? dynamicPreview.resolved_radius_meters
+          : null;
       const referenceGeoFence = activeReferenceValidation
         ? normalizeGeoFencePolygonValue(
             activeReferenceValidation.geometry.geo_fence_polygon ??
@@ -2078,14 +2464,9 @@ export default function Dashboard() {
               circles: [proximityCircleDef],
             }
           : zoneType === "dynamic"
-            ? {
-                center: dynamicCenters[0] ?? {
-                  latitude: mapCenter[0],
-                  longitude: mapCenter[1],
-                },
-                centers: dynamicCenters,
-                circles: dynamicCircleDefs,
-              }
+            ? dynamicResolvedCenter
+              ? { center: dynamicResolvedCenter }
+              : {}
             : zoneType === "object"
               ? {
                   center: objectCenter
@@ -2112,15 +2493,22 @@ export default function Dashboard() {
           : {}),
         ...(zoneType === "dynamic"
           ? {
+              target_user_count: Math.trunc(dynamicTargetUserCount),
               min_radius_meters: dynamicMinRadiusMeters,
               max_radius_meters: dynamicMaxRadiusMeters,
-              circle_ranges: dynamicCircles.map((circle) => ({
-                min_radius_meters:
-                  circle.minRadiusMeters ?? dynamicMinRadiusMeters,
-                max_radius_meters:
-                  circle.maxRadiusMeters ??
-                  Math.max(dynamicMaxRadiusMeters, dynamicMinRadiusMeters),
-              })),
+              ...(dynamicResolvedRadius != null
+                ? { resolved_radius_meters: dynamicResolvedRadius }
+                : {}),
+              ...(dynamicDefaultRadiusMeters != null &&
+              dynamicDefaultRadiusMeters >= dynamicMinRadiusMeters &&
+              dynamicDefaultRadiusMeters <= dynamicMaxRadiusMeters
+                ? { default_radius_meters: dynamicDefaultRadiusMeters }
+                : {}),
+              ...(dynamicTriggers.length > 0
+                ? {
+                    triggers: dynamicTriggers.map(serializeDynamicTrigger),
+                  }
+                : {}),
             }
           : {}),
         ...(zoneType === "communal_id"
@@ -2221,16 +2609,27 @@ export default function Dashboard() {
       setProximitySourceMode("map_pin");
       setProximityCenter(null);
     }
-    setDynamicCircles(
-      normalizedType === "dynamic"
-        ? parseCircleDraftsFromZone(zone, "dynamic", {
-            proximityRadiusMeters: proximityRadiusMeters || 500,
-            dynamicMinRadiusMeters: dynamicMinRadiusMeters || 200,
-            dynamicMaxRadiusMeters: dynamicMaxRadiusMeters || 1000,
-          })
-        : [],
-    );
     const config = zoneConfigMap(zone);
+    if (normalizedType === "dynamic") {
+      setDynamicTriggers(parseDynamicTriggersFromConfig(config));
+      const defaultRadius = config.default_radius_meters;
+      setDynamicDefaultRadiusMeters(
+        typeof defaultRadius === "number" && Number.isFinite(defaultRadius)
+          ? defaultRadius
+          : null,
+      );
+      hydrateDynamicInputsFromConfig(
+        config,
+        zone.geometry && typeof zone.geometry === "object"
+          ? (zone.geometry as Record<string, unknown>)
+          : null,
+      );
+    } else {
+      setDynamicTriggers([]);
+      setDynamicDefaultRadiusMeters(null);
+      setDynamicPreview(null);
+      setDynamicPreviewError(null);
+    }
     setCommunalCode(
       typeof config.communal_id === "string" ? config.communal_id : "",
     );
@@ -2315,7 +2714,13 @@ export default function Dashboard() {
     setProximitySourceMode("map_pin");
     setProximityCenter(null);
     setProximityRadiusMeters(500);
-    setDynamicCircles([]);
+    setDynamicTargetUserCount(5);
+    setDynamicMinRadiusMeters(200);
+    setDynamicMaxRadiusMeters(1000);
+    setDynamicPreview(null);
+    setDynamicPreviewError(null);
+    setDynamicTriggers([]);
+    setDynamicDefaultRadiusMeters(null);
     setCommunalCode("");
     setCommunalValidation(null);
     setGovernmentAddressMode("postal");
@@ -2344,7 +2749,10 @@ export default function Dashboard() {
     setRemovedCellIds(new Set());
     setRemovedPolygonKeys(new Set());
     setPolygons([]);
-    setDynamicCircles([]);
+    setDynamicPreview(null);
+    setDynamicPreviewError(null);
+    setDynamicTriggers([]);
+    setDynamicDefaultRadiusMeters(null);
     setObjectReferenceId("");
     setObjectPlaceName("");
     setObjectSearchQuery("");
@@ -2449,37 +2857,30 @@ export default function Dashboard() {
       }
 
       if (normalizedType === "dynamic") {
-        const zoneCircles = active
-          ? dynamicCircles
-          : parseCircleDraftsFromZone(entry.zone, "dynamic", {
-              proximityRadiusMeters: 500,
-              dynamicMinRadiusMeters: 200,
-              dynamicMaxRadiusMeters: 1000,
-            });
-        circles.push(
-          ...zoneCircles.flatMap((c, idx) => [
-            {
-              key: `dmin-${entry.key}-${c.id}-${idx}`,
-              center: c.center,
-              radiusMeters: Math.max(c.minRadiusMeters ?? 0, 0),
+        // Active dynamic draft renders from the live preview circle further
+        // down; this block only paints SAVED dynamic zones from their
+        // persisted server-resolved center + radius.
+        if (!active) {
+          const cfg = zoneConfigMap(entry.zone);
+          const center = extractZoneCenter(entry.zone);
+          const resolved = Number(cfg.resolved_radius_meters);
+          const fallback = Number(cfg.max_radius_meters);
+          const radius = Number.isFinite(resolved) && resolved > 0
+            ? resolved
+            : Number.isFinite(fallback) && fallback > 0
+              ? fallback
+              : 0;
+          if (center && radius > 0) {
+            circles.push({
+              key: `dyn-${entry.key}`,
+              center,
+              radiusMeters: radius,
               color: "#22C55E",
-              fillOpacity: active ? 0.16 : 0.1,
-              dashArray: "4 6",
-            },
-            {
-              key: `dmax-${entry.key}-${c.id}-${idx}`,
-              center: c.center,
-              radiusMeters: Math.max(
-                c.maxRadiusMeters ?? 0,
-                c.minRadiusMeters ?? 0,
-                c.radiusMeters,
-              ),
-              color: "#16A34A",
-              fillOpacity: active ? 0.1 : 0.06,
-              dashArray: "10 6",
-            },
-          ]),
-        );
+              fillOpacity: 0.12,
+              dashArray: "6 6",
+            });
+          }
+        }
       }
 
       if (normalizedType === "object") {
@@ -2516,31 +2917,38 @@ export default function Dashboard() {
         dashArray: "8 6",
       });
     }
-    if (isCreatingNewZone && zoneType === "dynamic") {
-      circles.push(
-        ...dynamicCircles.flatMap((c, idx) => [
-          {
-            key: `draft-dmin-${c.id}-${idx}`,
-            center: c.center,
-            radiusMeters: Math.max(c.minRadiusMeters ?? 0, 0),
-            color: "#22C55E",
-            fillOpacity: 0.16,
-            dashArray: "4 6",
-          },
-          {
-            key: `draft-dmax-${c.id}-${idx}`,
-            center: c.center,
-            radiusMeters: Math.max(
-              c.maxRadiusMeters ?? 0,
-              c.minRadiusMeters ?? 0,
-              c.radiusMeters,
-            ),
-            color: "#16A34A",
-            fillOpacity: 0.1,
-            dashArray: "10 6",
-          },
-        ]),
-      );
+    if (
+      zoneType === "dynamic" &&
+      dynamicPreview &&
+      !dynamicPreview.infeasible &&
+      dynamicPreview.center &&
+      dynamicPreview.resolved_radius_meters != null
+    ) {
+      const center: [number, number] = [
+        dynamicPreview.center.latitude,
+        dynamicPreview.center.longitude,
+      ];
+      const resolved = dynamicPreview.resolved_radius_meters;
+      circles.push({
+        key: "draft-dynamic-resolved",
+        center,
+        radiusMeters: resolved,
+        color: "#22C55E",
+        fillOpacity: 0.16,
+        dashArray: "6 6",
+      });
+      // Outer ring shows the operator's max bound so the user can see how much
+      // slack remained against the upper limit; rendered fainter than the disk.
+      if (dynamicMaxRadiusMeters > resolved) {
+        circles.push({
+          key: "draft-dynamic-max",
+          center,
+          radiusMeters: dynamicMaxRadiusMeters,
+          color: "#16A34A",
+          fillOpacity: 0.04,
+          dashArray: "12 8",
+        });
+      }
     }
     if (
       isCreatingNewZone &&
@@ -2564,7 +2972,8 @@ export default function Dashboard() {
     showAllZones,
     isCreatingNewZone,
     zoneType,
-    dynamicCircles,
+    dynamicPreview,
+    dynamicMaxRadiusMeters,
     proximityCenter,
     proximityRadiusMeters,
     objectCenter,
@@ -2855,14 +3264,29 @@ export default function Dashboard() {
         }
       }
 
-      if (zoneKind === "proximity" || zoneKind === "dynamic") {
+      if (zoneKind === "proximity") {
         const circles = parseCircleDraftsFromZone(
           zone,
-          zoneKind,
+          "proximity",
           circleDefaults,
         );
         for (const circle of circles) {
           parts.push(cornersFromCircle(circle.center, circle.radiusMeters));
+        }
+      }
+      if (zoneKind === "dynamic") {
+        const cfg = zoneConfigMap(zone);
+        const center = extractZoneCenter(zone);
+        const resolved = Number(cfg.resolved_radius_meters);
+        const fallback = Number(cfg.max_radius_meters);
+        const radius =
+          Number.isFinite(resolved) && resolved > 0
+            ? resolved
+            : Number.isFinite(fallback) && fallback > 0
+              ? fallback
+              : 0;
+        if (center && radius > 0) {
+          parts.push(cornersFromCircle(center, radius));
         }
       }
     }
@@ -2893,6 +3317,23 @@ export default function Dashboard() {
       if (zoneKind === "proximity") {
         const center = extractZoneCenter(zone);
         const radius = proximityRadiusFromZone(zone, proximityRadiusMeters || 500);
+        if (center && radius > 0) {
+          focusObjectZone(center, radius);
+        }
+        return;
+      }
+
+      if (zoneKind === "dynamic") {
+        const cfg = zoneConfigMap(zone);
+        const center = extractZoneCenter(zone);
+        const resolved = Number(cfg.resolved_radius_meters);
+        const fallback = Number(cfg.max_radius_meters);
+        const radius =
+          Number.isFinite(resolved) && resolved > 0
+            ? resolved
+            : Number.isFinite(fallback) && fallback > 0
+              ? fallback
+              : 0;
         if (center && radius > 0) {
           focusObjectZone(center, radius);
         }
@@ -3179,37 +3620,441 @@ export default function Dashboard() {
             )}
 
             {zoneType === "dynamic" && (
-              <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-3">
+                <p className="text-[10px] text-slate-500">
+                  Enter the number of nearest users and the radius bounds. The
+                  server finds the tightest cluster of that many users in this
+                  zone and picks the circle's center.
+                </p>
                 <div>
-                  <label className={labelClass} htmlFor="zone-dynamic-min">
-                    Min radius (m)
+                  <label
+                    className={labelClass}
+                    htmlFor="zone-dynamic-target-users"
+                  >
+                    Number of nearest users
                   </label>
                   <input
-                    id="zone-dynamic-min"
+                    id="zone-dynamic-target-users"
                     type="number"
                     min={1}
-                    value={dynamicMinRadiusMeters}
+                    max={500}
+                    value={dynamicTargetUserCount}
                     onChange={(e) =>
-                      setDynamicMinRadiusMeters(Number(e.target.value) || 0)
+                      setDynamicTargetUserCount(
+                        Math.max(
+                          1,
+                          Math.min(500, Math.trunc(Number(e.target.value) || 0)),
+                        ),
+                      )
                     }
                     className="w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
                   />
                 </div>
-                <div>
-                  <label className={labelClass} htmlFor="zone-dynamic-max">
-                    Max radius (m)
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className={labelClass} htmlFor="zone-dynamic-min">
+                      Min radius (m)
+                    </label>
+                    <input
+                      id="zone-dynamic-min"
+                      type="number"
+                      min={1}
+                      value={dynamicMinRadiusMeters}
+                      onChange={(e) =>
+                        setDynamicMinRadiusMeters(Number(e.target.value) || 0)
+                      }
+                      className="w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass} htmlFor="zone-dynamic-max">
+                      Max radius (m)
+                    </label>
+                    <input
+                      id="zone-dynamic-max"
+                      type="number"
+                      min={1}
+                      value={dynamicMaxRadiusMeters}
+                      onChange={(e) =>
+                        setDynamicMaxRadiusMeters(Number(e.target.value) || 0)
+                      }
+                      className="w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
+                    />
+                  </div>
+                </div>
+
+                <div
+                  className={`rounded-md border p-2 text-[11px] ${
+                    dynamicPreviewError || dynamicPreview?.infeasible
+                      ? "border-rose-500/40 bg-rose-500/10 text-rose-200"
+                      : dynamicPreview && !dynamicPreview.infeasible
+                        ? "border-[#22C55E]/40 bg-[#22C55E]/10 text-[#86EFAC]"
+                        : "border-slate-700/80 bg-[#10141a] text-slate-400"
+                  }`}
+                >
+                  {dynamicPreviewLoading ? (
+                    <span>Resolving cluster…</span>
+                  ) : dynamicPreviewError ? (
+                    <span>{dynamicPreviewError}</span>
+                  ) : dynamicPreview?.infeasible ? (
+                    <span>
+                      {dynamicPreview.reason ??
+                        "Could not find a cluster that matches the current inputs."}
+                    </span>
+                  ) : dynamicPreview &&
+                    dynamicPreview.center &&
+                    dynamicPreview.resolved_radius_meters != null ? (
+                    <>
+                      <div>
+                        Cluster found: {dynamicPreview.matched_user_count} users
+                        inside a {Math.round(dynamicPreview.resolved_radius_meters)} m
+                        circle
+                        {dynamicPreview.tight_radius_meters != null &&
+                        dynamicPreview.tight_radius_meters <
+                          dynamicPreview.resolved_radius_meters
+                          ? ` (cluster spans ${Math.round(dynamicPreview.tight_radius_meters)} m, padded to min)`
+                          : ""}
+                        .
+                      </div>
+                      <div className="mt-0.5 text-slate-500">
+                        Center {dynamicPreview.center.latitude.toFixed(5)},{" "}
+                        {dynamicPreview.center.longitude.toFixed(5)} · Pool{" "}
+                        {dynamicPreview.population_size} users
+                      </div>
+                    </>
+                  ) : (
+                    <span>
+                      Adjust the inputs above to ask the server for a cluster.
+                    </span>
+                  )}
+                </div>
+
+                {/* <div>
+                  <label
+                    className={labelClass}
+                    htmlFor="zone-dynamic-default"
+                  >
+                    Default radius (m){" "}
+                    <span className="text-slate-500">(used when no trigger fires)</span>
                   </label>
                   <input
-                    id="zone-dynamic-max"
+                    id="zone-dynamic-default"
                     type="number"
-                    min={1}
-                    value={dynamicMaxRadiusMeters}
-                    onChange={(e) =>
-                      setDynamicMaxRadiusMeters(Number(e.target.value) || 0)
-                    }
+                    min={0}
+                    value={dynamicDefaultRadiusMeters ?? ""}
+                    placeholder={String(dynamicMinRadiusMeters)}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setDynamicDefaultRadiusMeters(
+                        v === "" ? null : Number(v) || 0,
+                      );
+                    }}
                     className="w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
                   />
                 </div>
+
+                <div className="rounded-md border border-slate-700/80 bg-[#10141a] p-2">
+                  <div className="mb-2 flex items-center justify-between">
+                    <p className={labelClass}>Resize rules</p>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setDynamicTriggers((prev) => [
+                            ...prev,
+                            defaultDynamicTriggerForType("member_count"),
+                          ])
+                        }
+                        className="rounded-md border border-[#22C55E]/40 bg-[#22C55E]/10 px-2 py-1 text-[10px] font-medium text-[#86EFAC] hover:bg-[#22C55E]/20"
+                      >
+                        + Members
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setDynamicTriggers((prev) => [
+                            ...prev,
+                            defaultDynamicTriggerForType("time_of_day"),
+                          ])
+                        }
+                        className="rounded-md border border-[#06B6D4]/40 bg-[#06B6D4]/10 px-2 py-1 text-[10px] font-medium text-[#67E8F9] hover:bg-[#06B6D4]/20"
+                      >
+                        + Time
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setDynamicTriggers((prev) => [
+                            ...prev,
+                            defaultDynamicTriggerForType("sensor"),
+                          ])
+                        }
+                        className="rounded-md border border-[#F59E0B]/40 bg-[#F59E0B]/10 px-2 py-1 text-[10px] font-medium text-[#FCD34D] hover:bg-[#F59E0B]/20"
+                      >
+                        + Sensor
+                      </button>
+                    </div>
+                  </div>
+
+                  {dynamicTriggers.length === 0 ? (
+                    <p className="text-[10px] text-slate-500">
+                      No rules — zone stays an annulus between min and max. Add a rule to enable live resize.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {dynamicTriggers.map((trigger, idx) => (
+                        <div
+                          key={trigger.id}
+                          className="rounded-md border border-slate-700/60 bg-[#151a20] p-2 text-[11px]"
+                        >
+                          <div className="mb-1 flex items-center justify-between">
+                            <span className="text-slate-300">
+                              {idx + 1}.{" "}
+                              {trigger.type === "member_count"
+                                ? "Members nearby"
+                                : trigger.type === "time_of_day"
+                                  ? "Time of day"
+                                  : "Sensor activity"}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setDynamicTriggers((prev) =>
+                                  prev.filter((t) => t.id !== trigger.id),
+                                )
+                              }
+                              className="text-rose-400 hover:text-rose-300"
+                              aria-label="Remove rule"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+
+                          {trigger.type === "member_count" && (
+                            <div className="grid grid-cols-3 gap-1.5">
+                              <select
+                                value={trigger.operator}
+                                onChange={(e) =>
+                                  setDynamicTriggers((prev) =>
+                                    prev.map((t) =>
+                                      t.id === trigger.id && t.type === "member_count"
+                                        ? {
+                                            ...t,
+                                            operator: e.target
+                                              .value as DynamicTriggerOperator,
+                                          }
+                                        : t,
+                                    ),
+                                  )
+                                }
+                                className="rounded border border-slate-700 bg-[#10141a] px-1.5 py-1 text-[11px] text-white"
+                              >
+                                {DYNAMIC_TRIGGER_OPERATORS.map((op) => (
+                                  <option key={op} value={op}>
+                                    {op}
+                                  </option>
+                                ))}
+                              </select>
+                              <input
+                                type="number"
+                                min={0}
+                                value={trigger.value}
+                                onChange={(e) =>
+                                  setDynamicTriggers((prev) =>
+                                    prev.map((t) =>
+                                      t.id === trigger.id && t.type === "member_count"
+                                        ? { ...t, value: Number(e.target.value) || 0 }
+                                        : t,
+                                    ),
+                                  )
+                                }
+                                placeholder="count"
+                                className="rounded border border-slate-700 bg-[#10141a] px-1.5 py-1 text-[11px] text-white"
+                              />
+                              <input
+                                type="number"
+                                min={1}
+                                value={trigger.lookback_seconds}
+                                onChange={(e) =>
+                                  setDynamicTriggers((prev) =>
+                                    prev.map((t) =>
+                                      t.id === trigger.id && t.type === "member_count"
+                                        ? {
+                                            ...t,
+                                            lookback_seconds:
+                                              Number(e.target.value) || 60,
+                                          }
+                                        : t,
+                                    ),
+                                  )
+                                }
+                                placeholder="window s"
+                                className="rounded border border-slate-700 bg-[#10141a] px-1.5 py-1 text-[11px] text-white"
+                              />
+                            </div>
+                          )}
+
+                          {trigger.type === "time_of_day" && (
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <input
+                                type="time"
+                                value={trigger.start}
+                                onChange={(e) =>
+                                  setDynamicTriggers((prev) =>
+                                    prev.map((t) =>
+                                      t.id === trigger.id && t.type === "time_of_day"
+                                        ? { ...t, start: e.target.value }
+                                        : t,
+                                    ),
+                                  )
+                                }
+                                className="rounded border border-slate-700 bg-[#10141a] px-1.5 py-1 text-[11px] text-white"
+                              />
+                              <input
+                                type="time"
+                                value={trigger.end}
+                                onChange={(e) =>
+                                  setDynamicTriggers((prev) =>
+                                    prev.map((t) =>
+                                      t.id === trigger.id && t.type === "time_of_day"
+                                        ? { ...t, end: e.target.value }
+                                        : t,
+                                    ),
+                                  )
+                                }
+                                className="rounded border border-slate-700 bg-[#10141a] px-1.5 py-1 text-[11px] text-white"
+                              />
+                            </div>
+                          )}
+
+                          {trigger.type === "sensor" && (
+                            <div className="grid grid-cols-3 gap-1.5">
+                              <input
+                                type="text"
+                                value={trigger.message_types.join(",")}
+                                onChange={(e) =>
+                                  setDynamicTriggers((prev) =>
+                                    prev.map((t) =>
+                                      t.id === trigger.id && t.type === "sensor"
+                                        ? {
+                                            ...t,
+                                            message_types: e.target.value
+                                              .split(",")
+                                              .map((s) => s.trim().toUpperCase())
+                                              .filter(Boolean),
+                                          }
+                                        : t,
+                                    ),
+                                  )
+                                }
+                                placeholder="SENSOR,PANIC"
+                                className="rounded border border-slate-700 bg-[#10141a] px-1.5 py-1 text-[11px] text-white"
+                              />
+                              <input
+                                type="number"
+                                min={1}
+                                value={trigger.min_count}
+                                onChange={(e) =>
+                                  setDynamicTriggers((prev) =>
+                                    prev.map((t) =>
+                                      t.id === trigger.id && t.type === "sensor"
+                                        ? {
+                                            ...t,
+                                            min_count: Number(e.target.value) || 1,
+                                          }
+                                        : t,
+                                    ),
+                                  )
+                                }
+                                placeholder="min count"
+                                className="rounded border border-slate-700 bg-[#10141a] px-1.5 py-1 text-[11px] text-white"
+                              />
+                              <input
+                                type="number"
+                                min={1}
+                                value={trigger.lookback_seconds}
+                                onChange={(e) =>
+                                  setDynamicTriggers((prev) =>
+                                    prev.map((t) =>
+                                      t.id === trigger.id && t.type === "sensor"
+                                        ? {
+                                            ...t,
+                                            lookback_seconds:
+                                              Number(e.target.value) || 60,
+                                          }
+                                        : t,
+                                    ),
+                                  )
+                                }
+                                placeholder="window s"
+                                className="rounded border border-slate-700 bg-[#10141a] px-1.5 py-1 text-[11px] text-white"
+                              />
+                            </div>
+                          )}
+
+                          <div className="mt-1.5 flex items-center gap-1.5">
+                            <span className="text-[10px] text-slate-500">→ resize to</span>
+                            <select
+                              value={
+                                trigger.resize_to === "min" || trigger.resize_to === "max"
+                                  ? trigger.resize_to
+                                  : "custom"
+                              }
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setDynamicTriggers((prev) =>
+                                  prev.map((t) =>
+                                    t.id === trigger.id
+                                      ? {
+                                          ...t,
+                                          resize_to:
+                                            v === "min" || v === "max"
+                                              ? v
+                                              : typeof t.resize_to === "number"
+                                                ? t.resize_to
+                                                : dynamicMaxRadiusMeters,
+                                        }
+                                      : t,
+                                  ),
+                                );
+                              }}
+                              className="rounded border border-slate-700 bg-[#10141a] px-1.5 py-1 text-[11px] text-white"
+                            >
+                              <option value="min">min</option>
+                              <option value="max">max</option>
+                              <option value="custom">custom (m)</option>
+                            </select>
+                            {trigger.resize_to !== "min" &&
+                              trigger.resize_to !== "max" && (
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={Number(trigger.resize_to) || 0}
+                                  onChange={(e) =>
+                                    setDynamicTriggers((prev) =>
+                                      prev.map((t) =>
+                                        t.id === trigger.id
+                                          ? {
+                                              ...t,
+                                              resize_to:
+                                                Number(e.target.value) || 0,
+                                            }
+                                          : t,
+                                      ),
+                                    )
+                                  }
+                                  className="w-20 rounded border border-slate-700 bg-[#10141a] px-1.5 py-1 text-[11px] text-white"
+                                />
+                              )}
+                          </div>
+                        </div>
+                      ))}
+                      <p className="text-[10px] text-slate-500">
+                        Rules evaluate top-down on the server. First match sets the live radius.
+                      </p>
+                    </div>
+                  )}
+                </div> */}
               </div>
             )}
 
