@@ -86,22 +86,27 @@ export default function Navbar() {
   const guestToken = getGuestAccessToken();
   const guestSessionActive = Boolean(guestToken);
   const isLoggedIn = Boolean(token);
-  const isPrivateAdministrator =
-    String(user?.role ?? "").toLowerCase() === "administrator" &&
-    String(user?.accountType ?? user?.account_type ?? "").toUpperCase() ===
-      "PRIVATE";
+  const normalizedAccountType = String(
+    user?.accountType ?? user?.account_type ?? "",
+  ).toUpperCase();
   const isAdministrator =
     String(user?.role ?? "").toLowerCase() === "administrator";
+  // Member-invite QR is available to Private (multi-user) and Exclusive
+  // (admin + 1 invited user) account administrators.
+  const canInviteUserMember =
+    isAdministrator &&
+    (normalizedAccountType === "PRIVATE" ||
+      normalizedAccountType === "EXCLUSIVE");
 
   const visibleAppRoutes = useMemo(
     () =>
       appRoutes.filter((route) => {
-        if (route.path === "/qr") return isPrivateAdministrator;
+        if (route.path === "/qr") return canInviteUserMember;
         if (route.path === "/guest-access-qr") return isAdministrator;
         if (route.path === "/guest-arrival-messages") return isAdministrator;
         return true;
       }),
-    [isAdministrator, isPrivateAdministrator],
+    [isAdministrator, canInviteUserMember],
   );
 
   const sessionNavRoutes: NavRouteItem[] = useMemo(() => {

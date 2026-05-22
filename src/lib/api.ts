@@ -20,6 +20,24 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+/** Read a human-readable message from Hex Zone API error bodies (envelope or FastAPI). */
+export function parseApiErrorBody(data: unknown): string {
+  if (typeof data === "string" && data.trim().length > 0) {
+    return data.trim();
+  }
+  if (!data || typeof data !== "object") return "";
+  const row = data as Record<string, unknown>;
+  const nested =
+    row.error && typeof row.error === "object" && row.error !== null
+      ? String((row.error as { message?: string }).message ?? "").trim()
+      : "";
+  const message =
+    typeof row.message === "string" ? row.message.trim() : "";
+  const detail =
+    typeof row.detail === "string" ? row.detail.trim() : "";
+  return message || nested || detail;
+}
+
 export interface LoginPayload {
   email: string;
   password: string;

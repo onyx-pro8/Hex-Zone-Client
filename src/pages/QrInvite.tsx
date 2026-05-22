@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import QRCode from "react-qr-code";
 import { Copy, Hexagon, QrCode, RefreshCw } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
-import { generateQrRegistrationToken } from "../lib/api";
+import { generateQrRegistrationToken, parseApiErrorBody } from "../lib/api";
 
 export default function QrInvite() {
   const { user } = useAuth();
@@ -11,10 +11,17 @@ export default function QrInvite() {
   const [loadingToken, setLoadingToken] = useState(false);
   const [tokenError, setTokenError] = useState("");
   const userZoneId = String(user?.zone_id ?? user?.zoneId ?? "");
-  const isPrivateAdministrator =
-    String(user?.role ?? "").toLowerCase() === "administrator" &&
-    String(user?.accountType ?? user?.account_type ?? "").toUpperCase() ===
-      "PRIVATE";
+  const normalizedAccountType = String(
+    user?.accountType ?? user?.account_type ?? "",
+  ).toUpperCase();
+  const isAdministrator =
+    String(user?.role ?? "").toLowerCase() === "administrator";
+  // Private accounts: many invitable users. Exclusive accounts: exactly 1.
+  const canInviteUserMember =
+    isAdministrator &&
+    (normalizedAccountType === "PRIVATE" ||
+      normalizedAccountType === "EXCLUSIVE");
+  const isExclusiveAccount = normalizedAccountType === "EXCLUSIVE";
 
   const joinUrl = useMemo(() => {
     if (!joinToken) return "";
@@ -25,7 +32,7 @@ export default function QrInvite() {
   }, [joinToken]);
 
   const requestToken = async () => {
-    if (!userZoneId || !isPrivateAdministrator) return;
+    if (!userZoneId || !canInviteUserMember) return;
     setLoadingToken(true);
     setTokenError("");
     try {
@@ -38,27 +45,53 @@ export default function QrInvite() {
       setJoinToken(response.token);
     } catch (e: unknown) {
       setJoinToken("");
-      const status =
-        e && typeof e === "object" && "response" in e
-          ? Number((e as { response?: { status?: number } }).response?.status ?? 0)
-          : 0;
-      setTokenError(
-        status === 403
-          ? "Only private administrators can generate invite QR codes."
-          : "You can not create a QR invite token for this zone or account.",
-      );
+      const errObj =
+        e && typeof e === "object"
+          ? (e as {
+              message?: unknown;
+              response?: { status?: number; data?: unknown };
+            })
+          : undefined;
+      const status = Number(errObj?.response?.status ?? 0);
+      const serverDetail = parseApiErrorBody(errObj?.response?.data);
+      const networkMessage =
+        typeof errObj?.message === "string" ? errObj.message : "";
+      const statusLabel = status > 0 ? `HTTP ${status}` : "Network error";
+
+      if (serverDetail) {
+        setTokenError(`${statusLabel}: ${serverDetail}`);
+      } else if (status === 403) {
+        setTokenError(
+          `${statusLabel}: access denied. Sign out, sign in again as the Exclusive administrator, ` +
+            `then retry. If it persists, confirm Render deployed commit 5578a6a or later.`,
+        );
+      } else if (status === 401) {
+        setTokenError(
+          "HTTP 401: your session token is missing or expired. Sign out and sign in again as the Exclusive administrator.",
+        );
+      } else if (status === 0) {
+        setTokenError(
+          `Network error reaching the server${
+            networkMessage ? ` (${networkMessage})` : ""
+          }. Check the API base URL and that the backend is up.`,
+        );
+      } else {
+        setTokenError(
+          `${statusLabel}: could not create a QR invite token for this zone or account.`,
+        );
+      }
     } finally {
       setLoadingToken(false);
     }
   };
 
   useEffect(() => {
-    if (!userZoneId || !isPrivateAdministrator) {
+    if (!userZoneId || !canInviteUserMember) {
       setJoinToken("");
       return;
     }
     void requestToken();
-  }, [userZoneId]);
+  }, [userZoneId, canInviteUserMember]);
 
   const copyLink = async () => {
     if (!joinUrl) return;
@@ -81,8 +114,9 @@ export default function QrInvite() {
           QR invite
         </h1>
         <p className="mt-3 max-w-2xl text-lg leading-relaxed text-slate-400">
-          Generate a code that links to your zone. New teammates scan it, enter
-          their details, and register on your private network.
+          {isExclusiveAccount
+            ? "Exclusive accounts can invite exactly 1 user. They scan this code, enter their details, and register under your account."
+            : "Generate a code that links to your zone. New teammates scan it, enter their details, and register on your private network."}
         </p>
       </div>
 
@@ -99,9 +133,10 @@ export default function QrInvite() {
               first, then return here to share an invite.
             </p>
           )}
-          {!isPrivateAdministrator && (
+          {!canInviteUserMember && (
             <p className="mt-3 text-sm leading-relaxed text-amber-300">
-              QR invites are available only to private administrators.
+              QR invites are available only to Private and Exclusive
+              administrators.
             </p>
           )}
           {!!userZoneId && (
@@ -153,7 +188,7 @@ export default function QrInvite() {
                 <button
                   type="button"
                   onClick={() => void requestToken()}
-                  disabled={loadingToken || !userZoneId || !isPrivateAdministrator}
+                  disabled={loadingToken || !userZoneId || !canInviteUserMember}
                   className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-slate-700/80 bg-[#151a20]/90 px-4 py-2.5 text-sm font-medium text-slate-200 transition hover:border-[#00E5D1]/50 hover:text-[#00E5D1] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <RefreshCw className="h-4 w-4" strokeWidth={2} />
@@ -164,9 +199,11 @@ export default function QrInvite() {
           ) : (
             <p className="mt-6 text-sm text-slate-500">
               {userZoneId
-                ? isPrivateAdministrator
-                  ? "Generate a token to display your QR code invite."
-                  : "Only private administrators can generate QR invite tokens."
+                ? canInviteUserMember
+                  ? isExclusiveAccount
+                    ? "Generate a token to invite your single Exclusive user."
+                    : "Generate a token to display your QR code invite."
+                  : "Only Private and Exclusive administrators can generate QR invite tokens."
                 : "Your account needs a zone ID to generate a QR code."}
             </p>
           )}

@@ -122,7 +122,9 @@ export default function CreateAccount() {
       return;
     }
     if (userOnExclusiveAccount) {
-      setError("User registration is not available for exclusive accounts.");
+      setError(
+        "Exclusive accounts only allow 1 invited user. Ask the administrator for a QR invite instead of self-registering.",
+      );
       return;
     }
     if (registrationType === "USER" && !accountOwnerId.trim()) {
@@ -511,8 +513,9 @@ export default function CreateAccount() {
             </form>
             {userOnExclusiveAccount && (
               <p className="mt-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
-                User registration is disabled for exclusive accounts. Choose a
-                different account type or register as administrator.
+                Exclusive accounts only allow 1 invited user. Ask your
+                administrator to send a QR invite from their dashboard, then
+                join via that link.
               </p>
             )}
 
