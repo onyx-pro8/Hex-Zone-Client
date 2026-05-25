@@ -13,6 +13,14 @@ function sortByNewest(list: Message[]) {
   );
 }
 
+// Polls `GET /messages` + `GET /message-feature/blocks` while the user is
+// active. Polling is the **fallback** path; the WebSocket triggers the same
+// hydrate on the fly via `parseInboxSocketRefetchSignal`. Loop is built around
+// refs so React Strict Mode and dependency changes (block rules, callbacks)
+// never schedule a second concurrent poll, which previously caused an O(N)
+// loop hammering the API multiple times per second.
+const POLL_INTERVAL_MS = 30_000;
+
 export function useMessageFeed(zoneIds: string[]) {
   const { token, user } = useAuth();
   const { setMessages: setGlobalMessages } = useAppState();
@@ -22,19 +30,26 @@ export function useMessageFeed(zoneIds: string[]) {
   const [error, setError] = useState<string | null>(null);
   const ownerId = Number(user?.id);
   const refetchDebounceRef = useRef<number | undefined>(undefined);
+  const blockRulesRef = useRef<MessageFeatureBlock[]>([]);
+  const setGlobalMessagesRef = useRef(setGlobalMessages);
 
-  const applyInboxBatch = useCallback(
-    (batch: Message[], blocks: MessageFeatureBlock[]) => {
-      const visible = filterMessagesForBlocks(batch, blocks);
-      if (visible.length > 0) {
-        setLocalMessages(sortByNewest(visible));
-      } else {
-        setLocalMessages([]);
-        setGlobalMessages([]);
-      }
-    },
-    [setGlobalMessages],
-  );
+  useEffect(() => {
+    blockRulesRef.current = blockRules;
+  }, [blockRules]);
+
+  useEffect(() => {
+    setGlobalMessagesRef.current = setGlobalMessages;
+  }, [setGlobalMessages]);
+
+  const applyInboxBatch = useCallback((batch: Message[], blocks: MessageFeatureBlock[]) => {
+    const visible = filterMessagesForBlocks(batch, blocks);
+    if (visible.length > 0) {
+      setLocalMessages(sortByNewest(visible));
+    } else {
+      setLocalMessages([]);
+      setGlobalMessagesRef.current([]);
+    }
+  }, []);
 
   const hydrateInbox = useCallback(async () => {
     if (!Number.isFinite(ownerId) || ownerId <= 0 || !token) {
@@ -48,7 +63,9 @@ export function useMessageFeed(zoneIds: string[]) {
       }),
       listMessageFeatureBlocks(),
     ]);
-    const rules = blocksResult.error ? blockRules : (blocksResult.data ?? []);
+    const rules = blocksResult.error
+      ? blockRulesRef.current
+      : (blocksResult.data ?? []);
     if (!blocksResult.error) {
       setBlockRules(rules);
     }
@@ -59,7 +76,7 @@ export function useMessageFeed(zoneIds: string[]) {
       setError(null);
       applyInboxBatch(batch, rules);
     }
-  }, [ownerId, token, blockRules, applyInboxBatch]);
+  }, [ownerId, token, applyInboxBatch]);
 
   const scheduleInboxRefetchFromSocket = useCallback(() => {
     window.clearTimeout(refetchDebounceRef.current);
@@ -98,35 +115,49 @@ export function useMessageFeed(zoneIds: string[]) {
   useEffect(() => {
     if (!Number.isFinite(ownerId) || ownerId <= 0 || !token) {
       setLocalMessages([]);
-      setGlobalMessages([]);
+      setGlobalMessagesRef.current([]);
       return;
     }
     let active = true;
     let pollTimer: number | undefined;
+    let inFlight = false;
 
     const poll = async () => {
+      if (!active || inFlight) {
+        if (active && !pollTimer) {
+          pollTimer = window.setTimeout(poll, POLL_INTERVAL_MS);
+        }
+        return;
+      }
+      inFlight = true;
       setLoading(true);
-      const [messagesResult, blocksResult] = await Promise.all([
-        listMessages({
-          owner_id: ownerId,
-          skip: 0,
-          limit: 100,
-        }),
-        listMessageFeatureBlocks(),
-      ]);
-      if (!active) return;
-      const rules = blocksResult.error ? blockRules : (blocksResult.data ?? []);
-      if (!blocksResult.error) {
-        setBlockRules(rules);
+      try {
+        const [messagesResult, blocksResult] = await Promise.all([
+          listMessages({
+            owner_id: ownerId,
+            skip: 0,
+            limit: 100,
+          }),
+          listMessageFeatureBlocks(),
+        ]);
+        if (!active) return;
+        const rules = blocksResult.error
+          ? blockRulesRef.current
+          : (blocksResult.data ?? []);
+        if (!blocksResult.error) {
+          setBlockRules(rules);
+        }
+        if (messagesResult.error) {
+          setError(messagesResult.error);
+        } else {
+          setError(null);
+          applyInboxBatch(messagesResult.data ?? [], rules);
+        }
+      } finally {
+        inFlight = false;
+        if (active) setLoading(false);
+        if (active) pollTimer = window.setTimeout(poll, POLL_INTERVAL_MS);
       }
-      if (messagesResult.error) {
-        setError(messagesResult.error);
-      } else {
-        setError(null);
-        applyInboxBatch(messagesResult.data ?? [], rules);
-      }
-      setLoading(false);
-      pollTimer = window.setTimeout(poll, 8000);
     };
 
     void poll();
@@ -135,7 +166,7 @@ export function useMessageFeed(zoneIds: string[]) {
       active = false;
       if (pollTimer) window.clearTimeout(pollTimer);
     };
-  }, [token, setGlobalMessages, ownerId, blockRules, applyInboxBatch]);
+  }, [token, ownerId, applyInboxBatch]);
 
   useEffect(() => {
     setGlobalMessages(messages);
