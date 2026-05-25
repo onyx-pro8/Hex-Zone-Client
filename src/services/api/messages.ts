@@ -404,8 +404,18 @@ export function messageFromGeoPropagation(
   const zoneId =
     (typeof propagation.zone_id === "string" && propagation.zone_id.trim()) ||
     (propagation.zone_ids?.[0] ?? "");
-  const senderId = propagation.sender_id;
-  if (typeof senderId !== "number" || !Number.isFinite(senderId)) {
+  const meta =
+    propagation.metadata && typeof propagation.metadata === "object"
+      ? (propagation.metadata as Record<string, unknown>)
+      : null;
+  const senderFromMeta = meta?.sender_id ?? meta?.senderId;
+  const senderId =
+    typeof propagation.sender_id === "number"
+      ? propagation.sender_id
+      : typeof senderFromMeta === "number"
+        ? senderFromMeta
+        : null;
+  if (senderId == null || !Number.isFinite(senderId)) {
     return null;
   }
   const scopeRaw = String(propagation.scope ?? "public").toLowerCase();

@@ -113,11 +113,12 @@ export function useMessageFeed(zoneIds: string[]) {
     }
   }, [ownerId, token, applyInboxBatch]);
 
+  /** Background reconcile with GET /messages (PERMISSION merge, etc.). Not used for geo alarms — those prepend from the WS payload. */
   const scheduleInboxRefetchFromSocket = useCallback(() => {
     window.clearTimeout(refetchDebounceRef.current);
     refetchDebounceRef.current = window.setTimeout(() => {
       void hydrateInbox();
-    }, 2000);
+    }, 400);
   }, [hydrateInbox]);
 
   const { lastMessage, status } = useWebSocket({
@@ -130,7 +131,6 @@ export function useMessageFeed(zoneIds: string[]) {
     const geoEvent = parseMessageFeatureSocketEvent(lastMessage);
     if (geoEvent?.type === "NEW_GEO_MESSAGE") {
       applyGeoPropagationToInbox(geoEvent.data);
-      scheduleInboxRefetchFromSocket();
       return;
     }
     const row = parseMessageSocketPayload(lastMessage);

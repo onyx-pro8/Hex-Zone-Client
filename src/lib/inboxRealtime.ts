@@ -1,7 +1,7 @@
 import type { MessageFeaturePropagationResponse } from "../services/api/messageFeature";
 
-/** Dispatched when `POST /message-feature/messages/propagate` succeeds (e.g. API Docs). */
-export const GEO_PROPAGATION_INBOX_EVENT = "hexzone-geo-propagation-inbox";
+/** Custom event: geo propagate API returned — update Messages inbox without waiting for poll. */
+export const GEO_PROPAGATION_INBOX_EVENT = "hexzone:geo-propagation-inbox";
 
 export type GeoPropagationInboxDetail = {
   propagation: MessageFeaturePropagationResponse;

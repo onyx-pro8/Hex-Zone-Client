@@ -69,6 +69,22 @@ export function isAccessGuestChannelType(type: MessageType): boolean {
   return type === "PERMISSION" || type === "CHAT";
 }
 
+/** Alarm/alert types that must use geo propagation (not legacy POST /messages). */
+const GEO_PROPAGATION_MESSAGE_TYPES: ReadonlySet<MessageType> = new Set([
+  "SENSOR",
+  "PANIC",
+  "NS_PANIC",
+  "UNKNOWN",
+  "PRIVATE",
+  "PA",
+  "SERVICE",
+  "WELLNESS_CHECK",
+]);
+
+export function usesGeoPropagationMessageType(type: MessageType): boolean {
+  return GEO_PROPAGATION_MESSAGE_TYPES.has(type);
+}
+
 export function toMessageTypeLabel(type: MessageType): string {
   return MESSAGE_TYPE_META[type].displayLabel;
 }

@@ -5,6 +5,12 @@ import { MessageDetail } from "../components/messages/MessageDetail";
 import { MessageBlocksPanel } from "../components/messages/MessageBlocksPanel";
 import { useMessageFeed } from "../hooks/useMessageFeed";
 import { sendMessage, type MessageVisibility } from "../services/api/messages";
+import {
+  propagateMessageFeatureMessage,
+  type MessageFeatureType,
+} from "../services/api/messageFeature";
+import { dispatchGeoPropagationInbox } from "../lib/inboxRealtime";
+import { resolveGuestBrowserDeviceId } from "../lib/guestDeviceId";
 import { getOwners, type OwnerListItem } from "../services/api/auth";
 import { getMembers, type Member } from "../services/api/members";
 import { getZones } from "../services/api/zones";
@@ -16,6 +22,7 @@ import {
   isAccessGuestChannelType,
   isPrivateMessageType,
   toMessageTypeLabel,
+  usesGeoPropagationMessageType,
   type MessageCategory,
   type MessageType,
 } from "../lib/messageTypes";
@@ -289,6 +296,57 @@ export default function Messages() {
       return;
     }
     setComposeStatus("Sending...");
+
+    if (usesGeoPropagationMessageType(composeType)) {
+      const position =
+        user?.mapCenter ??
+        user?.map_center ??
+        null;
+      if (
+        !position ||
+        !Number.isFinite(position.latitude) ||
+        !Number.isFinite(position.longitude)
+      ) {
+        setComposeStatus(
+          "Set your location on the map (or update member location) before sending alarms.",
+        );
+        return;
+      }
+      const featureType = composeType as MessageFeatureType;
+      const propagateResult = await propagateMessageFeatureMessage({
+        type: featureType,
+        hid: resolveGuestBrowserDeviceId(),
+        msg: { description: composeText.trim() },
+        position: {
+          latitude: position.latitude,
+          longitude: position.longitude,
+        },
+        ...(isPrivateMessageType(composeType)
+          ? { receiver_owner_id: parsedReceiverId }
+          : {}),
+      });
+      if (propagateResult.error) {
+        setComposeStatus(propagateResult.error);
+        return;
+      }
+      const body = propagateResult.data;
+      if (body && !body.skipped && body.id) {
+        dispatchGeoPropagationInbox({
+          ...body,
+          sender_id: body.sender_id ?? (Number.isFinite(ownerId) ? ownerId : undefined),
+          zone_id:
+            body.zone_id ??
+            body.zone_ids?.[0] ??
+            (composeZoneId ?? undefined),
+        });
+      }
+      setComposeStatus("Sent.");
+      setComposeText("");
+      if (isPrivateMessageType(composeType)) setComposeReceiverId("");
+      void refreshInbox();
+      return;
+    }
+
     const result = await sendMessage({
       message: composeText.trim(),
       type: composeType,

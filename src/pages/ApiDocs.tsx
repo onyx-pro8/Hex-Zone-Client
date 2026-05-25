@@ -824,7 +824,21 @@ export default function ApiDocs() {
         try {
           const body = JSON.parse(text) as MessageFeaturePropagationResponse;
           if (!body.skipped && body.id) {
-            dispatchGeoPropagationInbox(body);
+            const enriched: MessageFeaturePropagationResponse = {
+              ...body,
+              sender_id:
+                body.sender_id ??
+                (user?.id != null ? Number(user.id) : undefined),
+              zone_id:
+                body.zone_id ??
+                body.zone_ids?.[0] ??
+                (typeof user?.zone_id === "string"
+                  ? user.zone_id
+                  : typeof user?.zoneId === "string"
+                    ? user.zoneId
+                    : undefined),
+            };
+            dispatchGeoPropagationInbox(enriched);
           }
         } catch {
           /* response shown in panel only */
