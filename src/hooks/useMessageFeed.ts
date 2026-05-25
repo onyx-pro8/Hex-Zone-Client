@@ -1,8 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { listMessages, type Message } from "../services/api/messages";
+import {
+  listMessages,
+  messageFromGeoPropagation,
+  shouldShowGeoPropagationInInbox,
+  type Message,
+} from "../services/api/messages";
 import { listMessageFeatureBlocks, type MessageFeatureBlock } from "../services/api/messageFeature";
 import { filterMessagesForBlocks } from "../lib/messageBlocks";
-import { parseInboxSocketRefetchSignal } from "../services/socket/messageSocket";
+import {
+  GEO_PROPAGATION_INBOX_EVENT,
+  type GeoPropagationInboxDetail,
+} from "../lib/inboxRealtime";
+import {
+  parseMessageFeatureSocketEvent,
+  parseMessageSocketPayload,
+} from "../services/socket/messageSocket";
 import { useAuth } from "./useAuth";
 import { useAppState } from "../state/app/AppStateContext";
 import { useWebSocket } from "./useWebSocket";
@@ -51,6 +63,29 @@ export function useMessageFeed(zoneIds: string[]) {
     }
   }, []);
 
+  /** Insert one row immediately from WebSocket/API (no debounced GET). */
+  const prependInboxMessage = useCallback((incoming: Message) => {
+    const blocks = blockRulesRef.current;
+    setLocalMessages((prev) => {
+      const merged = sortByNewest([
+        incoming,
+        ...prev.filter((row) => row.id !== incoming.id),
+      ]);
+      return filterMessagesForBlocks(merged, blocks);
+    });
+    setError(null);
+  }, []);
+
+  const applyGeoPropagationToInbox = useCallback(
+    (propagation: GeoPropagationInboxDetail["propagation"]) => {
+      if (!Number.isFinite(ownerId) || ownerId <= 0) return;
+      if (!shouldShowGeoPropagationInInbox(propagation, ownerId)) return;
+      const row = messageFromGeoPropagation(propagation);
+      if (row) prependInboxMessage(row);
+    },
+    [ownerId, prependInboxMessage],
+  );
+
   const hydrateInbox = useCallback(async () => {
     if (!Number.isFinite(ownerId) || ownerId <= 0 || !token) {
       return;
@@ -82,7 +117,7 @@ export function useMessageFeed(zoneIds: string[]) {
     window.clearTimeout(refetchDebounceRef.current);
     refetchDebounceRef.current = window.setTimeout(() => {
       void hydrateInbox();
-    }, 400);
+    }, 2000);
   }, [hydrateInbox]);
 
   const { lastMessage, status } = useWebSocket({
@@ -92,9 +127,45 @@ export function useMessageFeed(zoneIds: string[]) {
 
   useEffect(() => {
     if (!lastMessage) return;
-    if (!parseInboxSocketRefetchSignal(lastMessage)) return;
-    scheduleInboxRefetchFromSocket();
-  }, [lastMessage, scheduleInboxRefetchFromSocket]);
+    const geoEvent = parseMessageFeatureSocketEvent(lastMessage);
+    if (geoEvent?.type === "NEW_GEO_MESSAGE") {
+      applyGeoPropagationToInbox(geoEvent.data);
+      scheduleInboxRefetchFromSocket();
+      return;
+    }
+    const row = parseMessageSocketPayload(lastMessage);
+    if (row) {
+      prependInboxMessage(row);
+      scheduleInboxRefetchFromSocket();
+      return;
+    }
+    try {
+      const parsed = JSON.parse(lastMessage) as { type?: string };
+      if (
+        parsed.type === "PERMISSION_MESSAGE" ||
+        parsed.type === "unexpected_guest" ||
+        parsed.type === "guest_is_here"
+      ) {
+        scheduleInboxRefetchFromSocket();
+      }
+    } catch {
+      /* ignore non-JSON frames */
+    }
+  }, [
+    lastMessage,
+    applyGeoPropagationToInbox,
+    prependInboxMessage,
+    scheduleInboxRefetchFromSocket,
+  ]);
+
+  useEffect(() => {
+    const onGeoFromApi = (event: Event) => {
+      const detail = (event as CustomEvent<GeoPropagationInboxDetail>).detail;
+      if (detail?.propagation) applyGeoPropagationToInbox(detail.propagation);
+    };
+    window.addEventListener(GEO_PROPAGATION_INBOX_EVENT, onGeoFromApi);
+    return () => window.removeEventListener(GEO_PROPAGATION_INBOX_EVENT, onGeoFromApi);
+  }, [applyGeoPropagationToInbox]);
 
   useEffect(() => {
     return () => {

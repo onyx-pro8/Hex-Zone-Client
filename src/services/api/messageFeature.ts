@@ -33,12 +33,21 @@ export type MessageFeaturePayload = {
 };
 
 export type MessageFeaturePropagationResponse = {
-  id: string;
+  id: string | null;
   type: string;
   zone_ids: string[];
+  zone_id?: string | null;
+  sender_id?: number | null;
+  category?: string | null;
+  scope?: string | null;
+  text?: string | null;
   delivered_owner_ids: number[];
   blocked_owner_ids: number[];
   created_at: string;
+  skipped?: boolean;
+  reason?: string | null;
+  metadata?: Record<string, unknown> | null;
+  fanout?: Record<string, unknown> | null;
 };
 
 export type MessageFeaturePermissionDecision = {

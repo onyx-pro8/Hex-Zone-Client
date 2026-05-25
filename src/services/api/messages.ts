@@ -1,4 +1,5 @@
 import { API_BASE_URL, request } from "./client";
+import type { MessageFeaturePropagationResponse } from "./messageFeature";
 import {
   getMessageTypeCategory,
   getMessageScopeForType,
@@ -395,6 +396,46 @@ function messagesListUrl(): string {
   const base = API_BASE_URL.replace(/\/+$/, "");
   return `${base}/messages/`;
 }
+
+/** Map a WebSocket/API geo propagation payload into a Messages inbox row. */
+export function messageFromGeoPropagation(
+  propagation: MessageFeaturePropagationResponse,
+): Message | null {
+  const zoneId =
+    (typeof propagation.zone_id === "string" && propagation.zone_id.trim()) ||
+    (propagation.zone_ids?.[0] ?? "");
+  const senderId = propagation.sender_id;
+  if (typeof senderId !== "number" || !Number.isFinite(senderId)) {
+    return null;
+  }
+  const scopeRaw = String(propagation.scope ?? "public").toLowerCase();
+  const visibility: MessageVisibility =
+    scopeRaw === "private" ? "private" : "public";
+  const type = toMessageType(propagation.type) ?? "UNKNOWN";
+  const text =
+    (typeof propagation.text === "string" && propagation.text.trim()) ||
+    String(propagation.type ?? "ALARM");
+  const createdAt = propagation.created_at;
+  const id = propagation.id;
+  if (id == null || !zoneId || typeof createdAt !== "string") {
+    return null;
+  }
+  return normalizeMessage({
+    id,
+    zone_id: zoneId,
+    sender_id: senderId,
+    receiver_id: null,
+    type,
+    category: propagation.category ?? getMessageTypeCategory(type),
+    scope: visibility,
+    visibility,
+    message: text,
+    created_at: createdAt,
+    raw_payload: propagation.metadata ?? null,
+  });
+}
+
+export { shouldShowGeoPropagationInInbox } from "../socket/messageSocket";
 
 /**
  * Member message inbox. Server: `GET ${VITE_API_BASE_URL}/messages/` with query params

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { dispatchGeoPropagationInbox } from "../lib/inboxRealtime";
+import type { MessageFeaturePropagationResponse } from "../services/api/messageFeature";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL || "https://hex-zone-server.onrender.com";
@@ -818,6 +820,15 @@ export default function ApiDocs() {
       );
       if (!res.ok) {
         setError(`HTTP ${res.status}`);
+      } else if (selected.id === "message-feature-propagate") {
+        try {
+          const body = JSON.parse(text) as MessageFeaturePropagationResponse;
+          if (!body.skipped && body.id) {
+            dispatchGeoPropagationInbox(body);
+          }
+        } catch {
+          /* response shown in panel only */
+        }
       }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

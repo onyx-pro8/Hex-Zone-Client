@@ -29,14 +29,26 @@ function isPropagationResponse(
 ): value is MessageFeaturePropagationResponse {
   if (!value || typeof value !== "object") return false;
   const row = value as Record<string, unknown>;
+  if (row.skipped === true) return false;
   return (
     row.id != null &&
     typeof row.type === "string" &&
-    Array.isArray(row.zone_ids) &&
     Array.isArray(row.delivered_owner_ids) &&
     Array.isArray(row.blocked_owner_ids) &&
     typeof row.created_at === "string"
   );
+}
+
+/** Whether this viewer should see a geo propagation row in the Messages inbox. */
+export function shouldShowGeoPropagationInInbox(
+  propagation: MessageFeaturePropagationResponse,
+  viewerOwnerId: number,
+): boolean {
+  if (!Number.isFinite(viewerOwnerId) || viewerOwnerId <= 0) return false;
+  if (propagation.skipped) return false;
+  const senderId = propagation.sender_id;
+  if (typeof senderId === "number" && senderId === viewerOwnerId) return true;
+  return (propagation.delivered_owner_ids ?? []).some((id) => Number(id) === viewerOwnerId);
 }
 
 function isPermissionDecision(
