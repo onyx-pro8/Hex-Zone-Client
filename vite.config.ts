@@ -1,8 +1,21 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 
+/** Vercel waits for the Node process to exit; Vitest-in-Vite can leave handles open. */
+function forceExitAfterBuild(): Plugin {
+  return {
+    name: 'force-exit-after-build',
+    apply: 'build',
+    closeBundle() {
+      if (process.env.VERCEL || process.env.CI) {
+        setTimeout(() => process.exit(0), 0);
+      }
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), forceExitAfterBuild()],
   build: {
     chunkSizeWarningLimit: 1600,
     rollupOptions: {
@@ -25,15 +38,10 @@ export default defineConfig({
   server: {
     port: 5173,
     host: '0.0.0.0',
-    allowedHosts: ['hex-zone-client.onrender.com']
+    allowedHosts: ['hex-zone-client.onrender.com'],
   },
   preview: {
     host: '0.0.0.0',
-    allowedHosts: ['hex-zone-client.onrender.com']
+    allowedHosts: ['hex-zone-client.onrender.com'],
   },
-  test: {
-    environment: 'jsdom',
-    globals: true,
-    setupFiles: 'src/setupTests.ts'
-  }
 });

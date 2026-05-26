@@ -4934,7 +4934,7 @@ export default function Dashboard() {
           </div>
         </aside>
 
-        <div className="relative min-h-[360px] min-w-0 flex-1 lg:min-h-0">
+        <div className="relative h-[65dvh] min-h-[360px] min-w-0 shrink-0 lg:h-auto lg:min-h-0 lg:shrink lg:flex-1">
           <HexMapperMap
             center={mapCenter}
             mapFitBounds={mapFitBounds}
