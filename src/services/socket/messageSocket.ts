@@ -82,7 +82,7 @@ export function defaultRealtimeWsBase(): string {
     const wsProto = u.protocol === "https:" ? "wss:" : "ws:";
     return `${wsProto}//${u.host}/ws`;
   } catch {
-    return "wss://hex-zone-server.onrender.com/ws";
+    return "wss://zone-weaver-server-7ksef.ondigitalocean.app/ws";
   }
 }
 

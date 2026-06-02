@@ -5,7 +5,7 @@ import { dispatchGeoPropagationInbox } from "../lib/inboxRealtime";
 import type { MessageFeaturePropagationResponse } from "../services/api/messageFeature";
 
 const API_BASE =
-  import.meta.env.VITE_API_BASE_URL || "https://hex-zone-server.onrender.com";
+  import.meta.env.VITE_API_BASE_URL || "https://zone-weaver-server-7ksef.ondigitalocean.app/";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
