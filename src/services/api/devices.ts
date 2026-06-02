@@ -1,6 +1,6 @@
 import { request } from "./client";
 
-export type PushPlatform = "FCM" | "APNS";
+export type PushPlatform = "EXPO" | "FCM" | "APNS";
 
 export type PushTokenPayload = {
   token: string;
