@@ -38,10 +38,10 @@ export default defineConfig({
   server: {
     port: 5173,
     host: '0.0.0.0',
-    allowedHosts: ['hex-zone-client.onrender.com'],
+    allowedHosts: true,
   },
   preview: {
     host: '0.0.0.0',
-    allowedHosts: ['hex-zone-client.onrender.com'],
+    allowedHosts: true,
   },
 });
