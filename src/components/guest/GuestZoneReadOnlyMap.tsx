@@ -19,7 +19,7 @@ function FitToPolygons({ polygons }: Pick<GuestDashboardMapView, "polygons">) {
  */
 export default function GuestZoneReadOnlyMap({ center, polygons }: GuestDashboardMapView) {
   return (
-    <div className="relative min-h-[360px] h-[min(360px,50vh)] w-full overflow-hidden rounded-xl border border-slate-800/80 bg-slate-950 lg:h-[min(calc(100dvh-12rem),720px)] lg:min-h-[min(calc(100dvh-12rem),720px)]">
+    <div className="relative min-h-[360px] h-[min(360px,50vh)] w-full overflow-hidden rounded-xl border border-[#DCE6F2] bg-[#EDF3FB] lg:h-[min(calc(100dvh-12rem),720px)] lg:min-h-[min(calc(100dvh-12rem),720px)]">
       <MapContainer
         center={center}
         zoom={12}
@@ -30,7 +30,7 @@ export default function GuestZoneReadOnlyMap({ center, polygons }: GuestDashboar
         attributionControl
       >
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           attribution='&copy; OSM &copy; <a href="https://carto.com/attributions">CARTO</a>'
         />
         <FitToPolygons polygons={polygons} />
@@ -39,9 +39,9 @@ export default function GuestZoneReadOnlyMap({ center, polygons }: GuestDashboar
             key={`g-${idx}`}
             positions={ring}
             pathOptions={{
-              color: "#00E5D1",
+              color: "#2F80ED",
               weight: 2,
-              fillColor: "#00E5D1",
+              fillColor: "#2F80ED",
               fillOpacity: 0.12,
               opacity: 0.92,
             }}

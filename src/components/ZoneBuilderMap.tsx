@@ -139,12 +139,12 @@ export default function ZoneBuilderMap({
                 direction="top"
                 offset={[0, -4]}
                 opacity={1}
-                className="!rounded-md !border !border-slate-600 !bg-[#1a222c] !px-2 !py-1 !text-xs !text-[#00E5D1] !shadow-lg"
+                className="!rounded-md !border !border-[#DCE6F2] !bg-white !px-2 !py-1 !text-xs !text-[#2F80ED] !shadow-lg"
               >
                 <span className="font-mono">
                   {hex.id.slice(0, 12)}…
                 </span>
-                <span className="text-slate-500"> r{resolution}</span>
+                <span className="text-[#8694AC]"> r{resolution}</span>
               </Tooltip>
               <Popup>
                 <div className="space-y-2 text-sm text-slate-950">
@@ -152,7 +152,7 @@ export default function ZoneBuilderMap({
                   <p className="font-mono text-xs">{hex.id}</p>
                   <button
                     type="button"
-                    className="rounded-md bg-[#00E5D1] px-3 py-1 text-xs font-semibold text-[#0B0E11]"
+                    className="rounded-md bg-[#2F80ED] px-3 py-1 text-xs font-semibold text-white"
                     onClick={() => onCellToggle(hex.id)}
                   >
                     {isActive ? "Remove" : "Select"}
@@ -220,18 +220,18 @@ export default function ZoneBuilderMap({
   }
 
   return (
-    <div className="rounded-[2rem] border border-slate-800/90 bg-slate-950/80 p-4 shadow-glow">
+    <div className="rounded-[2rem] border border-[#DCE6F2] bg-white p-4 shadow-glow">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-white">Zone Builder Map</h2>
-          <p className="text-sm text-slate-400">
+          <h2 className="text-lg font-semibold text-[#0F2C5C]">Zone Builder Map</h2>
+          <p className="text-sm text-[#566784]">
             Click the map to select H3 cells or draw a polygon boundary.
           </p>
         </div>
         <button
           type="button"
           onClick={onPolygonReset}
-          className="rounded-2xl border border-slate-800/80 px-4 py-2 text-sm text-slate-200 transition hover:border-[#00E5D1]/50 hover:text-[#00E5D1]"
+          className="rounded-2xl border border-[#DCE6F2] px-4 py-2 text-sm text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED]"
         >
           Reset polygon
         </button>

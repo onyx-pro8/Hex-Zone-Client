@@ -11,6 +11,7 @@ import {
   getProfile,
   getDevices,
   getRememberMe,
+  getRemoteAppSettings,
   request,
   sendDeviceHeartbeat,
   getStoredToken,
@@ -21,6 +22,7 @@ import {
   type AccountType,
   type RegisterPayload,
 } from "../../services/api";
+import { updateAppSettings, type AppSettings } from "../../lib/appSettings";
 
 type LegacyRegisterPayload = {
   email: string;
@@ -360,6 +362,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isMounted = false;
     };
   }, [token]);
+
+  useEffect(() => {
+    if (!token || !user) return;
+    let cancelled = false;
+    void getRemoteAppSettings().then((res) => {
+      if (cancelled || !res.data) return;
+      updateAppSettings(res.data as Partial<AppSettings>);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [token, user]);
 
   useEffect(() => {
     if (!token || !user) return;

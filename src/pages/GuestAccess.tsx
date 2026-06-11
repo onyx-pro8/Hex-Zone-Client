@@ -468,47 +468,47 @@ export default function GuestAccess() {
 
   if (!hasInvite) {
     return (
-      <section className="mx-auto max-w-lg space-y-4 rounded-3xl border border-slate-800/80 bg-slate-950/80 p-6">
+      <section className="mx-auto max-w-lg space-y-4 rounded-3xl border border-[#DCE6F2] bg-white p-6">
         {authExpiredNotice ? (
           <p
             role="status"
-            className="rounded-md border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"
+            className="rounded-md border border-[#E0992A]/30 bg-[#FBEFD8] px-3 py-2 text-sm text-[#E0992A]"
           >
             Your access was revoked or expired. Sign in again.
           </p>
         ) : null}
-        <p className="inline-flex items-center gap-2 rounded-full bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-200">
+        <p className="inline-flex items-center gap-2 rounded-full bg-[#FBEFD8] px-3 py-1 text-xs font-semibold text-[#E0992A]">
           <QrCode className="h-4 w-4" /> Guest access
         </p>
-        <h1 className="text-xl font-semibold text-white">Invalid link</h1>
-        <p className="text-sm text-slate-400">
+        <h1 className="text-xl font-semibold text-[#0F2C5C]">Invalid link</h1>
+        <p className="text-sm text-[#8694AC]">
           Ask your host for a guest link that includes an invitation token (
-          <span className="font-mono text-slate-300">gt</span>) or a zone id (
-          <span className="font-mono text-slate-300">zid</span>).
+          <span className="font-mono text-[#566784]">gt</span>) or a zone id (
+          <span className="font-mono text-[#566784]">zid</span>).
         </p>
       </section>
     );
   }
 
   return (
-    <section className="mx-auto max-w-lg space-y-5 rounded-3xl border border-slate-800/80 bg-slate-950/80 p-6">
+    <section className="mx-auto max-w-lg space-y-5 rounded-3xl border border-[#DCE6F2] bg-white p-6">
       <header className="space-y-2">
-        <p className="inline-flex items-center gap-2 rounded-full bg-[#00E5D1]/10 px-3 py-1 text-xs font-semibold tracking-[0.14em] text-[#00E5D1]">
+        <p className="inline-flex items-center gap-2 rounded-full bg-[#EDF3FB] px-3 py-1 text-xs font-semibold tracking-[0.14em] text-[#2F80ED]">
           <QrCode className="h-4 w-4" /> Guest access
         </p>
-        <h1 className="text-2xl font-semibold text-slate-100">Check in</h1>
-        <p className="text-sm text-slate-400">
+        <h1 className="text-2xl font-semibold text-[#0F2C5C]">Check in</h1>
+        <p className="text-sm text-[#8694AC]">
           {gt ? (
             <>
               Invitation link{" "}
-              <span className="font-mono text-slate-500">(gt)</span>
+              <span className="font-mono text-[#8694AC]">(gt)</span>
             </>
           ) : null}
-          {gt && zid ? <span className="text-slate-600"> · </span> : null}
+          {gt && zid ? <span className="text-[#8694AC]"> · </span> : null}
           {zid ? (
             <>
               Zone{" "}
-              <span className="font-mono text-[#00E5D1]" title={zid}>
+              <span className="font-mono text-[#2F80ED]" title={zid}>
                 {zid.length > 36 ? `${zid.slice(0, 18)}…` : zid}
               </span>
             </>
@@ -519,7 +519,7 @@ export default function GuestAccess() {
       {authExpiredNotice ? (
         <p
           role="status"
-          className="rounded-md border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-sm text-amber-100"
+          className="rounded-md border border-[#E0992A]/30 bg-[#FBEFD8] px-3 py-2 text-sm text-[#E0992A]"
         >
           Your access was revoked or expired. Sign in again.
         </p>
@@ -530,7 +530,7 @@ export default function GuestAccess() {
           <div>
             <label
               htmlFor="ga-name"
-              className="mb-1 block text-xs uppercase tracking-[0.16em] text-slate-500"
+              className="mb-1 block text-xs uppercase tracking-[0.16em] text-[#8694AC]"
             >
               Your name (required)
             </label>
@@ -539,7 +539,7 @@ export default function GuestAccess() {
               value={guestName}
               onChange={(ev) => setGuestName(ev.target.value)}
               autoComplete="name"
-              className="w-full rounded-md border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100"
+              className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
               required
             />
           </div>
@@ -547,7 +547,7 @@ export default function GuestAccess() {
           <div>
             <label
               htmlFor="ga-event"
-              className="mb-1 block text-xs uppercase tracking-[0.16em] text-slate-500"
+              className="mb-1 block text-xs uppercase tracking-[0.16em] text-[#8694AC]"
             >
               Event id (optional)
             </label>
@@ -556,18 +556,18 @@ export default function GuestAccess() {
               value={eventId}
               onChange={(ev) => setEventId(ev.target.value)}
               disabled={Boolean(eidFromQuery)}
-              className="w-full rounded-md border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 disabled:opacity-70"
+              className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C] disabled:opacity-70"
               placeholder={eidFromQuery ? "Set from link" : "e.g. EVT-2026-GALA"}
             />
           </div>
 
-          <div className="rounded-md border border-slate-800 bg-slate-900/60 p-3 text-xs text-slate-400">
-            <label className="flex cursor-pointer items-center gap-2 text-slate-300">
+          <div className="rounded-md border border-[#DCE6F2] bg-[#F7FAFE] p-3 text-xs text-[#8694AC]">
+            <label className="flex cursor-pointer items-center gap-2 text-[#566784]">
               <input
                 type="checkbox"
                 checked={useAutoDeviceId}
                 onChange={(ev) => setUseAutoDeviceId(ev.target.checked)}
-                className="rounded border-slate-600"
+                className="rounded border-[#DCE6F2]"
               />
               Attach anonymous device fingerprint (recommended)
             </label>
@@ -576,21 +576,21 @@ export default function GuestAccess() {
                 value={deviceId}
                 onChange={(ev) => setDeviceId(ev.target.value)}
                 placeholder="Custom device id"
-                className="mt-2 w-full rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 font-mono text-slate-200"
+                className="mt-2 w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-2 py-1.5 font-mono text-[#566784]"
               />
             ) : null}
           </div>
 
-          <div className="rounded-md border border-slate-800 bg-slate-900/60 p-3 text-xs text-slate-400">
+          <div className="rounded-md border border-[#DCE6F2] bg-[#F7FAFE] p-3 text-xs text-[#8694AC]">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <p className="font-semibold uppercase tracking-[0.16em] text-slate-300">
+              <p className="font-semibold uppercase tracking-[0.16em] text-[#566784]">
                 Location (optional)
               </p>
               <button
                 type="button"
                 onClick={captureLocation}
                 disabled={locating}
-                className="inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200 disabled:opacity-60"
+                className="inline-flex items-center gap-1 rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-2 py-1 text-xs text-[#566784] disabled:opacity-60"
               >
                 {locating ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -601,7 +601,7 @@ export default function GuestAccess() {
               </button>
             </div>
             {position ? (
-              <p className="font-mono text-[11px] text-slate-300">
+              <p className="font-mono text-[11px] text-[#566784]">
                 {position.lat.toFixed(5)}, {position.lng.toFixed(5)}
               </p>
             ) : (
@@ -610,7 +610,7 @@ export default function GuestAccess() {
           </div>
 
           {formError ? (
-            <p className="rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+            <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">
               {formError}
             </p>
           ) : null}
@@ -618,7 +618,7 @@ export default function GuestAccess() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-md bg-[#00E5D1] px-4 py-2.5 text-sm font-bold text-[#0B0E11] disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-md bg-[#2F80ED] px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? "Submitting…" : "Request access"}
           </button>
@@ -626,17 +626,17 @@ export default function GuestAccess() {
       )}
 
       {phase.id === "expected" && (
-        <output className="block space-y-3 rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-4 py-4 text-emerald-50">
+        <output className="block space-y-3 rounded-xl border border-[#2FA24A]/30 bg-[#E3F4E8] px-4 py-4 text-[#2FA24A]">
           <p className="flex items-center gap-2 text-lg font-semibold">
-            <CheckCircle className="h-5 w-5 text-emerald-400" /> You are expected
+            <CheckCircle className="h-5 w-5 text-[#2FA24A]" /> You are expected
           </p>
-          <p className="text-sm leading-relaxed text-emerald-100/90">
+          <p className="text-sm leading-relaxed text-[#2FA24A]">
             {phase.message}
           </p>
           <button
             type="button"
             onClick={reset}
-            className="text-xs font-medium uppercase tracking-[0.14em] text-emerald-200 hover:underline"
+            className="text-xs font-medium uppercase tracking-[0.14em] text-[#2FA24A] hover:underline"
           >
             Check in another guest
           </button>
@@ -644,27 +644,27 @@ export default function GuestAccess() {
       )}
 
       {phase.id === "waiting" && (
-        <output className="block space-y-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-4">
-          <p className="flex items-center gap-2 text-lg font-semibold text-amber-100">
-            <ShieldAlert className="h-5 w-5 text-amber-400" /> Waiting for
+        <output className="block space-y-3 rounded-xl border border-[#E0992A]/30 bg-[#FBEFD8] px-4 py-4">
+          <p className="flex items-center gap-2 text-lg font-semibold text-[#E0992A]">
+            <ShieldAlert className="h-5 w-5 text-[#E0992A]" /> Waiting for
             approval
           </p>
-          <p className="text-sm text-slate-300">{phase.serverMessage}</p>
+          <p className="text-sm text-[#566784]">{phase.serverMessage}</p>
           {(() => {
             const line = pollMessageIfDistinct(phase.serverMessage, phase.pollMessage);
-            return line ? <p className="text-sm text-slate-400">{line}</p> : null;
+            return line ? <p className="text-sm text-[#8694AC]">{line}</p> : null;
           })()}
-          <div className="flex items-center gap-2 text-sm text-slate-500">
+          <div className="flex items-center gap-2 text-sm text-[#8694AC]">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
             Checking status…
           </div>
-          <p className="break-all font-mono text-[10px] text-slate-600">
+          <p className="break-all font-mono text-[10px] text-[#8694AC]">
             Reference: {phase.guestId}
           </p>
           <button
             type="button"
             onClick={reset}
-            className="text-xs text-slate-500 underline hover:text-slate-300"
+            className="text-xs text-[#8694AC] underline hover:text-[#566784]"
           >
             Cancel and start over
           </button>
@@ -672,7 +672,7 @@ export default function GuestAccess() {
       )}
 
       {phase.id === "approved" && (
-        <div className="space-y-3 rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-4 py-4 text-emerald-50">
+        <div className="space-y-3 rounded-xl border border-[#2FA24A]/30 bg-[#E3F4E8] px-4 py-4 text-[#2FA24A]">
           <p className="text-lg font-semibold">Approved</p>
           {phase.message ? (
             <p className="text-sm leading-relaxed">{phase.message}</p>
@@ -681,40 +681,40 @@ export default function GuestAccess() {
           )}
 
           {!phase.exchange_code?.trim() ? (
-            <div className="space-y-2 rounded-lg border border-emerald-500/20 bg-emerald-950/20 px-3 py-3 text-sm text-emerald-100/90">
-              <p className="flex items-center gap-2 font-medium text-emerald-100">
+            <div className="space-y-2 rounded-lg border border-[#2FA24A]/30 bg-[#E3F4E8] px-3 py-3 text-sm text-[#2FA24A]">
+              <p className="flex items-center gap-2 font-medium text-[#2FA24A]">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                 Finishing sign-in…
               </p>
-              <p className="text-emerald-100/80">
+              <p className="text-[#2FA24A]">
                 Your visit is verified. This page will open the guest app as soon as the server
                 provides a sign-in code. Keep it open for a few seconds.
               </p>
               {(() => {
                 const line = pollMessageIfDistinct(phase.message, phase.pollMessage);
                 return line ? (
-                  <p className="font-mono text-[11px] text-emerald-200/70">{line}</p>
+                  <p className="font-mono text-[11px] text-[#2FA24A]">{line}</p>
                 ) : null;
               })()}
             </div>
           ) : (
             <div className="space-y-2 text-sm">
               {exchangeBusy ? (
-                <p className="flex items-center gap-2 font-medium text-emerald-100">
+                <p className="flex items-center gap-2 font-medium text-[#2FA24A]">
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                   Opening guest dashboard…
                 </p>
               ) : null}
               {phase.exchange_expires_at && !exchangeBusy ? (
-                <p className="text-emerald-100/80">
+                <p className="text-[#2FA24A]">
                   Sign-in code expires:{" "}
-                  <span className="font-mono text-emerald-50">
+                  <span className="font-mono text-[#2FA24A]">
                     {new Date(phase.exchange_expires_at).toLocaleString()}
                   </span>
                 </p>
               ) : null}
               {exchangeError ? (
-                <p className="rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-rose-100">
+                <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700">
                   {exchangeError}
                 </p>
               ) : null}
@@ -722,7 +722,7 @@ export default function GuestAccess() {
                 type="button"
                 disabled={exchangeBusy}
                 onClick={() => void handleContinueToGuestApp()}
-                className="w-full rounded-md bg-[#00E5D1] px-4 py-2.5 text-sm font-bold text-[#0B0E11] disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full rounded-md bg-[#2F80ED] px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {exchangeBusy ? "Signing in…" : "Continue to guest dashboard"}
               </button>
@@ -732,7 +732,7 @@ export default function GuestAccess() {
           <button
             type="button"
             onClick={reset}
-            className="text-xs font-medium uppercase tracking-[0.14em] text-emerald-200/90 hover:underline"
+            className="text-xs font-medium uppercase tracking-[0.14em] text-[#2FA24A] hover:underline"
           >
             Dismiss / start over
           </button>
@@ -740,7 +740,7 @@ export default function GuestAccess() {
       )}
 
       {phase.id === "rejected" && (
-        <div className="space-y-3 rounded-xl border border-rose-500/35 bg-rose-500/10 px-4 py-4 text-rose-50">
+        <div className="space-y-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 text-rose-700">
           <p className="text-lg font-semibold">Not approved</p>
           {phase.message ? (
             <p className="text-sm">{phase.message}</p>
@@ -750,7 +750,7 @@ export default function GuestAccess() {
           <button
             type="button"
             onClick={reset}
-            className="rounded-md bg-rose-100 px-3 py-1.5 text-xs font-bold text-rose-950"
+            className="rounded-md bg-rose-600 px-3 py-1.5 text-xs font-bold text-white"
           >
             Try again
           </button>

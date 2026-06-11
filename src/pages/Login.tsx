@@ -5,13 +5,13 @@ import { useAuth } from "../hooks/useAuth";
 import AuthMapPanel from "../components/AuthMapPanel";
 import { AUTH_MAP_DEFAULT_CENTER, getHexGrid, H3Cell } from "../lib/h3";
 
-const accent = "text-[#00E5D1]";
-const accentBorder = "border-[#00E5D1]/50";
-const accentBg = "bg-[#00E5D1]";
-const panelBg = "bg-[#151a20]";
+const accent = "text-[#2F80ED]";
+const accentBorder = "border-[#2F80ED]/40";
+const accentBg = "bg-[#2F80ED]";
+const panelBg = "bg-[#F7FAFE]";
 const labelClass =
-  "mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500";
-const inputClass = `${panelBg} w-full rounded-md border border-slate-700/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-[#00E5D1]/60 focus:outline-none focus:ring-1 focus:ring-[#00E5D1]/25`;
+  "mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8694AC]";
+const inputClass = `${panelBg} w-full rounded-md border border-[#DCE6F2] px-3 py-2.5 text-sm text-[#0F2C5C] placeholder:text-[#8694AC] focus:border-[#2F80ED]/60 focus:outline-none focus:ring-1 focus:ring-[#2F80ED]/25`;
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -59,16 +59,16 @@ export default function Login() {
           addressLabel="New York, NY"
         />
 
-        <div className="flex flex-col border-t border-slate-800/80 bg-[#0B0E11] lg:border-l lg:border-t-0">
+        <div className="flex flex-col border-t border-[#DCE6F2] bg-white lg:border-l lg:border-t-0">
           <div
-            className={`flex items-center gap-2 border-b px-6 py-3 text-xs ${accent} ${accentBorder} bg-[#00E5D1]/10`}
+            className={`flex items-center gap-2 border-b px-6 py-3 text-xs ${accent} ${accentBorder} bg-[#EDF3FB]`}
           >
             <QrCode className="h-4 w-4 shrink-0" strokeWidth={2} />
             <span>Have a QR code? Scan to auto-populate your Zone ID</span>
           </div>
 
           <div className="flex flex-1 flex-col justify-center px-6 py-10 sm:px-12">
-            <h1 className="text-center text-2xl font-semibold tracking-tight text-white">
+            <h1 className="text-center text-2xl font-semibold tracking-tight text-[#0F2C5C]">
               Login
             </h1>
 
@@ -96,7 +96,7 @@ export default function Login() {
                   </label>
                   <button
                     type="button"
-                    className="text-[10px] font-medium uppercase tracking-wide text-slate-500 transition hover:text-[#00E5D1]"
+                    className="text-[10px] font-medium uppercase tracking-wide text-[#8694AC] transition hover:text-[#2F80ED]"
                   >
                     Forgot password?
                   </button>
@@ -114,7 +114,7 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={() => setShowPassword((s) => !s)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-slate-500 transition hover:bg-white/5 hover:text-slate-300"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-[#8694AC] transition hover:bg-[#EDF3FB] hover:text-[#566784]"
                     aria-label={
                       showPassword ? "Hide characters" : "Show characters"
                     }
@@ -129,17 +129,17 @@ export default function Login() {
               </div>
 
               {error && (
-                <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                <p className="rounded-md border border-[#E23B4E]/30 bg-[#FCE7EA] px-3 py-2 text-sm text-[#E23B4E]">
                   {error}
                 </p>
               )}
 
-              <label className="flex items-center gap-2 text-sm text-slate-400">
+              <label className="flex items-center gap-2 text-sm text-[#566784]">
                 <input
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="accent-[#00E5D1]"
+                  className="accent-[#2F80ED]"
                 />
                 Remember me
               </label>
@@ -147,13 +147,13 @@ export default function Login() {
               <button
                 type="submit"
                 disabled={loading}
-                className={`w-full rounded-md ${accentBg} py-3.5 text-sm font-bold text-[#0B0E11] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60`}
+                className={`w-full rounded-md ${accentBg} py-3.5 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60`}
               >
                 {loading ? "Logging in…" : "Login"}
               </button>
             </form>
 
-            <p className="mt-8 text-center text-sm text-slate-500">
+            <p className="mt-8 text-center text-sm text-[#8694AC]">
               Need an account?{" "}
               <Link
                 to="/register"

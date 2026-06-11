@@ -83,7 +83,7 @@ import {
 import { updateLocation as updateMemberLocation } from "../services/api/members";
 
 const accent = "#00E5D1";
-const panel = "bg-[#151a20]";
+const panel = "bg-[#F7FAFE]";
 /** Distinct map colors for saved zones (active zone uses gold highlight). */
 const ZONE_MAP_COLORS = [
   "#00E5D1",
@@ -3422,28 +3422,28 @@ export default function Dashboard() {
   }, [contextMenu, selectedCells, polygons]);
 
   const labelClass =
-    "mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500";
+    "mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8694AC]";
 
   return (
-    <div className="w-full min-w-0 max-w-full overflow-x-clip rounded-lg border border-slate-800/60 bg-[#0B0E11]">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 px-4 py-3 sm:px-6">
-        <span className="text-xs font-bold uppercase tracking-[0.2em] text-white">
+    <div className="w-full min-w-0 max-w-full overflow-x-clip rounded-lg border border-[#DCE6F2] bg-white">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#DCE6F2] px-4 py-3 sm:px-6">
+        <span className="text-xs font-bold uppercase tracking-[0.2em] text-[#0F2C5C]">
           H3 Hexagon Mapper
         </span>
         <div
-          className={`flex items-center gap-2 rounded-full border border-slate-700/80 ${panel} px-3 py-1.5 font-mono text-xs text-[#00E5D1]`}
+          className={`flex items-center gap-2 rounded-full border border-[#DCE6F2] ${panel} px-3 py-1.5 font-mono text-xs text-[#2F80ED]`}
         >
           <span className="max-w-[140px] truncate sm:max-w-xs">{zoneId}</span>
           <button
             type="button"
             onClick={copyZoneId}
-            className="rounded p-1 text-[#00E5D1] transition hover:bg-white/10"
+            className="rounded p-1 text-[#2F80ED] transition hover:bg-[#EDF3FB]"
             aria-label="Copy zone ID"
           >
             <Copy className="h-3.5 w-3.5" strokeWidth={2} />
           </button>
         </div>
-        <span className="text-sm text-slate-300">{userLabel}</span>
+        <span className="text-sm text-[#566784]">{userLabel}</span>
       </header>
 
       {user?.role === "administrator" && zoneId.trim() !== "" ? (
@@ -3451,13 +3451,13 @@ export default function Dashboard() {
       ) : null}
 
       {user?.role === "administrator" && zoneId.trim() !== "" ? (
-        <div className="border-b border-slate-800/80 px-4 py-4 sm:px-6">
+        <div className="border-b border-[#DCE6F2] px-4 py-4 sm:px-6">
           <GuestAccessQrSection zoneId={zoneId.trim()} compact />
         </div>
       ) : null}
 
       <div className="flex min-h-[min(100dvh,920px)] flex-1 flex-col lg:min-h-[calc(100dvh-11rem)] lg:flex-row lg:min-w-0">
-        <aside className="flex w-full min-w-0 flex-col border-slate-800/80 lg:w-[400px] lg:max-w-[400px] lg:shrink-0 lg:border-r">
+        <aside className="flex w-full min-w-0 flex-col border-[#DCE6F2] lg:w-[400px] lg:max-w-[400px] lg:shrink-0 lg:border-r">
           <div className="max-h-[50vh] flex-1 space-y-4 overflow-y-auto p-4 sm:p-5 lg:max-h-none">
             <div>
               <p className={labelClass}>Zone ID</p>
@@ -3465,12 +3465,12 @@ export default function Dashboard() {
                 <input
                   readOnly
                   value={zoneId}
-                  className={`min-w-0 flex-1 rounded-md border border-slate-700/80 ${panel} px-3 py-2 font-mono text-xs text-[#00E5D1]`}
+                  className={`min-w-0 flex-1 rounded-md border border-[#DCE6F2] ${panel} px-3 py-2 font-mono text-xs text-[#2F80ED]`}
                 />
                 <button
                   type="button"
                   onClick={copyZoneId}
-                  className={`rounded-md border border-slate-700/80 ${panel} px-2.5 text-[#00E5D1]`}
+                  className={`rounded-md border border-[#DCE6F2] ${panel} px-2.5 text-[#2F80ED]`}
                   aria-label="Copy"
                 >
                   <Copy className="h-4 w-4" strokeWidth={2} />
@@ -3488,9 +3488,9 @@ export default function Dashboard() {
                 onChange={(e) => setZoneName(e.target.value)}
                 maxLength={MAX_ZONE_NAME_LENGTH}
                 placeholder="Enter zone name"
-                className={`w-full rounded-md border border-slate-700/80 ${panel} px-3 py-2 text-sm text-white focus:border-[#00E5D1]/60 focus:outline-none focus:ring-1 focus:ring-[#00E5D1]/25`}
+                className={`w-full rounded-md border border-[#DCE6F2] ${panel} px-3 py-2 text-sm text-[#0F2C5C] focus:border-[#2F80ED]/60 focus:outline-none focus:ring-1 focus:ring-[#2F80ED]/25`}
               />
-              <p className="mt-1 text-[10px] text-slate-500">
+              <p className="mt-1 text-[10px] text-[#8694AC]">
                 Required. Max {MAX_ZONE_NAME_LENGTH} characters.
               </p>
             </div>
@@ -3515,7 +3515,7 @@ export default function Dashboard() {
                     setProximitySourceMode("map_pin");
                   }
                 }}
-                className={`w-full rounded-md border border-slate-700/80 ${panel} px-3 py-2 text-sm text-white focus:border-[#00E5D1]/60 focus:outline-none focus:ring-1 focus:ring-[#00E5D1]/25`}
+                className={`w-full rounded-md border border-[#DCE6F2] ${panel} px-3 py-2 text-sm text-[#0F2C5C] focus:border-[#2F80ED]/60 focus:outline-none focus:ring-1 focus:ring-[#2F80ED]/25`}
               >
                 <option value="geofence">Geofence</option>
                 <option value="grid">Grid zoning</option>
@@ -3525,7 +3525,7 @@ export default function Dashboard() {
                 <option value="government_local_code">Government Local Code</option>
                 <option value="object">Object zoning</option>
               </select>
-              <p className="mt-1 text-[10px] text-slate-500">
+              <p className="mt-1 text-[10px] text-[#8694AC]">
                 Geofence/Grid: draw on map. Proximity: one source + radius. Other
                 types use fields below.
               </p>
@@ -3549,8 +3549,8 @@ export default function Dashboard() {
                       }}
                       className={`inline-flex items-center justify-center gap-1.5 rounded-md border px-2 py-2 text-xs font-medium transition ${
                         proximitySourceMode === "current_location"
-                          ? "border-[#00E5D1] bg-[#00E5D1]/10 text-[#00E5D1]"
-                          : "border-slate-700/80 bg-[#151a20] text-slate-300"
+                          ? "border-[#2F80ED] bg-[#EDF3FB] text-[#2F80ED]"
+                          : "border-[#DCE6F2] bg-[#F7FAFE] text-[#566784]"
                       }`}
                     >
                       <LocateFixed className="h-3.5 w-3.5" />
@@ -3564,8 +3564,8 @@ export default function Dashboard() {
                       }}
                       className={`inline-flex items-center justify-center gap-1.5 rounded-md border px-2 py-2 text-xs font-medium transition ${
                         proximitySourceMode === "map_pin"
-                          ? "border-[#00E5D1] bg-[#00E5D1]/10 text-[#00E5D1]"
-                          : "border-slate-700/80 bg-[#151a20] text-slate-300"
+                          ? "border-[#2F80ED] bg-[#EDF3FB] text-[#2F80ED]"
+                          : "border-[#DCE6F2] bg-[#F7FAFE] text-[#566784]"
                       }`}
                     >
                       <MapPin className="h-3.5 w-3.5" />
@@ -3578,14 +3578,14 @@ export default function Dashboard() {
                     type="button"
                     onClick={captureProximityLocation}
                     disabled={proximityLocating}
-                    className="w-full rounded-md border border-slate-600 py-2 text-xs text-slate-200 hover:border-[#00E5D1]/50 disabled:opacity-60"
+                    className="w-full rounded-md border border-[#E4ECF7] py-2 text-xs text-[#566784] hover:border-[#2F80ED]/50 disabled:opacity-60"
                   >
                     {proximityLocating
                       ? "Reading location…"
                       : "Use current location"}
                   </button>
                 ) : (
-                  <p className="text-[10px] text-slate-500">
+                  <p className="text-[10px] text-[#8694AC]">
                     Click the map once to place the source. One circle per zone.
                   </p>
                 )}
@@ -3603,7 +3603,7 @@ export default function Dashboard() {
                     onChange={(e) =>
                       setProximityRadiusMeters(Number(e.target.value) || 10)
                     }
-                    className="mt-1 w-full accent-[#00E5D1]"
+                    className="mt-1 w-full accent-[#2F80ED]"
                   />
                   <input
                     id="zone-proximity-radius"
@@ -3613,7 +3613,7 @@ export default function Dashboard() {
                     onChange={(e) =>
                       setProximityRadiusMeters(Number(e.target.value) || 0)
                     }
-                    className="mt-2 w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
+                    className="mt-2 w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
                   />
                 </div>
               </div>
@@ -3621,7 +3621,7 @@ export default function Dashboard() {
 
             {zoneType === "dynamic" && (
               <div className="space-y-3">
-                <p className="text-[10px] text-slate-500">
+                <p className="text-[10px] text-[#8694AC]">
                   Enter the number of nearest users and the radius bounds. The
                   server finds the tightest cluster of that many users in this
                   zone and picks the circle's center.
@@ -3647,7 +3647,7 @@ export default function Dashboard() {
                         ),
                       )
                     }
-                    className="w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
+                    className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -3663,7 +3663,7 @@ export default function Dashboard() {
                       onChange={(e) =>
                         setDynamicMinRadiusMeters(Number(e.target.value) || 0)
                       }
-                      className="w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
+                      className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
                     />
                   </div>
                   <div>
@@ -3678,7 +3678,7 @@ export default function Dashboard() {
                       onChange={(e) =>
                         setDynamicMaxRadiusMeters(Number(e.target.value) || 0)
                       }
-                      className="w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
+                      className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
                     />
                   </div>
                 </div>
@@ -3686,10 +3686,10 @@ export default function Dashboard() {
                 <div
                   className={`rounded-md border p-2 text-[11px] ${
                     dynamicPreviewError || dynamicPreview?.infeasible
-                      ? "border-rose-500/40 bg-rose-500/10 text-rose-200"
+                      ? "border-rose-200 bg-rose-50 text-rose-600"
                       : dynamicPreview && !dynamicPreview.infeasible
-                        ? "border-[#22C55E]/40 bg-[#22C55E]/10 text-[#86EFAC]"
-                        : "border-slate-700/80 bg-[#10141a] text-slate-400"
+                        ? "border-[#22C55E]/40 bg-[#22C55E]/10 text-[#15803D]"
+                        : "border-[#DCE6F2] bg-[#F7FAFE] text-[#8694AC]"
                   }`}
                 >
                   {dynamicPreviewLoading ? (
@@ -3716,7 +3716,7 @@ export default function Dashboard() {
                           : ""}
                         .
                       </div>
-                      <div className="mt-0.5 text-slate-500">
+                      <div className="mt-0.5 text-[#8694AC]">
                         Center {dynamicPreview.center.latitude.toFixed(5)},{" "}
                         {dynamicPreview.center.longitude.toFixed(5)} · Pool{" "}
                         {dynamicPreview.population_size} users
@@ -3735,7 +3735,7 @@ export default function Dashboard() {
                     htmlFor="zone-dynamic-default"
                   >
                     Default radius (m){" "}
-                    <span className="text-slate-500">(used when no trigger fires)</span>
+                    <span className="text-[#8694AC]">(used when no trigger fires)</span>
                   </label>
                   <input
                     id="zone-dynamic-default"
@@ -3749,11 +3749,11 @@ export default function Dashboard() {
                         v === "" ? null : Number(v) || 0,
                       );
                     }}
-                    className="w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
+                    className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
                   />
                 </div>
 
-                <div className="rounded-md border border-slate-700/80 bg-[#10141a] p-2">
+                <div className="rounded-md border border-[#DCE6F2] bg-[#F7FAFE] p-2">
                   <div className="mb-2 flex items-center justify-between">
                     <p className={labelClass}>Resize rules</p>
                     <div className="flex gap-1">
@@ -3765,7 +3765,7 @@ export default function Dashboard() {
                             defaultDynamicTriggerForType("member_count"),
                           ])
                         }
-                        className="rounded-md border border-[#22C55E]/40 bg-[#22C55E]/10 px-2 py-1 text-[10px] font-medium text-[#86EFAC] hover:bg-[#22C55E]/20"
+                        className="rounded-md border border-[#22C55E]/40 bg-[#22C55E]/10 px-2 py-1 text-[10px] font-medium text-[#15803D] hover:bg-[#22C55E]/20"
                       >
                         + Members
                       </button>
@@ -3777,7 +3777,7 @@ export default function Dashboard() {
                             defaultDynamicTriggerForType("time_of_day"),
                           ])
                         }
-                        className="rounded-md border border-[#06B6D4]/40 bg-[#06B6D4]/10 px-2 py-1 text-[10px] font-medium text-[#67E8F9] hover:bg-[#06B6D4]/20"
+                        className="rounded-md border border-[#06B6D4]/40 bg-[#06B6D4]/10 px-2 py-1 text-[10px] font-medium text-[#0E7490] hover:bg-[#06B6D4]/20"
                       >
                         + Time
                       </button>
@@ -3789,7 +3789,7 @@ export default function Dashboard() {
                             defaultDynamicTriggerForType("sensor"),
                           ])
                         }
-                        className="rounded-md border border-[#F59E0B]/40 bg-[#F59E0B]/10 px-2 py-1 text-[10px] font-medium text-[#FCD34D] hover:bg-[#F59E0B]/20"
+                        className="rounded-md border border-[#F59E0B]/40 bg-[#F59E0B]/10 px-2 py-1 text-[10px] font-medium text-[#B45309] hover:bg-[#F59E0B]/20"
                       >
                         + Sensor
                       </button>
@@ -3797,7 +3797,7 @@ export default function Dashboard() {
                   </div>
 
                   {dynamicTriggers.length === 0 ? (
-                    <p className="text-[10px] text-slate-500">
+                    <p className="text-[10px] text-[#8694AC]">
                       No rules — zone stays an annulus between min and max. Add a rule to enable live resize.
                     </p>
                   ) : (
@@ -3805,10 +3805,10 @@ export default function Dashboard() {
                       {dynamicTriggers.map((trigger, idx) => (
                         <div
                           key={trigger.id}
-                          className="rounded-md border border-slate-700/60 bg-[#151a20] p-2 text-[11px]"
+                          className="rounded-md border border-[#DCE6F2] bg-[#F7FAFE] p-2 text-[11px]"
                         >
                           <div className="mb-1 flex items-center justify-between">
-                            <span className="text-slate-300">
+                            <span className="text-[#566784]">
                               {idx + 1}.{" "}
                               {trigger.type === "member_count"
                                 ? "Members nearby"
@@ -3823,7 +3823,7 @@ export default function Dashboard() {
                                   prev.filter((t) => t.id !== trigger.id),
                                 )
                               }
-                              className="text-rose-400 hover:text-rose-300"
+                              className="text-rose-600 hover:text-rose-700"
                               aria-label="Remove rule"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -3847,7 +3847,7 @@ export default function Dashboard() {
                                     ),
                                   )
                                 }
-                                className="rounded border border-slate-700 bg-[#10141a] px-1.5 py-1 text-[11px] text-white"
+                                className="rounded border border-[#DCE6F2] bg-[#F7FAFE] px-1.5 py-1 text-[11px] text-[#0F2C5C]"
                               >
                                 {DYNAMIC_TRIGGER_OPERATORS.map((op) => (
                                   <option key={op} value={op}>
@@ -3869,7 +3869,7 @@ export default function Dashboard() {
                                   )
                                 }
                                 placeholder="count"
-                                className="rounded border border-slate-700 bg-[#10141a] px-1.5 py-1 text-[11px] text-white"
+                                className="rounded border border-[#DCE6F2] bg-[#F7FAFE] px-1.5 py-1 text-[11px] text-[#0F2C5C]"
                               />
                               <input
                                 type="number"
@@ -3889,7 +3889,7 @@ export default function Dashboard() {
                                   )
                                 }
                                 placeholder="window s"
-                                className="rounded border border-slate-700 bg-[#10141a] px-1.5 py-1 text-[11px] text-white"
+                                className="rounded border border-[#DCE6F2] bg-[#F7FAFE] px-1.5 py-1 text-[11px] text-[#0F2C5C]"
                               />
                             </div>
                           )}
@@ -3908,7 +3908,7 @@ export default function Dashboard() {
                                     ),
                                   )
                                 }
-                                className="rounded border border-slate-700 bg-[#10141a] px-1.5 py-1 text-[11px] text-white"
+                                className="rounded border border-[#DCE6F2] bg-[#F7FAFE] px-1.5 py-1 text-[11px] text-[#0F2C5C]"
                               />
                               <input
                                 type="time"
@@ -3922,7 +3922,7 @@ export default function Dashboard() {
                                     ),
                                   )
                                 }
-                                className="rounded border border-slate-700 bg-[#10141a] px-1.5 py-1 text-[11px] text-white"
+                                className="rounded border border-[#DCE6F2] bg-[#F7FAFE] px-1.5 py-1 text-[11px] text-[#0F2C5C]"
                               />
                             </div>
                           )}
@@ -3948,7 +3948,7 @@ export default function Dashboard() {
                                   )
                                 }
                                 placeholder="SENSOR,PANIC"
-                                className="rounded border border-slate-700 bg-[#10141a] px-1.5 py-1 text-[11px] text-white"
+                                className="rounded border border-[#DCE6F2] bg-[#F7FAFE] px-1.5 py-1 text-[11px] text-[#0F2C5C]"
                               />
                               <input
                                 type="number"
@@ -3967,7 +3967,7 @@ export default function Dashboard() {
                                   )
                                 }
                                 placeholder="min count"
-                                className="rounded border border-slate-700 bg-[#10141a] px-1.5 py-1 text-[11px] text-white"
+                                className="rounded border border-[#DCE6F2] bg-[#F7FAFE] px-1.5 py-1 text-[11px] text-[#0F2C5C]"
                               />
                               <input
                                 type="number"
@@ -3987,13 +3987,13 @@ export default function Dashboard() {
                                   )
                                 }
                                 placeholder="window s"
-                                className="rounded border border-slate-700 bg-[#10141a] px-1.5 py-1 text-[11px] text-white"
+                                className="rounded border border-[#DCE6F2] bg-[#F7FAFE] px-1.5 py-1 text-[11px] text-[#0F2C5C]"
                               />
                             </div>
                           )}
 
                           <div className="mt-1.5 flex items-center gap-1.5">
-                            <span className="text-[10px] text-slate-500">→ resize to</span>
+                            <span className="text-[10px] text-[#8694AC]">→ resize to</span>
                             <select
                               value={
                                 trigger.resize_to === "min" || trigger.resize_to === "max"
@@ -4018,7 +4018,7 @@ export default function Dashboard() {
                                   ),
                                 );
                               }}
-                              className="rounded border border-slate-700 bg-[#10141a] px-1.5 py-1 text-[11px] text-white"
+                              className="rounded border border-[#DCE6F2] bg-[#F7FAFE] px-1.5 py-1 text-[11px] text-[#0F2C5C]"
                             >
                               <option value="min">min</option>
                               <option value="max">max</option>
@@ -4043,13 +4043,13 @@ export default function Dashboard() {
                                       ),
                                     )
                                   }
-                                  className="w-20 rounded border border-slate-700 bg-[#10141a] px-1.5 py-1 text-[11px] text-white"
+                                  className="w-20 rounded border border-[#DCE6F2] bg-[#F7FAFE] px-1.5 py-1 text-[11px] text-[#0F2C5C]"
                                 />
                               )}
                           </div>
                         </div>
                       ))}
-                      <p className="text-[10px] text-slate-500">
+                      <p className="text-[10px] text-[#8694AC]">
                         Rules evaluate top-down on the server. First match sets the live radius.
                       </p>
                     </div>
@@ -4071,14 +4071,14 @@ export default function Dashboard() {
                     setCommunalValidation(null);
                   }}
                   placeholder="COMM-12345"
-                  className="w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white uppercase"
+                  className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C] uppercase"
                 />
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => void validateCommunalId()}
                     disabled={communalValidating || !canValidateReferenceZone}
-                    className="rounded-md border border-[#8B5CF6]/50 bg-[#8B5CF6]/15 px-3 py-1.5 text-xs font-medium text-[#C4B5FD] hover:bg-[#8B5CF6]/25 disabled:opacity-50"
+                    className="rounded-md border border-[#8B5CF6]/50 bg-[#8B5CF6]/15 px-3 py-1.5 text-xs font-medium text-[#6D28D9] hover:bg-[#8B5CF6]/25 disabled:opacity-50"
                   >
                     {communalValidating ? "Validating…" : "Validate ID"}
                   </button>
@@ -4086,13 +4086,13 @@ export default function Dashboard() {
                     type="button"
                     onClick={() => void generateCommunalId()}
                     disabled={communalValidating || !canValidateReferenceZone}
-                    className="rounded-md border border-slate-600/80 bg-slate-800/60 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700/60 disabled:opacity-50"
+                    className="rounded-md border border-[#E4ECF7] bg-[#EDF3FB] px-3 py-1.5 text-xs font-medium text-[#566784] hover:bg-[#E4ECF7] disabled:opacity-50"
                   >
                     Generate ID
                   </button>
                 </div>
                 {communalValidation?.valid === true && communalValidated ? (
-                  <p className="text-[10px] text-[#C4B5FD]">
+                  <p className="text-[10px] text-[#6D28D9]">
                     {communalValidation.displayName
                       ? `${communalValidation.displayName} (${communalValidation.referenceId})`
                       : communalValidation.referenceId}{" "}
@@ -4102,11 +4102,11 @@ export default function Dashboard() {
                       : ""}
                   </p>
                 ) : communalValidation?.valid === false ? (
-                  <p className="text-[10px] text-rose-400">
+                  <p className="text-[10px] text-rose-600">
                     {communalValidation.message}
                   </p>
                 ) : (
-                  <p className="text-[10px] text-slate-500">
+                  <p className="text-[10px] text-[#8694AC]">
                     Enter an ID or generate one, validate, then confirm the boundary on
                     the map before saving.
                   </p>
@@ -4127,8 +4127,8 @@ export default function Dashboard() {
                       }}
                       className={`rounded-md border px-3 py-1.5 text-xs font-medium ${
                         governmentAddressMode === "postal"
-                          ? "border-[#0EA5E9]/60 bg-[#0EA5E9]/20 text-[#7DD3FC]"
-                          : "border-slate-700/80 text-slate-400 hover:border-slate-600"
+                          ? "border-[#0EA5E9]/60 bg-[#0EA5E9]/20 text-[#0369A1]"
+                          : "border-[#DCE6F2] text-[#8694AC] hover:border-[#E4ECF7]"
                       }`}
                     >
                       Postal area
@@ -4141,8 +4141,8 @@ export default function Dashboard() {
                       }}
                       className={`rounded-md border px-3 py-1.5 text-xs font-medium ${
                         governmentAddressMode === "street"
-                          ? "border-[#0EA5E9]/60 bg-[#0EA5E9]/20 text-[#7DD3FC]"
-                          : "border-slate-700/80 text-slate-400 hover:border-slate-600"
+                          ? "border-[#0EA5E9]/60 bg-[#0EA5E9]/20 text-[#0369A1]"
+                          : "border-[#DCE6F2] text-[#8694AC] hover:border-[#E4ECF7]"
                       }`}
                     >
                       Street address
@@ -4164,7 +4164,7 @@ export default function Dashboard() {
                           setGovernmentValidation(null);
                         }}
                         placeholder="Queen Street West"
-                        className="mt-1 w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
+                        className="mt-1 w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
                       />
                     </div>
                     <div>
@@ -4179,7 +4179,7 @@ export default function Dashboard() {
                           setGovernmentValidation(null);
                         }}
                         placeholder="100"
-                        className="mt-1 w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
+                        className="mt-1 w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
                       />
                     </div>
                   </div>
@@ -4198,7 +4198,7 @@ export default function Dashboard() {
                         setGovernmentValidation(null);
                       }}
                       placeholder="M5H 2N2"
-                      className="mt-1 w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
+                      className="mt-1 w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
                     />
                   </div>
                   <div>
@@ -4213,7 +4213,7 @@ export default function Dashboard() {
                         setGovernmentValidation(null);
                       }}
                       placeholder="Toronto"
-                      className="mt-1 w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
+                      className="mt-1 w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
                     />
                   </div>
                 </div>
@@ -4230,7 +4230,7 @@ export default function Dashboard() {
                       setGovernmentValidation(null);
                     }}
                     placeholder="Canada"
-                    className="mt-1 w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
+                    className="mt-1 w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
                   />
                 </div>
 
@@ -4239,19 +4239,19 @@ export default function Dashboard() {
                     type="button"
                     onClick={() => void validateGovernmentAddress()}
                     disabled={governmentValidating || !canValidateReferenceZone}
-                    className="rounded-md border border-[#0EA5E9]/50 bg-[#0EA5E9]/15 px-3 py-1.5 text-xs font-medium text-[#7DD3FC] hover:bg-[#0EA5E9]/25 disabled:opacity-50"
+                    className="rounded-md border border-[#0EA5E9]/50 bg-[#0EA5E9]/15 px-3 py-1.5 text-xs font-medium text-[#0369A1] hover:bg-[#0EA5E9]/25 disabled:opacity-50"
                   >
                     {governmentValidating ? "Validating…" : "Validate address"}
                   </button>
                 </div>
                 {!canValidateReferenceZone ? (
-                  <p className="text-[10px] text-amber-400/90">
+                  <p className="text-[10px] text-[#E0992A]">
                     Click <span className="font-medium">+ New zone</span> or select
                     an editable zone tab to validate an address.
                   </p>
                 ) : null}
                 {governmentValidation?.valid === true && governmentValidated ? (
-                  <p className="text-[10px] text-[#7DD3FC]">
+                  <p className="text-[10px] text-[#0369A1]">
                     {governmentValidation.displayName
                       ? `${governmentValidation.displayName} (${governmentValidation.referenceId})`
                       : governmentValidation.referenceId}{" "}
@@ -4261,11 +4261,11 @@ export default function Dashboard() {
                       : ""}
                   </p>
                 ) : governmentValidation?.valid === false ? (
-                  <p className="text-[10px] text-rose-400">
+                  <p className="text-[10px] text-rose-600">
                     {governmentValidation.message}
                   </p>
                 ) : (
-                  <p className="text-[10px] text-slate-500">
+                  <p className="text-[10px] text-[#8694AC]">
                     {governmentAddressMode === "street"
                       ? "Example: Queen Street West 100, M5H 2N2, Toronto, Canada — any country via OpenStreetMap."
                       : "Example: 00510, Helsinki, Finland — any country name or ISO code (FI)."}
@@ -4296,7 +4296,7 @@ export default function Dashboard() {
                   }}
                   placeholder="Building, cafe, shop, landmark…"
                   labelClassName={labelClass}
-                  inputClassName="w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-[#00E5D1]/60 focus:outline-none focus:ring-1 focus:ring-[#00E5D1]/25"
+                  inputClassName="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C] placeholder:text-[#8694AC] focus:border-[#2F80ED]/60 focus:outline-none focus:ring-1 focus:ring-[#2F80ED]/25"
                   className="relative z-20"
                 />
                 <div>
@@ -4308,7 +4308,7 @@ export default function Dashboard() {
                     value={objectReferenceId}
                     onChange={(e) => setObjectReferenceId(e.target.value)}
                     placeholder="OSM reference or custom ID"
-                    className="w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
+                    className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
                   />
                 </div>
                 <div>
@@ -4321,10 +4321,10 @@ export default function Dashboard() {
                     min={1}
                     value={objectRadiusMeters}
                     onChange={(e) => setObjectRadiusMeters(Number(e.target.value) || 0)}
-                    className="w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
+                    className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
                   />
                 </div>
-                <p className="text-[10px] text-slate-500">
+                <p className="text-[10px] text-[#8694AC]">
                   Search for a place (building, cafe, etc.), pick a result, then set the radius.
                   You can also click the map once to fine-tune the anchor point.
                 </p>
@@ -4344,8 +4344,8 @@ export default function Dashboard() {
                     }}
                     className={`rounded-md border px-3 py-2.5 text-sm font-medium transition ${
                       mapperMode === "h3"
-                        ? "border-[#00E5D1] bg-[#00E5D1]/10 text-[#00E5D1]"
-                        : "border-slate-700/80 bg-[#151a20] text-slate-400"
+                        ? "border-[#2F80ED] bg-[#EDF3FB] text-[#2F80ED]"
+                        : "border-[#DCE6F2] bg-[#F7FAFE] text-[#8694AC]"
                     }`}
                   >
                     H3
@@ -4358,8 +4358,8 @@ export default function Dashboard() {
                     }}
                     className={`rounded-md border px-3 py-2.5 text-sm font-medium transition ${
                       mapperMode === "polygon"
-                        ? "border-[#00E5D1] bg-[#00E5D1]/10 text-[#00E5D1]"
-                        : "border-slate-700/80 bg-[#151a20] text-slate-400"
+                        ? "border-[#2F80ED] bg-[#EDF3FB] text-[#2F80ED]"
+                        : "border-[#DCE6F2] bg-[#F7FAFE] text-[#8694AC]"
                     }`}
                   >
                     Polygon
@@ -4367,14 +4367,14 @@ export default function Dashboard() {
                 </div>
               </div>
             ) : (
-              <p className="text-[10px] text-slate-500">
+              <p className="text-[10px] text-[#8694AC]">
                 Map drawing tools are hidden for this zone type.
               </p>
             )}
 
             {usesMapGeometry && mapperMode === "h3" && (
-              <div className="space-y-3 rounded-md border border-slate-700/80 bg-[#151a20]/50 p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+              <div className="space-y-3 rounded-md border border-[#DCE6F2] bg-[#F7FAFE]/50 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8694AC]">
                   H3 Select settings
                 </p>
                 <div>
@@ -4389,7 +4389,7 @@ export default function Dashboard() {
                       max={15}
                       value={resolution}
                       onChange={(e) => setResolution(Number(e.target.value))}
-                      className="w-full accent-[#00E5D1]"
+                      className="w-full accent-[#2F80ED]"
                     />
                     <input
                       type="number"
@@ -4404,7 +4404,7 @@ export default function Dashboard() {
                           ),
                         )
                       }
-                      className="w-14 rounded border border-slate-600 bg-[#0d1117] px-2 py-1 text-center text-xs text-white"
+                      className="w-14 rounded border border-[#E4ECF7] bg-white px-2 py-1 text-center text-xs text-[#0F2C5C]"
                     />
                   </div>
                 </div>
@@ -4419,13 +4419,13 @@ export default function Dashboard() {
                     max={100}
                     value={h3OpacityPct}
                     onChange={(e) => setH3OpacityPct(Number(e.target.value))}
-                    className="w-full accent-[#00E5D1]"
+                    className="w-full accent-[#2F80ED]"
                   />
                 </div>
                 <button
                   type="button"
                   onClick={clearH3}
-                  className="w-full rounded-md border border-red-500/40 py-2 text-xs font-medium text-red-300 transition hover:bg-red-500/10"
+                  className="w-full rounded-md border border-[#E23B4E]/30 py-2 text-xs font-medium text-[#E23B4E] transition hover:bg-[#FCE7EA]"
                 >
                   Clear All H3
                 </button>
@@ -4433,8 +4433,8 @@ export default function Dashboard() {
             )}
 
             {usesMapGeometry && mapperMode === "polygon" && (
-              <div className="space-y-3 rounded-md border border-slate-700/80 bg-[#151a20]/50 p-3">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+              <div className="space-y-3 rounded-md border border-[#DCE6F2] bg-[#F7FAFE]/50 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8694AC]">
                   Geofence draw mode
                 </p>
                 <div className="grid grid-cols-2 gap-2">
@@ -4446,8 +4446,8 @@ export default function Dashboard() {
                     }}
                     className={`rounded-md border px-2 py-2 text-xs font-medium transition ${
                       geofenceDrawTool === "polygon"
-                        ? "border-[#00E5D1] bg-[#00E5D1]/10 text-[#00E5D1]"
-                        : "border-slate-700/80 text-slate-400"
+                        ? "border-[#2F80ED] bg-[#EDF3FB] text-[#2F80ED]"
+                        : "border-[#DCE6F2] text-[#8694AC]"
                     }`}
                   >
                     Polygon
@@ -4461,8 +4461,8 @@ export default function Dashboard() {
                     }}
                     className={`rounded-md border px-2 py-2 text-xs font-medium transition ${
                       geofenceDrawTool === "circle"
-                        ? "border-[#00E5D1] bg-[#00E5D1]/10 text-[#00E5D1]"
-                        : "border-slate-700/80 text-slate-400"
+                        ? "border-[#2F80ED] bg-[#EDF3FB] text-[#2F80ED]"
+                        : "border-[#DCE6F2] text-[#8694AC]"
                     }`}
                   >
                     Circle
@@ -4485,8 +4485,8 @@ export default function Dashboard() {
                   }}
                   className={`w-full rounded-md py-2.5 text-sm font-bold transition ${
                     drawingActive
-                      ? "bg-amber-500/20 text-amber-200 ring-1 ring-amber-500/50"
-                      : "bg-[#00E5D1] text-[#0B0E11] hover:brightness-110"
+                      ? "bg-[#FBEFD8] text-[#E0992A] ring-1 ring-[#E0992A]/50"
+                      : "bg-[#2F80ED] text-white hover:brightness-110"
                   }`}
                 >
                   {drawingActive ? "Stop drawing" : "Start drawing"}
@@ -4495,12 +4495,12 @@ export default function Dashboard() {
                   <button
                     type="button"
                     onClick={deleteSelectedPolygon}
-                    className="w-full rounded-md border border-red-500/40 py-2 text-xs font-medium text-red-300 transition hover:bg-red-500/10"
+                    className="w-full rounded-md border border-[#E23B4E]/30 py-2 text-xs font-medium text-[#E23B4E] transition hover:bg-[#FCE7EA]"
                   >
                     Delete selected polygon
                   </button>
                 )}
-                <p className="text-[10px] text-slate-500">
+                <p className="text-[10px] text-[#8694AC]">
                   {geofenceDrawTool === "polygon"
                     ? "Draw: tap vertices, then tap the first point to close. Edit: tap a polygon to select — click an edge to add a point, drag points, long-press a point to remove it, long-press the polygon to delete it."
                     : "Click map for circle center, move mouse for radius, click again to finish."}
@@ -4518,13 +4518,13 @@ export default function Dashboard() {
                     onChange={(e) =>
                       setPolygonOpacityPct(Number(e.target.value))
                     }
-                    className="w-full accent-[#00E5D1]"
+                    className="w-full accent-[#2F80ED]"
                   />
                 </div>
                 <button
                   type="button"
                   onClick={clearPolygons}
-                  className="w-full rounded-md border border-red-500/40 py-2 text-xs font-medium text-red-300 transition hover:bg-red-500/10"
+                  className="w-full rounded-md border border-[#E23B4E]/30 py-2 text-xs font-medium text-[#E23B4E] transition hover:bg-[#FCE7EA]"
                 >
                   Clear All Polygons
                 </button>
@@ -4538,28 +4538,28 @@ export default function Dashboard() {
                     onChange={(e) => setPasteText(e.target.value)}
                     rows={3}
                     placeholder="POLYGON ((…)) or KML…"
-                    className="w-full rounded-md border border-slate-600 bg-[#0d1117] px-2 py-1.5 font-mono text-[11px] text-slate-200"
+                    className="w-full rounded-md border border-[#E4ECF7] bg-white px-2 py-1.5 font-mono text-[11px] text-[#566784]"
                   />
                 </div>
                 <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={handleImportWktKml}
-                    className="flex-1 rounded-md border border-slate-600 py-2 text-xs text-slate-200 hover:border-[#00E5D1]/50"
+                    className="flex-1 rounded-md border border-[#E4ECF7] py-2 text-xs text-[#566784] hover:border-[#2F80ED]/50"
                   >
                     Import
                   </button>
                   <button
                     type="button"
                     onClick={handleExportWkt}
-                    className="flex-1 rounded-md border border-slate-600 py-2 text-xs text-slate-200 hover:border-[#00E5D1]/50"
+                    className="flex-1 rounded-md border border-[#E4ECF7] py-2 text-xs text-[#566784] hover:border-[#2F80ED]/50"
                   >
                     Export WKT
                   </button>
                   <button
                     type="button"
                     onClick={handleExportKml}
-                    className="flex-1 rounded-md border border-slate-600 py-2 text-xs text-slate-200 hover:border-[#00E5D1]/50"
+                    className="flex-1 rounded-md border border-[#E4ECF7] py-2 text-xs text-[#566784] hover:border-[#2F80ED]/50"
                   >
                     Export KML
                   </button>
@@ -4567,8 +4567,8 @@ export default function Dashboard() {
               </div>
             )}
 
-            <div className="space-y-2 rounded-md border border-slate-700/80 bg-[#151a20]/50 p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+            <div className="space-y-2 rounded-md border border-[#DCE6F2] bg-[#F7FAFE]/50 p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8694AC]">
                 Other tools
               </p>
               <button
@@ -4587,8 +4587,8 @@ export default function Dashboard() {
                 }}
                 className={`flex w-full items-center justify-center gap-2 rounded-md border py-2 text-sm ${
                   activeTool === "measure"
-                    ? "border-[#00E5D1] bg-[#00E5D1]/15 text-[#00E5D1]"
-                    : "border-slate-600 text-slate-300"
+                    ? "border-[#2F80ED] bg-[#EDF3FB] text-[#2F80ED]"
+                    : "border-[#E4ECF7] text-[#566784]"
                 }`}
               >
                 <Ruler className="h-4 w-4" strokeWidth={2} />
@@ -4601,7 +4601,7 @@ export default function Dashboard() {
                     type="color"
                     value={measureColor}
                     onChange={(e) => setMeasureColor(e.target.value)}
-                    className="h-8 w-full cursor-pointer rounded border border-slate-600"
+                    className="h-8 w-full cursor-pointer rounded border border-[#E4ECF7]"
                   />
                   <button
                     type="button"
@@ -4612,28 +4612,28 @@ export default function Dashboard() {
                       setMeasurePreview(null);
                       setMeasureLabelKm(null);
                     }}
-                    className="w-full rounded-md border border-slate-600 py-1.5 text-xs text-slate-400"
+                    className="w-full rounded-md border border-[#E4ECF7] py-1.5 text-xs text-[#8694AC]"
                   >
                     Stop measuring
                   </button>
                 </div>
               )}
-              <label className="flex cursor-pointer items-center justify-between gap-2 text-sm text-slate-300">
+              <label className="flex cursor-pointer items-center justify-between gap-2 text-sm text-[#566784]">
                 <span>Show all zones on map</span>
                 <input
                   type="checkbox"
                   checked={showAllZones}
                   onChange={(e) => setShowAllZones(e.target.checked)}
-                  className="accent-[#00E5D1]"
+                  className="accent-[#2F80ED]"
                 />
               </label>
-              <label className="flex cursor-pointer items-center justify-between gap-2 text-sm text-slate-300">
+              <label className="flex cursor-pointer items-center justify-between gap-2 text-sm text-[#566784]">
                 <span>Grayscale map</span>
                 <input
                   type="checkbox"
                   checked={grayscaleMap}
                   onChange={(e) => setGrayscaleMap(e.target.checked)}
-                  className="accent-[#00E5D1]"
+                  className="accent-[#2F80ED]"
                 />
               </label>
               <AddressAutocompleteInput
@@ -4650,14 +4650,14 @@ export default function Dashboard() {
                 required={false}
                 placeholder="Search for a street or place…"
                 labelClassName={labelClass}
-                inputClassName={`w-full rounded-md border border-slate-700/80 ${panel} px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-[#00E5D1]/60 focus:outline-none focus:ring-1 focus:ring-[#00E5D1]/25`}
+                inputClassName={`w-full rounded-md border border-[#DCE6F2] ${panel} px-3 py-2 text-sm text-[#0F2C5C] placeholder:text-[#8694AC] focus:border-[#2F80ED]/60 focus:outline-none focus:ring-1 focus:ring-[#2F80ED]/25`}
                 className="relative z-10"
               />
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={handleExportWorkspaceJson}
-                  className="flex flex-1 items-center justify-center gap-1 rounded-md bg-[#00E5D1] px-3 py-2 text-xs font-bold text-[#0B0E11]"
+                  className="flex flex-1 items-center justify-center gap-1 rounded-md bg-[#2F80ED] px-3 py-2 text-xs font-bold text-white"
                 >
                   <Download className="h-3.5 w-3.5" />
                   Save JSON
@@ -4665,7 +4665,7 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex flex-1 items-center justify-center gap-1 rounded-md border border-slate-600 px-3 py-2 text-xs text-slate-200"
+                  className="flex flex-1 items-center justify-center gap-1 rounded-md border border-[#E4ECF7] px-3 py-2 text-xs text-[#566784]"
                 >
                   <Upload className="h-3.5 w-3.5" />
                   Load JSON
@@ -4687,27 +4687,27 @@ export default function Dashboard() {
             <div>
               <div className="mb-3">
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8694AC]">
                     Zones ({zones.length})
                   </p>
                   <div className="flex items-center gap-2">
                     {loadingZones && (
-                      <span className="text-[10px] text-slate-500">Loading…</span>
+                      <span className="text-[10px] text-[#8694AC]">Loading…</span>
                     )}
                     {isCreatingNewZone && (
                       <button
                         type="button"
                         onClick={cancelNewZoneDraft}
-                        className="rounded border border-red-500/40 px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-red-300 transition hover:bg-red-500/10"
+                        className="rounded border border-[#E23B4E]/30 px-2 py-1 text-[10px] uppercase tracking-[0.12em] text-[#E23B4E] transition hover:bg-[#FCE7EA]"
                       >
                         Cancel
                       </button>
                     )}
                   </div>
                 </div>
-                <div className="rounded-md border border-slate-700/80 bg-[#0d1117] p-2">
+                <div className="rounded-md border border-[#DCE6F2] bg-white p-2">
                   {zonesError ? (
-                    <p className="text-xs text-red-300">{zonesError}</p>
+                    <p className="text-xs text-[#E23B4E]">{zonesError}</p>
                   ) : (
                     <>
                       <div className="flex w-full min-w-0 gap-2 overflow-x-auto pb-1">
@@ -4727,13 +4727,13 @@ export default function Dashboard() {
                               }}
                               className={`shrink-0 rounded-md border px-2.5 py-1.5 text-xs transition ${
                                 isActive
-                                  ? "border-[#00E5D1] bg-[#00E5D1]/20 text-white"
-                                  : "border-slate-700/80 text-slate-300 hover:border-[#00E5D1]/60"
+                                  ? "border-[#2F80ED] bg-[#EDF3FB] text-[#0F2C5C]"
+                                  : "border-[#DCE6F2] text-[#566784] hover:border-[#2F80ED]/60"
                               }`}
                             >
                               <span>{zone.name || `Zone ${savedZoneId(zone)}`}</span>
                               {!entry.editable && (
-                                <span className="ml-2 text-[10px] uppercase text-slate-500">
+                                <span className="ml-2 text-[10px] uppercase text-[#8694AC]">
                                   read-only
                                 </span>
                               )}
@@ -4746,24 +4746,24 @@ export default function Dashboard() {
                           disabled={isCreatingNewZone || !canCreateZone}
                           className={`shrink-0 rounded-md border px-2.5 py-1.5 text-xs transition ${
                             isCreatingNewZone
-                              ? "border-[#00E5D1] bg-[#00E5D1]/15 text-[#00E5D1]"
+                              ? "border-[#2F80ED] bg-[#EDF3FB] text-[#2F80ED]"
                               : !canCreateZone
-                                ? "cursor-not-allowed border-slate-700/80 text-slate-500"
-                                : "border-slate-700/80 text-slate-200 hover:border-[#00E5D1]/60"
+                                ? "cursor-not-allowed border-[#DCE6F2] text-[#8694AC]"
+                                : "border-[#DCE6F2] text-[#566784] hover:border-[#2F80ED]/60"
                           }`}
                         >
                           + New zone
                         </button>
                       </div>
                       {zones.length === 0 && !isCreatingNewZone && (
-                        <p className="mt-2 text-xs text-slate-500">
+                        <p className="mt-2 text-xs text-[#8694AC]">
                           {canCreateZone
                             ? "No saved zones yet. Use + New zone to create your first zone."
                             : createBlockedReason || "No editable zones are currently available."}
                         </p>
                       )}
                       {!canCreateZone && (
-                        <p className="mt-2 text-xs text-amber-300">
+                        <p className="mt-2 text-xs text-[#E0992A]">
                           {createBlockedReason || "You cannot create more zones."}
                         </p>
                       )}
@@ -4775,13 +4775,13 @@ export default function Dashboard() {
               {usesMapGeometry && (
                 <>
                   <div className="mb-2 flex items-center justify-between gap-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8694AC]">
                       Selected H3 cells ({selectedCells.length})
                     </p>
                   </div>
-                  <div className="max-h-36 overflow-y-auto rounded-md border border-slate-700/80 bg-[#0d1117] p-2">
+                  <div className="max-h-36 overflow-y-auto rounded-md border border-[#DCE6F2] bg-white p-2">
                     {selectedCells.length === 0 ? (
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-[#8694AC]">
                         Click the map in H3 mode to add cells at resolution{" "}
                         {resolution}.
                       </p>
@@ -4792,7 +4792,7 @@ export default function Dashboard() {
                             <button
                               type="button"
                               onClick={() => focusH3Cell(id)}
-                              className="w-full rounded px-2 py-1.5 text-left font-mono text-[10px] leading-snug text-[#00E5D1] transition hover:bg-[#00E5D1]/15 hover:text-white"
+                              className="w-full rounded px-2 py-1.5 text-left font-mono text-[10px] leading-snug text-[#2F80ED] transition hover:bg-[#EDF3FB] hover:text-[#0F2C5C]"
                             >
                               <span className="break-all">{id}</span>
                             </button>
@@ -4807,13 +4807,13 @@ export default function Dashboard() {
               {usesMapGeometry && (
                 <div className="mt-3">
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8694AC]">
                     All working H3 cells ({allWorkingCells.length})
                   </p>
                 </div>
-                <div className="max-h-36 overflow-y-auto rounded-md border border-slate-700/80 bg-[#0d1117] p-2">
+                <div className="max-h-36 overflow-y-auto rounded-md border border-[#DCE6F2] bg-white p-2">
                   {allWorkingCells.length === 0 ? (
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-[#8694AC]">
                       No working cells. Add cells or load saved zones.
                     </p>
                   ) : (
@@ -4823,7 +4823,7 @@ export default function Dashboard() {
                           <button
                             type="button"
                             onClick={() => focusH3Cell(id)}
-                            className="w-full rounded px-2 py-1.5 text-left font-mono text-[10px] leading-snug text-[#00E5D1] transition hover:bg-[#00E5D1]/15 hover:text-white"
+                            className="w-full rounded px-2 py-1.5 text-left font-mono text-[10px] leading-snug text-[#2F80ED] transition hover:bg-[#EDF3FB] hover:text-[#0F2C5C]"
                           >
                             <span className="break-all">{id}</span>
                           </button>
@@ -4838,18 +4838,18 @@ export default function Dashboard() {
               {usesMapGeometry && (
                 <div className="mt-3">
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8694AC]">
                     Polygons ({allWorkingPolygons.length})
                     {allWorkingPolygons.length > 0 ? (
-                      <span className="ml-1 font-normal normal-case tracking-normal text-slate-600">
+                      <span className="ml-1 font-normal normal-case tracking-normal text-[#8694AC]">
                         · {totalPolyAreaKm2.toFixed(3)} km² total
                       </span>
                     ) : null}
                   </p>
                 </div>
-                <div className="max-h-36 overflow-y-auto rounded-md border border-slate-700/80 bg-[#0d1117] p-2">
+                <div className="max-h-36 overflow-y-auto rounded-md border border-[#DCE6F2] bg-white p-2">
                   {allWorkingPolygons.length === 0 ? (
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-[#8694AC]">
                       Draw in polygon mode or load workspace JSON.
                     </p>
                   ) : (
@@ -4867,19 +4867,19 @@ export default function Dashboard() {
                                 "Polygon selected — drag handles to edit.",
                               );
                             }}
-                            className={`w-full rounded px-2 py-1.5 text-left text-[10px] leading-snug transition hover:bg-[#00E5D1]/15 hover:text-white ${
+                            className={`w-full rounded px-2 py-1.5 text-left text-[10px] leading-snug transition hover:bg-[#EDF3FB] hover:text-[#0F2C5C] ${
                               selectedPolygonId === p.id
-                                ? "bg-[#00E5D1]/20 text-white"
-                                : "text-[#00E5D1]"
+                                ? "bg-[#EDF3FB] text-[#0F2C5C]"
+                                : "text-[#2F80ED]"
                             }`}
                           >
                             <div className="flex items-baseline gap-2 font-mono">
-                              <span className="shrink-0 text-slate-500">
+                              <span className="shrink-0 text-[#8694AC]">
                                 #{i + 1}
                               </span>
                               <span className="min-w-0 break-all">{p.id}</span>
                             </div>
-                            <div className="mt-0.5 font-mono text-[9px] text-slate-500">
+                            <div className="mt-0.5 font-mono text-[9px] text-[#8694AC]">
                               {geoPolygonAreaKm2(p).toFixed(3)} km²
                               {p.holes.length > 0
                                 ? ` · ${p.holes.length} hole(s)`
@@ -4896,7 +4896,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="border-t border-slate-800/80 p-4">
+          <div className="border-t border-[#DCE6F2] p-4">
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
@@ -4905,7 +4905,7 @@ export default function Dashboard() {
                   clearPolygons();
                   setSaveStatus("");
                 }}
-                className="inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-slate-600 bg-transparent px-3 py-2.5 text-sm text-slate-300 sm:flex-none"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-[#E4ECF7] bg-transparent px-3 py-2.5 text-sm text-[#566784] sm:flex-none"
               >
                 <Trash2 className="h-4 w-4" strokeWidth={2} />
                 Clear all
@@ -4913,7 +4913,7 @@ export default function Dashboard() {
               <button
                 type="button"
                 onClick={handleExportCsv}
-                className="rounded-md border border-slate-700/80 bg-[#151a20] p-2.5 text-slate-300"
+                className="rounded-md border border-[#DCE6F2] bg-[#F7FAFE] p-2.5 text-[#566784]"
                 aria-label="Export CSV"
               >
                 <Download className="h-4 w-4" strokeWidth={2} />
@@ -4921,13 +4921,13 @@ export default function Dashboard() {
                 <button
                 type="button"
                 onClick={handleSave}
-                className="ml-auto min-w-[120px] flex-1 rounded-md bg-[#00E5D1] px-4 py-2.5 text-sm font-bold text-[#0B0E11] sm:flex-none"
+                className="ml-auto min-w-[120px] flex-1 rounded-md bg-[#2F80ED] px-4 py-2.5 text-sm font-bold text-white sm:flex-none"
               >
                 {isCreatingNewZone ? "Create zone" : "Save zone"}
               </button>
             </div>
             {saveStatus ? (
-              <p className="mt-2 text-center text-xs text-slate-500">
+              <p className="mt-2 text-center text-xs text-[#8694AC]">
                 {saveStatus}
               </p>
             ) : null}
@@ -4978,13 +4978,13 @@ export default function Dashboard() {
           />
 
           {drawingActive && usesMapGeometry && mapperMode === "polygon" && (
-            <div className="pointer-events-none absolute left-1/2 top-4 z-[500] -translate-x-1/2 rounded-md border border-amber-500/40 bg-[#0B0E11]/95 px-4 py-2 text-center text-xs text-amber-100 shadow-lg backdrop-blur">
+            <div className="pointer-events-none absolute left-1/2 top-4 z-[500] -translate-x-1/2 rounded-md border border-[#E0992A]/40 bg-white/95 px-4 py-2 text-center text-xs text-[#8A5A12] shadow-lg backdrop-blur">
               {geofenceDrawTool === "circle"
                 ? "Circle: click center, move for radius, click again to finish"
                 : "Polygon: tap vertices, tap first point to close · "}
               {geofenceDrawTool === "polygon" && (
                 <>
-                  <kbd className="rounded bg-white/10 px-1">Esc</kbd> undo ·{" "}
+                  <kbd className="rounded bg-[#EDF3FB] px-1">Esc</kbd> undo ·{" "}
                   {holeParentId ? "Hole ring" : "Outer ring"}
                 </>
               )}
@@ -4992,7 +4992,7 @@ export default function Dashboard() {
           )}
 
           {activeTool === "measure" && (
-            <div className="pointer-events-none absolute left-1/2 top-4 z-[500] -translate-x-1/2 rounded-md border border-[#00E5D1]/40 bg-[#0B0E11]/95 px-4 py-2 text-xs text-[#00E5D1] shadow-lg">
+            <div className="pointer-events-none absolute left-1/2 top-4 z-[500] -translate-x-1/2 rounded-md border border-[#2F80ED]/45 bg-white/95 px-4 py-2 text-xs text-[#2F80ED] shadow-lg">
               {!measureA && "Click first point"}
               {measureA && !measureB && "Click second point"}
               {measureB && measureLabelKm != null && (
@@ -5007,20 +5007,20 @@ export default function Dashboard() {
           {contextMenu && !contextPanel && (
             <div
               data-context-menu-root
-              className="fixed z-[2000] min-w-[180px] rounded-md border border-slate-600 bg-[#1a222c] py-1 text-sm shadow-xl"
+              className="fixed z-[2000] min-w-[180px] rounded-md border border-[#E4ECF7] bg-white py-1 text-sm shadow-xl"
               style={{ left: contextMenu.x, top: contextMenu.y }}
               onClick={(e) => e.stopPropagation()}
             >
               <button
                 type="button"
-                className="block w-full px-3 py-2 text-left text-slate-200 hover:bg-white/5"
+                className="block w-full px-3 py-2 text-left text-[#566784] hover:bg-[#EDF3FB]"
                 onClick={() => setContextPanel("h3info")}
               >
                 H3 Info Here
               </button>
               <button
                 type="button"
-                className="block w-full px-3 py-2 text-left text-slate-200 hover:bg-white/5"
+                className="block w-full px-3 py-2 text-left text-[#566784] hover:bg-[#EDF3FB]"
                 onClick={() => setContextPanel("customer")}
               >
                 Customer Info Here
@@ -5031,24 +5031,24 @@ export default function Dashboard() {
           {contextMenu && contextPanel === "h3info" && (
             <div
               data-context-menu-root
-              className="fixed z-[2001] max-h-64 max-w-sm overflow-auto rounded-md border border-slate-600 bg-[#1a222c] p-3 text-xs shadow-xl"
+              className="fixed z-[2001] max-h-64 max-w-sm overflow-auto rounded-md border border-[#E4ECF7] bg-white p-3 text-xs shadow-xl"
               style={{ left: contextMenu.x, top: contextMenu.y }}
               onClick={(e) => e.stopPropagation()}
             >
-              <p className="mb-2 font-semibold text-[#00E5D1]">
+              <p className="mb-2 font-semibold text-[#2F80ED]">
                 H3 at click (res 0–15)
               </p>
-              <ul className="space-y-1 font-mono text-[10px] text-slate-300">
+              <ul className="space-y-1 font-mono text-[10px] text-[#566784]">
                 {h3CellsAtPoint(contextMenu.lat, contextMenu.lng).map((row) => (
                   <li key={row.res}>
                     r{row.res}:{" "}
-                    <span className="break-all text-[#00E5D1]">{row.id}</span>
+                    <span className="break-all text-[#2F80ED]">{row.id}</span>
                   </li>
                 ))}
               </ul>
               <button
                 type="button"
-                className="mt-2 text-[10px] text-slate-500 underline"
+                className="mt-2 text-[10px] text-[#8694AC] underline"
                 onClick={() => setContextMenu(null)}
               >
                 Close
@@ -5059,24 +5059,24 @@ export default function Dashboard() {
           {contextMenu && contextPanel === "customer" && (
             <div
               data-context-menu-root
-              className="fixed z-[2001] max-w-xs rounded-md border border-slate-600 bg-[#1a222c] p-3 text-xs shadow-xl"
+              className="fixed z-[2001] max-w-xs rounded-md border border-[#E4ECF7] bg-white p-3 text-xs shadow-xl"
               style={{ left: contextMenu.x, top: contextMenu.y }}
               onClick={(e) => e.stopPropagation()}
             >
-              <p className="font-semibold text-white">Coverage summary</p>
-              <p className="mt-2 text-slate-400">
+              <p className="font-semibold text-[#0F2C5C]">Coverage summary</p>
+              <p className="mt-2 text-[#8694AC]">
                 Selected H3 cells covering point:{" "}
-                <span className="text-[#00E5D1]">{customerSummary.h3Hits}</span>
+                <span className="text-[#2F80ED]">{customerSummary.h3Hits}</span>
               </p>
-              <p className="text-slate-400">
+              <p className="text-[#8694AC]">
                 Polygons covering point:{" "}
-                <span className="text-[#00E5D1]">
+                <span className="text-[#2F80ED]">
                   {customerSummary.polyHits}
                 </span>
               </p>
               <button
                 type="button"
-                className="mt-2 text-[10px] text-slate-500 underline"
+                className="mt-2 text-[10px] text-[#8694AC] underline"
                 onClick={() => setContextMenu(null)}
               >
                 Close
@@ -5084,7 +5084,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          <div className="pointer-events-none absolute bottom-3 left-3 z-[400] rounded-md border border-slate-700/80 bg-[#0B0E11]/90 px-2 py-1 font-mono text-[10px] text-slate-400">
+          <div className="pointer-events-none absolute bottom-3 left-3 z-[400] rounded-md border border-[#DCE6F2] bg-white/90 px-2 py-1 font-mono text-[10px] text-[#8694AC]">
             {cursor ? (
               <>
                 {cursor.lat.toFixed(6)}, {cursor.lng.toFixed(6)}
@@ -5095,13 +5095,13 @@ export default function Dashboard() {
           </div>
 
           <div className="pointer-events-none absolute right-3 top-14 z-[400] flex flex-col gap-2">
-            <span className="inline-flex items-center gap-2 rounded-md border border-[#00E5D1]/35 bg-[#0B0E11]/95 px-3 py-1.5 text-xs font-medium text-[#00E5D1] shadow-lg backdrop-blur-sm">
+            <span className="inline-flex items-center gap-2 rounded-md border border-[#2F80ED]/45 bg-white/95 px-3 py-1.5 text-xs font-medium text-[#2F80ED] shadow-lg backdrop-blur-sm">
               <MapPin className="h-3.5 w-3.5" strokeWidth={2} />
               {modeBadge}
             </span>
           </div>
 
-          <p className="pointer-events-none absolute bottom-2 right-3 z-[400] text-[10px] text-slate-500">
+          <p className="pointer-events-none absolute bottom-2 right-3 z-[400] text-[10px] text-[#8694AC]">
             Leaflet · © OSM / Esri / CARTO
           </p>
         </div>

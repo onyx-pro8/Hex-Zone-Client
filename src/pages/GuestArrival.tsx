@@ -615,19 +615,19 @@ export default function GuestArrival() {
   };
 
   return (
-    <section className="mx-auto max-w-3xl space-y-5 rounded-3xl border border-slate-800/80 bg-slate-950/80 p-6">
+    <section className="mx-auto max-w-3xl space-y-5 rounded-3xl border border-[#DCE6F2] bg-white p-6">
       <header className="space-y-2">
-        <p className="inline-flex items-center gap-2 rounded-full bg-[#00E5D1]/10 px-3 py-1 text-xs font-semibold tracking-[0.14em] text-[#00E5D1]">
+        <p className="inline-flex items-center gap-2 rounded-full bg-[#EDF3FB] px-3 py-1 text-xs font-semibold tracking-[0.14em] text-[#2F80ED]">
           <QrCode className="h-4 w-4" /> GUEST ARRIVAL
         </p>
-        <h1 className="text-2xl font-semibold text-slate-100">Guest info</h1>
-        <p className="text-sm text-slate-400">
-          Zone <span className="font-mono text-[#00E5D1]">{effectiveZoneId || "—"}</span>
+        <h1 className="text-2xl font-semibold text-[#0F2C5C]">Guest info</h1>
+        <p className="text-sm text-[#8694AC]">
+          Zone <span className="font-mono text-[#2F80ED]">{effectiveZoneId || "—"}</span>
         </p>
         <div className="flex flex-wrap gap-2 text-xs">
           <Link
             to="/guest-arrival/scan"
-            className="rounded-md border border-slate-700 px-2 py-1 text-slate-300 hover:border-[#00E5D1]/40 hover:text-white"
+            className="rounded-md border border-[#DCE6F2] px-2 py-1 text-[#566784] hover:border-[#2F80ED]/50 hover:text-[#0F2C5C]"
           >
             Back to Scan QR
           </Link>
@@ -639,7 +639,7 @@ export default function GuestArrival() {
           <div>
             <label
               htmlFor="guest-name"
-              className="mb-1 block text-xs uppercase tracking-[0.16em] text-slate-500"
+              className="mb-1 block text-xs uppercase tracking-[0.16em] text-[#8694AC]"
             >
               Guest name (required)
             </label>
@@ -648,7 +648,7 @@ export default function GuestArrival() {
               value={guestName}
               onChange={(event) => setGuestName(event.target.value)}
               placeholder="Jordan Rivera"
-              className="w-full rounded-md border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100"
+              className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
               required
             />
           </div>
@@ -656,7 +656,7 @@ export default function GuestArrival() {
           <div>
             <label
               htmlFor="guest-event-id"
-              className="mb-1 block text-xs uppercase tracking-[0.16em] text-slate-500"
+              className="mb-1 block text-xs uppercase tracking-[0.16em] text-[#8694AC]"
             >
               Event ID (optional)
             </label>
@@ -665,20 +665,20 @@ export default function GuestArrival() {
               value={eventId}
               onChange={(event) => setEventId(event.target.value)}
               placeholder="EVT-2026-GALA"
-              className="w-full rounded-md border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100"
+              className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
             />
           </div>
 
-          <div className="rounded-md border border-slate-800 bg-slate-900/60 p-3 text-xs text-slate-400">
+          <div className="rounded-md border border-[#DCE6F2] bg-[#F7FAFE] p-3 text-xs text-[#8694AC]">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <p className="font-semibold uppercase tracking-[0.16em] text-slate-300">
+              <p className="font-semibold uppercase tracking-[0.16em] text-[#566784]">
                 Position (optional)
               </p>
               <button
                 type="button"
                 onClick={captureLocation}
                 disabled={locating}
-                className="inline-flex items-center gap-1 rounded-md border border-slate-700 bg-slate-950 px-2 py-1 text-xs text-slate-200 disabled:opacity-60"
+                className="inline-flex items-center gap-1 rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-2 py-1 text-xs text-[#566784] disabled:opacity-60"
               >
                 {locating ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -701,12 +701,12 @@ export default function GuestArrival() {
             <p
               className={`rounded-md border px-3 py-2 text-sm ${
                 localError.tone === "success"
-                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
+                  ? "border-[#2FA24A]/30 bg-[#E3F4E8] text-[#2FA24A]"
                   : localError.tone === "warning"
-                    ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+                    ? "border-[#E0992A]/30 bg-[#FBEFD8] text-[#E0992A]"
                     : localError.tone === "error"
-                      ? "border-rose-500/40 bg-rose-500/10 text-rose-200"
-                      : "border-slate-700/70 bg-slate-900/70 text-slate-300"
+                      ? "border-rose-200 bg-rose-50 text-rose-600"
+                      : "border-[#DCE6F2] bg-[#F7FAFE] text-[#566784]"
               }`}
             >
               {localError.text}
@@ -716,7 +716,7 @@ export default function GuestArrival() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-md bg-[#00E5D1] px-4 py-2.5 text-sm font-bold text-[#0B0E11] disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-md bg-[#2F80ED] px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? "Submitting…" : "I have arrived"}
           </button>
@@ -726,61 +726,61 @@ export default function GuestArrival() {
       {(phase.id === "expected_ok" ||
         phase.id === "unexpected_pending" ||
         phase.id === "awaiting_approval") && (
-        <output className="block space-y-3 rounded-xl border border-slate-800/90 bg-slate-900/40 px-4 py-4">
+        <output className="block space-y-3 rounded-xl border border-[#DCE6F2] bg-[#F7FAFE] px-4 py-4">
           {phase.id === "expected_ok" ? (
             <div className="space-y-2">
-              <p className="flex items-center gap-2 text-lg font-semibold text-emerald-100">
-                <CheckCircle className="h-5 w-5 text-emerald-400" /> You are expected
+              <p className="flex items-center gap-2 text-lg font-semibold text-[#2FA24A]">
+                <CheckCircle className="h-5 w-5 text-[#2FA24A]" /> You are expected
               </p>
               {phase.eventHint ? (
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-[#8694AC]">
                   Event reference:{" "}
-                  <span className="font-mono text-slate-200">{phase.eventHint}</span>
+                  <span className="font-mono text-[#566784]">{phase.eventHint}</span>
                 </p>
               ) : null}
-              <div className="space-y-2 text-sm leading-relaxed text-slate-200">
+              <div className="space-y-2 text-sm leading-relaxed text-[#566784]">
                 {phase.waitLine ? (
                   <>
-                    <p className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-amber-100">
+                    <p className="rounded-lg border border-[#E0992A]/30 bg-[#FBEFD8] px-3 py-2 text-[#E0992A]">
                       Wait for host: {phase.waitLine}
                     </p>
-                    <p className="text-slate-300">When cleared: {phase.proceedLine}</p>
+                    <p className="text-[#566784]">When cleared: {phase.proceedLine}</p>
                   </>
                 ) : (
                   <>
-                    <p className="text-lg font-medium text-[#00E5D1]">Please proceed</p>
-                    <p className="text-slate-400">{phase.proceedLine}</p>
+                    <p className="text-lg font-medium text-[#2F80ED]">Please proceed</p>
+                    <p className="text-[#8694AC]">{phase.proceedLine}</p>
                   </>
                 )}
               </div>
             </div>
           ) : phase.id === "unexpected_pending" ? (
             <div className="space-y-2">
-              <p className="flex items-center gap-2 text-lg font-semibold text-amber-100">
-                <ShieldAlert className="h-5 w-5 text-amber-400" /> You are not scheduled here
+              <p className="flex items-center gap-2 text-lg font-semibold text-[#E0992A]">
+                <ShieldAlert className="h-5 w-5 text-[#E0992A]" /> You are not scheduled here
               </p>
-              <p className="text-sm text-slate-400">Waiting for approval…</p>
-              <p className="text-xs uppercase tracking-[0.16em] text-slate-500">
+              <p className="text-sm text-[#8694AC]">Waiting for approval…</p>
+              <p className="text-xs uppercase tracking-[0.16em] text-[#8694AC]">
                 Realtime updates arrive over the admin channel; polling runs when configured.
               </p>
               {phase.requestId ? (
-                <p className="break-all font-mono text-[10px] text-slate-600">
+                <p className="break-all font-mono text-[10px] text-[#8694AC]">
                   Reference: {phase.requestId}
                 </p>
               ) : null}
             </div>
           ) : (
             <div className="space-y-3">
-              <p className="flex items-center gap-2 text-lg font-semibold text-amber-50">
-                <ShieldAlert className="h-5 w-5 text-amber-400" /> You are not scheduled here
+              <p className="flex items-center gap-2 text-lg font-semibold text-[#E0992A]">
+                <ShieldAlert className="h-5 w-5 text-[#E0992A]" /> You are not scheduled here
               </p>
-              <p className="text-sm text-slate-400">Waiting for approval…</p>
-              <p className="text-base font-medium text-slate-100">Admin reviewing your request</p>
-              <div className="flex items-center gap-2 text-sm text-slate-500">
+              <p className="text-sm text-[#8694AC]">Waiting for approval…</p>
+              <p className="text-base font-medium text-[#0F2C5C]">Admin reviewing your request</p>
+              <div className="flex items-center gap-2 text-sm text-[#8694AC]">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Live refresh…
               </div>
               {phase.requestId ? (
-                <p className="break-all font-mono text-[10px] text-slate-600">
+                <p className="break-all font-mono text-[10px] text-[#8694AC]">
                   Reference: {phase.requestId}
                 </p>
               ) : null}
@@ -790,7 +790,7 @@ export default function GuestArrival() {
           <button
             type="button"
             onClick={() => navigate("/guest-arrival/scan")}
-            className="text-xs font-medium uppercase tracking-[0.14em] text-[#00E5D1] hover:underline"
+            className="text-xs font-medium uppercase tracking-[0.14em] text-[#2F80ED] hover:underline"
           >
             Scan another QR
           </button>
@@ -798,43 +798,43 @@ export default function GuestArrival() {
       )}
 
       {phase.id === "guest_dashboard_signin" && (
-        <div className="space-y-3 rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-4 py-4 text-emerald-50">
+        <div className="space-y-3 rounded-xl border border-[#2FA24A]/30 bg-[#E3F4E8] px-4 py-4 text-[#2FA24A]">
           <p className="text-lg font-semibold">Guest sign-in</p>
           {phase.instructions ? (
-            <p className="text-sm leading-relaxed text-emerald-100/90">{phase.instructions}</p>
+            <p className="text-sm leading-relaxed text-[#2FA24A]">{phase.instructions}</p>
           ) : null}
 
           {!phase.exchange_code?.trim() ? (
-            <div className="space-y-2 rounded-lg border border-emerald-500/20 bg-emerald-950/20 px-3 py-3 text-sm text-emerald-100/90">
-              <p className="flex items-center gap-2 font-medium text-emerald-100">
+            <div className="space-y-2 rounded-lg border border-[#2FA24A]/30 bg-[#E3F4E8] px-3 py-3 text-sm text-[#2FA24A]">
+              <p className="flex items-center gap-2 font-medium text-[#2FA24A]">
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                 Finishing sign-in…
               </p>
-              <p className="text-emerald-100/80">
+              <p className="text-[#2FA24A]">
                 Keep this page open while we fetch your sign-in code from the server.
               </p>
               {phase.pollMessage ? (
-                <p className="font-mono text-[11px] text-emerald-200/80">{phase.pollMessage}</p>
+                <p className="font-mono text-[11px] text-[#2FA24A]">{phase.pollMessage}</p>
               ) : null}
             </div>
           ) : (
             <div className="space-y-2 text-sm">
               {exchangeBusy ? (
-                <p className="flex items-center gap-2 font-medium text-emerald-100">
+                <p className="flex items-center gap-2 font-medium text-[#2FA24A]">
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                   Opening guest dashboard…
                 </p>
               ) : null}
               {phase.exchange_expires_at && !exchangeBusy ? (
-                <p className="text-emerald-100/80">
+                <p className="text-[#2FA24A]">
                   Sign-in code expires:{" "}
-                  <span className="font-mono text-emerald-50">
+                  <span className="font-mono text-[#2FA24A]">
                     {new Date(phase.exchange_expires_at).toLocaleString()}
                   </span>
                 </p>
               ) : null}
               {exchangeError ? (
-                <p className="rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-rose-100">
+                <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-rose-700">
                   {exchangeError}
                 </p>
               ) : null}
@@ -842,7 +842,7 @@ export default function GuestArrival() {
                 type="button"
                 disabled={exchangeBusy}
                 onClick={() => void handleContinueToGuestDashboard()}
-                className="w-full rounded-md bg-[#00E5D1] px-4 py-2.5 text-sm font-bold text-[#0B0E11] disabled:cursor-not-allowed disabled:opacity-60"
+                className="w-full rounded-md bg-[#2F80ED] px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {exchangeBusy ? "Signing in…" : "Continue to guest dashboard"}
               </button>
@@ -852,7 +852,7 @@ export default function GuestArrival() {
           <button
             type="button"
             onClick={resetToForm}
-            className="text-xs font-medium uppercase tracking-[0.14em] text-emerald-200/90 hover:underline"
+            className="text-xs font-medium uppercase tracking-[0.14em] text-[#2FA24A] hover:underline"
           >
             Dismiss / start over
           </button>
@@ -860,13 +860,13 @@ export default function GuestArrival() {
       )}
 
       {phase.id === "approved" && (
-        <div className="space-y-3 rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-4 py-4 text-emerald-50">
+        <div className="space-y-3 rounded-xl border border-[#2FA24A]/30 bg-[#E3F4E8] px-4 py-4 text-[#2FA24A]">
           <p className="text-lg font-semibold">Access granted</p>
           <p className="text-sm leading-relaxed">{phase.instructions}</p>
           <button
             type="button"
             onClick={resetToForm}
-            className="inline-flex items-center gap-2 rounded-md border border-emerald-500/40 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-emerald-100"
+            className="inline-flex items-center gap-2 rounded-md border border-[#2FA24A]/30 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-[#2FA24A]"
           >
             <RefreshCw className="h-3.5 w-3.5" /> Check in again
           </button>
@@ -874,18 +874,18 @@ export default function GuestArrival() {
       )}
 
       {phase.id === "rejected" && (
-        <div className="space-y-3 rounded-xl border border-rose-500/35 bg-rose-500/10 px-4 py-4 text-rose-50">
+        <div className="space-y-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-4 text-rose-700">
           <p className="text-lg font-semibold">Access denied</p>
           <p className="text-sm">Your host or an admin declined this visit.</p>
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={resetToForm}
-              className="rounded-md bg-rose-100 px-3 py-1.5 text-xs font-bold text-rose-950"
+              className="rounded-md bg-rose-600 px-3 py-1.5 text-xs font-bold text-white"
             >
               Retry
             </button>
-            <span className="text-xs text-rose-200/90">or contact your host / admin.</span>
+            <span className="text-xs text-rose-600">or contact your host / admin.</span>
           </div>
         </div>
       )}

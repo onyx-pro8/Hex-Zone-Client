@@ -159,34 +159,34 @@ export function MessageBlocksPanel({
   }
 
   return (
-    <section className="space-y-4 rounded-2xl border border-slate-800/80 bg-slate-950/80 p-5">
+    <section className="space-y-4 rounded-2xl border border-[#DCE6F2] bg-white p-5 shadow-sm">
       <div className="flex items-center gap-2">
-        <Ban className="h-4 w-4 text-[#00E5D1]" aria-hidden />
-        <p className="text-xs font-medium uppercase tracking-[0.25em] text-slate-500">
+        <Ban className="h-4 w-4 text-[#2F80ED]" aria-hidden />
+        <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#8694AC]">
           Message blocks
         </p>
       </div>
-      <p className="text-sm text-slate-400">
+      <p className="text-sm text-[#566784]">
         Block a message type from everyone in your zone, or block all messages from a specific member.
       </p>
 
       {error ? (
-        <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+        <p className="rounded-lg border border-[#E23B4E]/30 bg-[#FCE7EA] px-3 py-2 text-sm text-[#E23B4E]">
           {error}
         </p>
       ) : null}
-      {status ? <p className="text-sm text-[#00E5D1]">{status}</p> : null}
+      {status ? <p className="text-sm text-[#2FA24A]">{status}</p> : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-          <label className="block text-xs font-medium uppercase tracking-wider text-slate-500">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-[#8694AC]">
             Block message type
           </label>
           <div className="flex flex-wrap gap-2">
             <select
               value={blockType}
               onChange={(e) => setBlockType(e.target.value as MessageFeatureType)}
-              className="min-w-[160px] flex-1 rounded-md border border-slate-700 bg-slate-950/90 px-3 py-2 text-sm text-slate-100"
+              className="min-w-[160px] flex-1 rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C] outline-none focus:border-[#2F80ED]"
             >
               {selectableTypes.length === 0 ? (
                 <option value="">All types blocked</option>
@@ -202,7 +202,7 @@ export function MessageBlocksPanel({
               type="button"
               disabled={busy || selectableTypes.length === 0}
               onClick={() => void handleBlockType()}
-              className="rounded-md bg-[#00E5D1] px-4 py-2 text-sm font-bold text-[#0B0E11] disabled:opacity-50"
+              className="rounded-lg bg-[#2F80ED] px-4 py-2 text-sm font-bold text-white transition hover:brightness-110 disabled:opacity-50"
             >
               Add
             </button>
@@ -210,7 +210,7 @@ export function MessageBlocksPanel({
         </div>
 
         <div className="space-y-2">
-          <label className="block text-xs font-medium uppercase tracking-wider text-slate-500">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-[#8694AC]">
             Block member
           </label>
           <div className="flex flex-wrap gap-2">
@@ -218,7 +218,7 @@ export function MessageBlocksPanel({
               value={blockMemberId}
               onChange={(e) => setBlockMemberId(e.target.value)}
               disabled={selectableMembers.length === 0}
-              className="min-w-[160px] flex-1 rounded-md border border-slate-700 bg-slate-950/90 px-3 py-2 text-sm text-slate-100 disabled:opacity-50"
+              className="min-w-[160px] flex-1 rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C] outline-none focus:border-[#2F80ED] disabled:opacity-50"
             >
               <option value="">
                 {selectableMembers.length === 0 ? "All members blocked" : "Select member…"}
@@ -233,7 +233,7 @@ export function MessageBlocksPanel({
               type="button"
               disabled={busy || !blockMemberId}
               onClick={() => void handleBlockMember()}
-              className="rounded-md border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-100 hover:border-[#00E5D1]/50 disabled:opacity-50"
+              className="rounded-lg border border-[#C2D2E6] px-4 py-2 text-sm font-semibold text-[#0F2C5C] transition hover:border-[#2F80ED] disabled:opacity-50"
             >
               Add
             </button>
@@ -242,26 +242,26 @@ export function MessageBlocksPanel({
       </div>
 
       <div className="space-y-2">
-        <p className="text-xs font-medium uppercase tracking-wider text-slate-500">Active blocks</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-[#8694AC]">Active blocks</p>
         {loading ? (
-          <p className="flex items-center gap-2 text-sm text-slate-400">
+          <p className="flex items-center gap-2 text-sm text-[#566784]">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading…
           </p>
         ) : blocks.length === 0 ? (
-          <p className="text-sm text-slate-500">No block rules yet.</p>
+          <p className="text-sm text-[#8694AC]">No block rules yet.</p>
         ) : (
           <ul className="space-y-2">
             {blocks.map((row) => (
               <li
                 key={row.id}
-                className="flex items-center justify-between gap-3 rounded-lg border border-slate-800/80 bg-slate-900/50 px-3 py-2"
+                className="flex items-center justify-between gap-3 rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2"
               >
-                <span className="text-sm text-slate-200">{describeBlock(row, membersById)}</span>
+                <span className="text-sm text-[#0F2C5C]">{describeBlock(row, membersById)}</span>
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => void handleRemove(String(row.id))}
-                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-slate-400 hover:bg-slate-800 hover:text-red-300"
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs text-[#566784] transition hover:bg-[#FCE7EA] hover:text-[#E23B4E]"
                   title="Remove block"
                 >
                   <Trash2 className="h-3.5 w-3.5" />

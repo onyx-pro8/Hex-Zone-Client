@@ -6,3 +6,4 @@ export * from "./members";
 export * from "./devices";
 export * from "./client";
 export * from "./guestArrivalMessages";
+export * from "./settings";

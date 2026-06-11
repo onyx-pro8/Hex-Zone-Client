@@ -618,16 +618,16 @@ const DEFAULT_JSON: Record<string, string> = {
 function methodPillClass(method: HttpMethod) {
   switch (method) {
     case "GET":
-      return "bg-emerald-500/20 text-emerald-300 ring-emerald-500/40";
+      return "bg-[#EDF3FB] text-[#2F80ED] ring-[#2F80ED]/30";
     case "POST":
-      return "bg-sky-500/20 text-sky-300 ring-sky-500/40";
+      return "bg-[#E3F4E8] text-[#2FA24A] ring-[#2FA24A]/30";
     case "PUT":
     case "PATCH":
-      return "bg-amber-500/20 text-amber-300 ring-amber-500/40";
+      return "bg-[#FBEFD8] text-[#E0992A] ring-[#E0992A]/30";
     case "DELETE":
-      return "bg-rose-500/20 text-rose-300 ring-rose-500/40";
+      return "bg-[#FCE7EA] text-[#E23B4E] ring-[#E23B4E]/30";
     default:
-      return "bg-slate-500/20 text-slate-300 ring-slate-500/40";
+      return "bg-[#EDF3FB] text-[#8694AC] ring-[#DCE6F2]";
   }
 }
 
@@ -859,40 +859,40 @@ export default function ApiDocs() {
 
   return (
     <div className="layer-card flex min-h-[calc(100vh-8rem)] flex-col gap-0 overflow-hidden p-0">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 bg-slate-950/60 px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#DCE6F2] bg-[#F3F7FD] px-5 py-4">
         <div className="flex flex-wrap items-center gap-6">
-          <p className="text-sm font-semibold tracking-[0.2em] text-white">
+          <p className="text-sm font-semibold tracking-[0.2em] text-[#0F2C5C]">
             ZONE WEAVER
           </p>
-          <div className="flex items-center gap-2 rounded-lg border border-slate-700/80 bg-slate-900/80 px-3 py-1.5 text-xs text-slate-300">
-            <span className="text-slate-500">ZONE</span>
-            <span className="font-mono text-[#00E5D1]">{zoneLabel}</span>
+          <div className="flex items-center gap-2 rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-1.5 text-xs text-[#566784]">
+            <span className="text-[#8694AC]">ZONE</span>
+            <span className="font-mono text-[#2F80ED]">{zoneLabel}</span>
             <button
               type="button"
               onClick={() => copyToClipboard(zoneLabel, "zone")}
-              className="rounded p-0.5 text-slate-400 transition hover:bg-slate-800 hover:text-[#00E5D1]"
+              className="rounded p-0.5 text-[#8694AC] transition hover:bg-[#EDF3FB] hover:text-[#2F80ED]"
               title="Copy zone id"
             >
               {copied === "zone" ? (
-                <Check size={14} className="text-emerald-400" />
+                <Check size={14} className="text-[#2FA24A]" />
               ) : (
                 <Copy size={14} />
               )}
             </button>
           </div>
         </div>
-        <p className="text-sm text-slate-300">{displayName}</p>
+        <p className="text-sm text-[#566784]">{displayName}</p>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <aside className="w-full shrink-0 border-b border-slate-800/80 bg-slate-950/40 lg:w-80 lg:border-b-0 lg:border-r">
+        <aside className="w-full shrink-0 border-b border-[#DCE6F2] bg-[#F7FAFE] lg:w-80 lg:border-b-0 lg:border-r">
           <div className="sticky top-0 p-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8694AC]">
               API endpoints
             </p>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-xs text-[#8694AC]">
               OpenAPI-style paths against{" "}
-              <code className="rounded bg-slate-900 px-1 py-0.5 text-[#00E5D1]/90">
+              <code className="rounded bg-[#EDF3FB] px-1 py-0.5 text-[#2F80ED]">
                 {API_BASE.replace(/^https?:\/\//, "")}
               </code>
             </p>
@@ -904,8 +904,8 @@ export default function ApiDocs() {
                   onClick={() => setSelectedId(ep.id)}
                   className={`flex w-full flex-col items-start gap-1 rounded-xl px-3 py-2.5 text-left text-sm transition ${
                     ep.id === selectedId
-                      ? "bg-[#00E5D1]/12 ring-1 ring-[#00E5D1]/35"
-                      : "hover:bg-slate-800/60"
+                      ? "bg-[#EDF3FB] ring-1 ring-[#2F80ED]/45"
+                      : "hover:bg-[#EDF3FB]"
                   }`}
                 >
                   <span className="flex w-full flex-wrap items-baseline gap-2">
@@ -914,14 +914,14 @@ export default function ApiDocs() {
                     >
                       {ep.method}
                     </span>
-                    <span className="rounded bg-slate-800/80 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                    <span className="rounded bg-[#EDF3FB] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#8694AC]">
                       {ep.group}
                     </span>
-                    <span className="break-all font-mono text-xs text-slate-200">
+                    <span className="break-all font-mono text-xs text-[#566784]">
                       {ep.path}
                     </span>
                   </span>
-                  <span className="text-xs text-slate-500">{ep.description}</span>
+                  <span className="text-xs text-[#8694AC]">{ep.description}</span>
                 </button>
               ))}
             </nav>
@@ -929,14 +929,14 @@ export default function ApiDocs() {
         </aside>
 
         <div className="min-w-0 flex-1 overflow-y-auto p-5">
-          <section className="mb-6 rounded-2xl border border-slate-800/80 bg-slate-950/60 p-4 text-sm text-slate-300">
+          <section className="mb-6 rounded-2xl border border-[#DCE6F2] bg-white p-4 text-sm text-[#566784]">
             <p>
-              Auth styles: <span className="font-semibold text-slate-100">Core routes</span>{" "}
+              Auth styles: <span className="font-semibold text-[#0F2C5C]">Core routes</span>{" "}
               use token from <code>/owners/login</code>;{" "}
-              <span className="font-semibold text-slate-100">Contract routes</span>{" "}
+              <span className="font-semibold text-[#0F2C5C]">Contract routes</span>{" "}
               use token from <code>/login</code>.
             </p>
-            <p className="mt-2 text-slate-400">
+            <p className="mt-2 text-[#8694AC]">
               WebSocket endpoints: <code>/ws?token=&lt;jwt&gt;</code> and{" "}
               <code>/ws/messages?token=&lt;jwt&gt;</code> (compat alias).
               Event envelope: <code>{`{ type, data }`}</code> with{" "}
@@ -953,15 +953,15 @@ export default function ApiDocs() {
                   >
                     {selected.method}
                   </span>
-                  <h1 className="font-mono text-lg text-white break-all">
+                  <h1 className="font-mono text-lg text-[#0F2C5C] break-all">
                     {selected.path}
                   </h1>
                 </div>
-                <p className="mt-2 text-sm text-slate-400">{selected.description}</p>
+                <p className="mt-2 text-sm text-[#8694AC]">{selected.description}</p>
               </div>
 
               <section>
-                <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#8694AC]">
                   Parameters
                 </h2>
                 {(() => {
@@ -977,7 +977,7 @@ export default function ApiDocs() {
                     bodyInputs.length > 0;
                   if (!hasAny) {
                     return (
-                      <p className="text-sm text-slate-500">No parameters.</p>
+                      <p className="text-sm text-[#8694AC]">No parameters.</p>
                     );
                   }
                   return (
@@ -988,12 +988,12 @@ export default function ApiDocs() {
                           className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center"
                         >
                           <div>
-                            <label className="text-sm text-slate-200">
+                            <label className="text-sm text-[#566784]">
                               {p.name}
                               {p.required ? (
-                                <span className="text-rose-400"> *</span>
+                                <span className="text-[#E23B4E]"> *</span>
                               ) : null}
-                              <span className="ml-2 text-xs text-slate-500">
+                              <span className="ml-2 text-xs text-[#8694AC]">
                                 ({p.type ?? "string"})
                               </span>
                             </label>
@@ -1002,17 +1002,17 @@ export default function ApiDocs() {
                               value={values[p.name] ?? ""}
                               onChange={(e) => setField(p.name, e.target.value)}
                               placeholder={p.placeholder ?? p.name}
-                              className="mt-1.5 w-full rounded-xl border border-slate-700/80 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-[#00E5D1]/50 focus:ring-2 focus:ring-[#00E5D1]/15"
+                              className="mt-1.5 w-full rounded-xl border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C] outline-none transition focus:border-[#2F80ED]/60 focus:ring-2 focus:ring-[#2F80ED]/25"
                             />
                           </div>
-                          <p className="text-right text-[10px] uppercase tracking-wide text-slate-600 sm:pt-6">
+                          <p className="text-right text-[10px] uppercase tracking-wide text-[#8694AC] sm:pt-6">
                             {p.in}
                           </p>
                         </div>
                       ))}
                       {selected.bodyJson ? (
                         <div className="space-y-2">
-                          <label className="block text-xs text-slate-500">
+                          <label className="block text-xs text-[#8694AC]">
                             body (JSON)
                           </label>
                           <textarea
@@ -1020,7 +1020,7 @@ export default function ApiDocs() {
                             onChange={(e) => setField("body", e.target.value)}
                             rows={14}
                             spellCheck={false}
-                            className="w-full rounded-xl border border-slate-700/80 bg-slate-950/80 px-3 py-2 font-mono text-xs text-slate-200 outline-none ring-[#00E5D1]/0 transition focus:border-[#00E5D1]/50 focus:ring-2 focus:ring-[#00E5D1]/20"
+                            className="w-full rounded-xl border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 font-mono text-xs text-[#0F2C5C] outline-none ring-[#2F80ED]/0 transition focus:border-[#2F80ED]/60 focus:ring-2 focus:ring-[#2F80ED]/25"
                           />
                         </div>
                       ) : (
@@ -1030,12 +1030,12 @@ export default function ApiDocs() {
                             className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-center"
                           >
                             <div>
-                              <label className="text-sm text-slate-200">
+                              <label className="text-sm text-[#566784]">
                                 {p.name}
                                 {p.required ? (
-                                  <span className="text-rose-400"> *</span>
+                                  <span className="text-[#E23B4E]"> *</span>
                                 ) : null}
-                                <span className="ml-2 text-xs text-slate-500">
+                                <span className="ml-2 text-xs text-[#8694AC]">
                                   ({p.type ?? "string"})
                                 </span>
                               </label>
@@ -1050,10 +1050,10 @@ export default function ApiDocs() {
                                   setField(p.name, e.target.value)
                                 }
                                 placeholder={p.placeholder ?? p.name}
-                                className="mt-1.5 w-full rounded-xl border border-slate-700/80 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 outline-none transition focus:border-[#00E5D1]/50 focus:ring-2 focus:ring-[#00E5D1]/15"
+                                className="mt-1.5 w-full rounded-xl border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C] outline-none transition focus:border-[#2F80ED]/60 focus:ring-2 focus:ring-[#2F80ED]/25"
                               />
                             </div>
-                            <p className="text-right text-[10px] uppercase tracking-wide text-slate-600 sm:pt-6">
+                            <p className="text-right text-[10px] uppercase tracking-wide text-[#8694AC] sm:pt-6">
                               {p.in}
                             </p>
                           </div>
@@ -1066,7 +1066,7 @@ export default function ApiDocs() {
 
               <section>
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  <h2 className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8694AC]">
                     curl
                   </h2>
                   <div className="flex flex-wrap items-center gap-2">
@@ -1076,17 +1076,17 @@ export default function ApiDocs() {
                         curlEditedRef.current = false;
                         setCurlDraft(generatedCurl);
                       }}
-                      className="rounded-lg border border-slate-700/80 bg-slate-900/80 px-3 py-1.5 text-xs text-slate-400 transition hover:border-[#00E5D1]/40 hover:text-[#00E5D1]"
+                      className="rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-1.5 text-xs text-[#8694AC] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED]"
                     >
                       Reset to generated
                     </button>
                     <button
                       type="button"
                       onClick={() => copyToClipboard(curlDraft, "curl")}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700/80 bg-slate-900/80 px-3 py-1.5 text-xs text-slate-300 transition hover:border-[#00E5D1]/40 hover:text-[#00E5D1]"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-1.5 text-xs text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED]"
                     >
                       {copied === "curl" ? (
-                        <Check size={14} className="text-emerald-400" />
+                        <Check size={14} className="text-[#2FA24A]" />
                       ) : (
                         <Copy size={14} />
                       )}
@@ -1102,31 +1102,31 @@ export default function ApiDocs() {
                   }}
                   spellCheck={false}
                   rows={8}
-                  className="w-full resize-y rounded-2xl border border-slate-800/80 bg-slate-950/90 p-4 font-mono text-xs leading-relaxed text-slate-300 outline-none transition focus:border-[#00E5D1]/40 focus:ring-2 focus:ring-[#00E5D1]/15"
+                  className="w-full resize-y rounded-2xl border border-[#DCE6F2] bg-[#F7FAFE] p-4 font-mono text-xs leading-relaxed text-[#0F2C5C] outline-none transition focus:border-[#2F80ED]/60 focus:ring-2 focus:ring-[#2F80ED]/25"
                 />
-                <p className="mt-2 text-xs text-slate-500">
+                <p className="mt-2 text-xs text-[#8694AC]">
                   Edit freely for your terminal. Live test still uses the parameters above.
                 </p>
               </section>
 
               <section>
-                <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                <h2 className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#8694AC]">
                   Live test
                 </h2>
                 <button
                   type="button"
                   onClick={sendLive}
                   disabled={loading}
-                  className="rounded-xl bg-[#00E5D1] px-5 py-2.5 text-sm font-bold text-[#0B0E11] transition hover:brightness-110 disabled:opacity-50"
+                  className="rounded-xl bg-[#2F80ED] px-5 py-2.5 text-sm font-bold text-white transition hover:brightness-110 disabled:opacity-50"
                 >
                   {loading ? "Sending…" : "Send"}
                 </button>
                 {error ? (
-                  <p className="mt-2 text-sm text-rose-400">{error}</p>
+                  <p className="mt-2 text-sm text-[#E23B4E]">{error}</p>
                 ) : null}
-                <pre className="mt-4 min-h-[8rem] overflow-x-auto rounded-2xl border border-slate-800/80 bg-slate-950/90 p-4 text-xs text-slate-300">
+                <pre className="mt-4 min-h-[8rem] overflow-x-auto rounded-2xl border border-[#DCE6F2] bg-[#F7FAFE] p-4 text-xs text-[#0F2C5C]">
                   {responseText || (
-                    <span className="text-slate-600">
+                    <span className="text-[#8694AC]">
                       Response will appear here after you send a request.
                     </span>
                   )}

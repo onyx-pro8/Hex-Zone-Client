@@ -1,7 +1,7 @@
 import { MapContainer, TileLayer, Polygon, Marker, Popup } from "react-leaflet";
 import type { H3Cell } from "../lib/h3";
 
-const ACCENT = "#00E5D1";
+const ACCENT = "#2F80ED";
 const HIGHLIGHT = "#facc15";
 
 type AuthMapPanelProps = {
@@ -22,14 +22,14 @@ export default function AuthMapPanel({
 
   return (
     <div
-      className={`relative min-h-[280px] w-full overflow-hidden bg-[#0B0E11] lg:min-h-0 ${className}`}
+      className={`relative min-h-[280px] w-full overflow-hidden bg-[#EDF3FB] lg:min-h-0 ${className}`}
     >
       <div className="pointer-events-none absolute left-6 top-6 z-[1000]">
-        <p className="text-xl font-bold tracking-tight text-white">
-          Zone Weaver
+        <p className="text-xl font-extrabold tracking-tight text-[#0F2C5C]">
+          Safe <span className="text-[#2FA24A]">Zone</span> Patrol
         </p>
-        <p className="mt-1 text-sm text-slate-400">
-          Spatial Intelligence Platform
+        <p className="mt-1 text-sm text-[#566784]">
+          Neighbourhood Safety Network
         </p>
       </div>
 
@@ -42,7 +42,7 @@ export default function AuthMapPanel({
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
         <Marker position={center}>
           <Popup>
@@ -87,7 +87,7 @@ export default function AuthMapPanel({
         })}
       </MapContainer>
 
-      <div className="pointer-events-none absolute bottom-6 left-6 z-[1000] rounded-md border border-white/10 bg-black/50 px-3 py-2.5 text-xs text-slate-300 backdrop-blur-sm">
+      <div className="pointer-events-none absolute bottom-6 left-6 z-[1000] rounded-md border border-[#DCE6F2] bg-white/85 px-3 py-2.5 text-xs text-[#566784] backdrop-blur-sm">
         <div className="flex items-center gap-2">
           <span
             className="h-3 w-3 shrink-0 rounded-sm"

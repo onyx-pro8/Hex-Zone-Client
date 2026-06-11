@@ -42,7 +42,7 @@ export default function GuestAccessQr() {
   if (loading && !userZoneStr && zoneOptions.length === 0) {
     return (
       <section className="space-y-4 p-4">
-        <p className="text-sm text-slate-400">Loading zones…</p>
+        <p className="text-sm text-[#8694AC]">Loading zones…</p>
       </section>
     );
   }
@@ -50,26 +50,26 @@ export default function GuestAccessQr() {
   return (
     <section className="space-y-8">
       <div>
-        <span className="inline-flex items-center gap-2 rounded-full bg-[#00E5D1]/10 px-4 py-2 text-sm font-medium text-[#00E5D1]">
+        <span className="inline-flex items-center gap-2 rounded-full bg-[#EDF3FB] px-4 py-2 text-sm font-medium text-[#2F80ED]">
           <QrCode size={16} strokeWidth={2} /> Guest access
         </span>
-        <h1 className="mt-4 text-3xl font-semibold text-white sm:text-4xl">
+        <h1 className="mt-4 text-3xl font-semibold text-[#0F2C5C] sm:text-4xl">
           Guest access QR
         </h1>
-        <p className="mt-3 max-w-2xl text-lg leading-relaxed text-slate-400">
+        <p className="mt-3 max-w-2xl text-lg leading-relaxed text-[#8694AC]">
           Administrators manage one reusable Guest QR per zone for{" "}
-          <Link to="/access" className="text-[#00E5D1] hover:underline">
+          <Link to="/access" className="text-[#2F80ED] hover:underline">
             /access?gt=…
           </Link>{" "}
           without sign-in. Rotate only when you need to invalidate the existing link.
           Account-invite QR codes stay under{" "}
-          <Link to="/qr" className="text-[#00E5D1] hover:underline">
+          <Link to="/qr" className="text-[#2F80ED] hover:underline">
             QR invite
           </Link>
           . To edit the short messages guests see when requesting access, open{" "}
           <Link
             to="/guest-arrival-messages"
-            className="text-[#00E5D1] hover:underline"
+            className="text-[#2F80ED] hover:underline"
           >
             Guest arrival messages
           </Link>
@@ -81,7 +81,7 @@ export default function GuestAccessQr() {
         <div className="max-w-md space-y-2">
           <label
             htmlFor="guest-qr-zone"
-            className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+            className="block text-xs font-semibold uppercase tracking-[0.18em] text-[#8694AC]"
           >
             Zone
           </label>
@@ -89,7 +89,7 @@ export default function GuestAccessQr() {
             id="guest-qr-zone"
             value={effectiveZone}
             onChange={(e) => setPickedZone(e.target.value)}
-            className="w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
+            className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
           >
             {zoneOptions.map((z) => (
               <option key={z} value={z}>
@@ -101,18 +101,18 @@ export default function GuestAccessQr() {
       ) : null}
 
       {!effectiveZone ? (
-        <p className="rounded-md border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+        <p className="rounded-md border border-[#E0992A]/30 bg-[#FBEFD8] px-4 py-3 text-sm text-[#E0992A]">
           No zone is available on this account. Set a zone on your profile or
           open the dashboard to configure zones.
         </p>
       ) : !isAdministrator ? (
-        <p className="rounded-md border border-slate-700/80 bg-slate-900/60 px-4 py-3 text-sm text-slate-300">
-          Only <strong className="text-slate-200">administrators</strong> can
+        <p className="rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-4 py-3 text-sm text-[#566784]">
+          Only <strong className="text-[#0F2C5C]">administrators</strong> can
           create and revoke guest QR tokens for a zone. Ask an administrator to
           issue a link or sign in with an admin account.
         </p>
       ) : (
-        <div className="rounded-[1.25rem] border border-slate-800/80 bg-slate-950/60 p-5 sm:p-6">
+        <div className="rounded-[1.25rem] border border-[#DCE6F2] bg-white p-5 sm:p-6">
           <GuestQrTokensAdmin zoneId={effectiveZone} />
         </div>
       )}

@@ -187,26 +187,26 @@ export function GuestRequestsDashboardSection({ zoneId }: Props) {
   const hiddenCount = rows.length - visibleRows.length;
 
   return (
-    <section className="border-b border-slate-800/80 bg-[#0f1318]/80 px-4 py-4 sm:px-6">
+    <section className="border-b border-[#DCE6F2] bg-[#F7FAFE] px-4 py-4 sm:px-6">
       <div className="mx-auto flex max-w-7xl flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-white">
+          <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-[#0F2C5C]">
             Guest requests
           </h2>
-          <p className="mt-1 max-w-2xl text-xs text-slate-500">
+          <p className="mt-1 max-w-2xl text-xs text-[#8694AC]">
             Expected vs unexpected arrivals for this zone. Realtime events:{" "}
-            <span className="font-mono text-slate-400">guest_arrived</span>,{" "}
-            <span className="font-mono text-slate-400">guest_expected</span>,{" "}
-            <span className="font-mono text-slate-400">guest_unexpected</span>,{" "}
-            <span className="font-mono text-slate-400">guest_approved</span>,{" "}
-            <span className="font-mono text-slate-400">guest_rejected</span>.
+            <span className="font-mono text-[#566784]">guest_arrived</span>,{" "}
+            <span className="font-mono text-[#566784]">guest_expected</span>,{" "}
+            <span className="font-mono text-[#566784]">guest_unexpected</span>,{" "}
+            <span className="font-mono text-[#566784]">guest_approved</span>,{" "}
+            <span className="font-mono text-[#566784]">guest_rejected</span>.
           </p>
         </div>
         <button
           type="button"
           onClick={() => void refresh()}
           disabled={loading}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-700/80 px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-300 transition hover:border-[#00E5D1]/40 hover:text-[#00E5D1] disabled:opacity-60"
+          className="inline-flex items-center gap-2 rounded-lg border border-[#DCE6F2] px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#566784] transition hover:border-[#2F80ED]/40 hover:text-[#2F80ED] disabled:opacity-60"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
           Refresh list
@@ -214,7 +214,7 @@ export function GuestRequestsDashboardSection({ zoneId }: Props) {
       </div>
 
       {listError ? (
-        <div className="mx-auto mt-3 flex max-w-7xl flex-wrap gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+        <div className="mx-auto mt-3 flex max-w-7xl flex-wrap gap-2 rounded-lg border border-[#E0992A]/30 bg-[#FBEFD8] px-3 py-2 text-xs text-[#8A5A12]">
           <ShieldAlert className="h-4 w-4 shrink-0" />
           <span>
             Guest list API error: {listError}. Default path is{" "}
@@ -225,12 +225,12 @@ export function GuestRequestsDashboardSection({ zoneId }: Props) {
       ) : null}
 
       {chatNote ? (
-        <p className="mx-auto mt-2 max-w-7xl text-xs text-[#00E5D1]">{chatNote}</p>
+        <p className="mx-auto mt-2 max-w-7xl text-xs text-[#2F80ED]">{chatNote}</p>
       ) : null}
 
       <div className="mx-auto mt-4 grid max-w-7xl gap-3 lg:grid-cols-2">
         {rows.length === 0 && !loading ? (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-[#8694AC]">
             No queued guest rows yet — arrivals will populate over WebSocket (
             <span className="font-mono">guest_arrived</span>) or appear after backend list ships.
           </p>
@@ -242,14 +242,14 @@ export function GuestRequestsDashboardSection({ zoneId }: Props) {
           return (
             <article
               key={row.id}
-              className="rounded-2xl border border-slate-800/90 bg-[#151a20]/95 p-4 shadow-inner"
+              className="rounded-2xl border border-[#DCE6F2] bg-white p-4 shadow-sm"
             >
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#DCE6F2] pb-2">
                 <div>
-                  <p className="text-sm font-semibold text-white">
+                  <p className="text-sm font-semibold text-[#0F2C5C]">
                     {row.guestName ?? "Guest"}
                   </p>
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-[#8694AC]">
                     {row.createdAt ? new Date(row.createdAt).toLocaleString() : "Just now"}
                   </p>
                 </div>
@@ -257,19 +257,19 @@ export function GuestRequestsDashboardSection({ zoneId }: Props) {
                   <span
                     className={`rounded-full px-2 py-0.5 ${
                       row.expectation === "unexpected"
-                        ? "bg-rose-500/15 text-rose-200 ring-1 ring-rose-500/30"
-                        : "bg-emerald-500/15 text-emerald-200 ring-1 ring-emerald-500/30"
+                        ? "bg-[#FCE7EA] text-[#9A2533] ring-1 ring-[#E23B4E]/30"
+                        : "bg-[#E3F4E8] text-[#1F7A37] ring-1 ring-[#2FA24A]/30"
                     }`}
                   >
                     {expectationLabel(row)}
                   </span>
-                  <span className="rounded-full bg-slate-800 px-2 py-0.5 text-slate-300 ring-1 ring-slate-700/80">
+                  <span className="rounded-full bg-[#EDF3FB] px-2 py-0.5 text-[#566784] ring-1 ring-[#DCE6F2]">
                     {statusLabel(row.status)}
                   </span>
                 </div>
               </div>
 
-              <div className="mt-3 space-y-1 font-mono text-[10px] text-slate-500">
+              <div className="mt-3 space-y-1 font-mono text-[10px] text-[#8694AC]">
                 {row.hid ? <p>HID · {row.hid}</p> : null}
                 <p className="break-all">Ref · {row.id}</p>
               </div>
@@ -280,7 +280,7 @@ export function GuestRequestsDashboardSection({ zoneId }: Props) {
                     type="button"
                     disabled={busyId === row.id}
                     onClick={() => void runApprove(row.id)}
-                    className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-emerald-500/90 px-3 py-2 text-xs font-bold text-emerald-950 transition hover:brightness-110 disabled:opacity-50 sm:flex-none"
+                    className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-[#2FA24A] px-3 py-2 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-50 sm:flex-none"
                   >
                     <Check className="h-3.5 w-3.5" /> Approve
                   </button>
@@ -288,7 +288,7 @@ export function GuestRequestsDashboardSection({ zoneId }: Props) {
                     type="button"
                     disabled={busyId === row.id}
                     onClick={() => void runReject(row.id)}
-                    className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-rose-500/90 px-3 py-2 text-xs font-bold text-rose-50 transition hover:brightness-110 disabled:opacity-50 sm:flex-none"
+                    className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-[#E23B4E] px-3 py-2 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-50 sm:flex-none"
                   >
                     <X className="h-3.5 w-3.5" /> Reject
                   </button>
@@ -296,27 +296,27 @@ export function GuestRequestsDashboardSection({ zoneId }: Props) {
                     type="button"
                     disabled={busyId === row.id}
                     onClick={() => void runChat(row.id)}
-                    className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-slate-600 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-[#00E5D1]/40 hover:text-[#00E5D1] disabled:opacity-50 sm:flex-none"
+                    className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-[#DCE6F2] px-3 py-2 text-xs font-semibold text-[#566784] transition hover:border-[#2F80ED]/40 hover:text-[#2F80ED] disabled:opacity-50 sm:flex-none"
                   >
                     <MessageCircle className="h-3.5 w-3.5" /> Chat
                   </button>
                 </div>
               ) : row.status === "APPROVED" ? (
                 <div className="mt-4 space-y-2">
-                  <p className="text-[11px] text-slate-500">
+                  <p className="text-[11px] text-[#8694AC]">
                     Guest approved — open Chat to continue messaging with them in Messages.
                   </p>
                   <button
                     type="button"
                     disabled={busyId === row.id}
                     onClick={() => void runChat(row.id)}
-                    className="inline-flex items-center gap-1 rounded-lg border border-slate-600 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:border-[#00E5D1]/40 hover:text-[#00E5D1] disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded-lg border border-[#DCE6F2] px-3 py-2 text-xs font-semibold text-[#566784] transition hover:border-[#2F80ED]/40 hover:text-[#2F80ED] disabled:opacity-50"
                   >
                     <MessageCircle className="h-3.5 w-3.5" /> Chat
                   </button>
                 </div>
               ) : (
-                <p className="mt-3 text-[11px] text-slate-500">
+                <p className="mt-3 text-[11px] text-[#8694AC]">
                   {row.expectation === "expected"
                     ? "Expected guest — monitor zone activity; use Chat if you need coordination."
                     : row.status === "REJECTED"
@@ -334,7 +334,7 @@ export function GuestRequestsDashboardSection({ zoneId }: Props) {
           <button
             type="button"
             onClick={() => setListExpanded((v) => !v)}
-            className="inline-flex items-center gap-2 rounded-lg border border-slate-700/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-300 transition hover:border-[#00E5D1]/40 hover:text-[#00E5D1]"
+            className="inline-flex items-center gap-2 rounded-lg border border-[#DCE6F2] px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#566784] transition hover:border-[#2F80ED]/40 hover:text-[#2F80ED]"
           >
             {listExpanded ? (
               <>

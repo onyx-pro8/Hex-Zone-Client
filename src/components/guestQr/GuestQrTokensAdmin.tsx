@@ -134,7 +134,7 @@ export function GuestQrTokensAdmin({ zoneId }: Props) {
           type="button"
           onClick={() => void refreshPrimary()}
           disabled={loading}
-          className="inline-flex items-center gap-2 rounded-md border border-slate-700 px-3 py-1.5 text-xs text-slate-200"
+          className="inline-flex items-center gap-2 rounded-md border border-[#DCE6F2] px-3 py-1.5 text-xs text-[#566784]"
         >
           {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
           Refresh
@@ -144,7 +144,7 @@ export function GuestQrTokensAdmin({ zoneId }: Props) {
             type="button"
             onClick={() => void runRotate()}
             disabled={rotateBusy}
-            className="inline-flex items-center gap-2 rounded-md border border-slate-700 px-3 py-1.5 text-xs text-slate-200"
+            className="inline-flex items-center gap-2 rounded-md border border-[#DCE6F2] px-3 py-1.5 text-xs text-[#566784]"
           >
             {rotateBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
             Rotate QR
@@ -152,17 +152,17 @@ export function GuestQrTokensAdmin({ zoneId }: Props) {
         ) : null}
       </div>
       {error ? (
-        <p className="rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+        <p className="rounded-md border border-[#E23B4E]/30 bg-[#FCE7EA] px-3 py-2 text-sm text-[#E23B4E]">
           {error}
         </p>
       ) : null}
-      <div className="flex flex-col items-center gap-4 rounded-2xl border border-slate-800/90 bg-slate-950/80 p-5 sm:flex-row sm:items-start">
+      <div className="flex flex-col items-center gap-4 rounded-2xl border border-[#DCE6F2] bg-white p-5 sm:flex-row sm:items-start">
         <div className="rounded-2xl bg-white p-4">
-          {tokenUrl ? <QRCode id={qrSvgId} value={tokenUrl} size={200} level="M" /> : <p className="max-w-[200px] text-center text-xs text-slate-700">No URL available.</p>}
+          {tokenUrl ? <QRCode id={qrSvgId} value={tokenUrl} size={200} level="M" /> : <p className="max-w-[200px] text-center text-xs text-[#8694AC]">No URL available.</p>}
         </div>
         <div className="min-w-0 flex-1 space-y-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Guest URL</p>
-          <code className="block break-all rounded-lg border border-slate-800 bg-slate-900/90 px-2 py-1.5 text-xs text-slate-300">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8694AC]">Guest URL</p>
+          <code className="block break-all rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-2 py-1.5 text-xs text-[#566784]">
             {tokenUrl || "—"}
           </code>
           <div className="flex flex-wrap gap-2">
@@ -170,7 +170,7 @@ export function GuestQrTokensAdmin({ zoneId }: Props) {
               type="button"
               onClick={() => void copyText("primary-url", tokenUrl)}
               disabled={!tokenUrl}
-              className="inline-flex items-center gap-1 rounded-md border border-slate-700 px-3 py-1.5 text-xs text-slate-200 hover:border-[#00E5D1]/50"
+              className="inline-flex items-center gap-1 rounded-md border border-[#DCE6F2] px-3 py-1.5 text-xs text-[#566784] hover:border-[#2F80ED]/50"
             >
               <Copy className="h-3.5 w-3.5" />
               {copied === "primary-url" ? "Copied" : "Copy URL"}
@@ -179,7 +179,7 @@ export function GuestQrTokensAdmin({ zoneId }: Props) {
               type="button"
               onClick={runDownload}
               disabled={!tokenUrl}
-              className="inline-flex items-center gap-1 rounded-md border border-slate-700 px-3 py-1.5 text-xs text-slate-200 hover:border-[#00E5D1]/50"
+              className="inline-flex items-center gap-1 rounded-md border border-[#DCE6F2] px-3 py-1.5 text-xs text-[#566784] hover:border-[#2F80ED]/50"
             >
               <Download className="h-3.5 w-3.5" />
               Download QR

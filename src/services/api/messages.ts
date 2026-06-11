@@ -62,6 +62,8 @@ export type SendMessagePayload = {
   receiver_id?: number;
   /** Access-channel recipient (guest). When set, member UI should omit owner-to-owner use for PERMISSION/CHAT. */
   guest_id?: string;
+  /** Sender's broadcast name, embedded so receivers can show a friendly identity. */
+  broadcast_name?: string;
 };
 
 function toLegacyTypeFromVisibility(visibility: unknown): MessageType | null {
@@ -321,7 +323,17 @@ export function normalizeMessage(raw: unknown): Message | null {
     textValue = "(Chat)";
   }
 
-  const raw_payload: Record<string, unknown> | null = msgRecord ?? rowStructuredPayload;
+  // The server now sends the sender's display name (owners.broadcast_name, else
+  // first + last) at the top level. Fold it into raw_payload so the existing
+  // broadcast-name resolver surfaces it without further plumbing.
+  const topBroadcastName =
+    typeof row.broadcast_name === "string" && row.broadcast_name.trim()
+      ? row.broadcast_name.trim()
+      : null;
+  const baseRawPayload = msgRecord ?? rowStructuredPayload;
+  const raw_payload: Record<string, unknown> | null = topBroadcastName
+    ? { ...(baseRawPayload ?? {}), broadcast_name: topBroadcastName }
+    : baseRawPayload;
 
   const accessGuestChannel = type === "CHAT" || type === "PERMISSION";
   const useGuestLogicalSender =
@@ -472,11 +484,15 @@ export function formatMessageSenderLabel(message: Message): string {
 
 export async function sendMessage(payload: SendMessagePayload) {
   const gid = payload.guest_id?.trim();
+  const broadcastName = payload.broadcast_name?.trim();
   const data: Record<string, unknown> = {
     message: payload.message,
     message_type: payload.type,
     visibility: getMessageScopeForType(payload.type),
     ...(payload.zone_id ? { zone_id: payload.zone_id } : {}),
+    ...(broadcastName
+      ? { broadcast_name: broadcastName, msg: { broadcast_name: broadcastName } }
+      : {}),
   };
   if (gid) {
     data.guest_id = gid;

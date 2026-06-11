@@ -56,9 +56,27 @@ type AlarmDisplayPayload = {
   createdAt?: string | null;
 };
 
+function broadcastNameFromMetadata(
+  metadata: Record<string, unknown> | null | undefined,
+): string | null {
+  if (!metadata || typeof metadata !== "object") return null;
+  const pick = (o: Record<string, unknown>): string | null => {
+    const v = o.broadcast_name ?? o.broadcastName;
+    return typeof v === "string" && v.trim() ? v.trim() : null;
+  };
+  const top = pick(metadata);
+  if (top) return top;
+  const msg = metadata.msg;
+  if (msg && typeof msg === "object" && !Array.isArray(msg)) {
+    return pick(msg as Record<string, unknown>);
+  }
+  return null;
+}
+
 export function alarmTitle(payload: AlarmDisplayPayload): string {
   const label = String(payload.type || "ALARM").replace(/_/g, " ");
-  return `Hex Zone ${label}`;
+  const broadcast = broadcastNameFromMetadata(payload.metadata);
+  return broadcast ? `${broadcast} · ${label}` : `Safe Zone Patrol ${label}`;
 }
 
 export function alarmBody(payload: AlarmDisplayPayload): string {

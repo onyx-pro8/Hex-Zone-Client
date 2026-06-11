@@ -17,18 +17,18 @@ type BannerTone = "success" | "error" | "neutral";
 function ArrivalMessagesSkeleton() {
   return (
     <div className="animate-pulse space-y-6">
-      <div className="h-4 w-48 rounded bg-slate-800" />
+      <div className="h-4 w-48 rounded bg-[#EDF3FB]" />
       <div className="space-y-2">
-        <div className="h-3 w-32 rounded bg-slate-800" />
-        <div className="h-24 rounded-md bg-slate-800/80" />
+        <div className="h-3 w-32 rounded bg-[#EDF3FB]" />
+        <div className="h-24 rounded-md bg-[#EDF3FB]" />
       </div>
       <div className="space-y-2">
-        <div className="h-3 w-40 rounded bg-slate-800" />
-        <div className="h-24 rounded-md bg-slate-800/80" />
+        <div className="h-3 w-40 rounded bg-[#EDF3FB]" />
+        <div className="h-24 rounded-md bg-[#EDF3FB]" />
       </div>
       <div className="flex gap-3">
-        <div className="h-10 w-24 rounded-md bg-slate-800" />
-        <div className="h-10 w-40 rounded-md bg-slate-800" />
+        <div className="h-10 w-24 rounded-md bg-[#EDF3FB]" />
+        <div className="h-10 w-40 rounded-md bg-[#EDF3FB]" />
       </div>
     </div>
   );
@@ -286,7 +286,7 @@ export default function GuestArrivalMessagesAdmin() {
   if (zonesLoading && !userZoneStr && zoneOptions.length === 0) {
     return (
       <section className="space-y-4 p-4">
-        <p className="text-sm text-slate-400">Loading zones…</p>
+        <p className="text-sm text-[#8694AC]">Loading zones…</p>
       </section>
     );
   }
@@ -294,17 +294,17 @@ export default function GuestArrivalMessagesAdmin() {
   return (
     <section className="space-y-8">
       <div>
-        <span className="inline-flex items-center gap-2 rounded-full bg-[#00E5D1]/10 px-4 py-2 text-sm font-medium text-[#00E5D1]">
+        <span className="inline-flex items-center gap-2 rounded-full bg-[#EDF3FB] px-4 py-2 text-sm font-medium text-[#2F80ED]">
           <NotebookPen size={16} strokeWidth={2} /> Guest access
         </span>
-        <h1 className="mt-4 text-3xl font-semibold text-white sm:text-4xl">
+        <h1 className="mt-4 text-3xl font-semibold text-[#0F2C5C] sm:text-4xl">
           Guest arrival messages
         </h1>
-        <p className="mt-3 max-w-2xl text-lg leading-relaxed text-slate-400">
+        <p className="mt-3 max-w-2xl text-lg leading-relaxed text-[#8694AC]">
           Edit the short lines guests see after they request access (expected vs
           unexpected visits). Guest apps keep using the existing permission and
           poll responses; only this admin screen calls the settings API. Related:{" "}
-          <Link to="/guest-access-qr" className="text-[#00E5D1] hover:underline">
+          <Link to="/guest-access-qr" className="text-[#2F80ED] hover:underline">
             Guest QR
           </Link>
           .
@@ -315,7 +315,7 @@ export default function GuestArrivalMessagesAdmin() {
         <div className="max-w-md space-y-2">
           <label
             htmlFor="guest-arrival-zone"
-            className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+            className="block text-xs font-semibold uppercase tracking-[0.18em] text-[#8694AC]"
           >
             Zone
           </label>
@@ -323,7 +323,7 @@ export default function GuestArrivalMessagesAdmin() {
             id="guest-arrival-zone"
             value={effectiveZone}
             onChange={(e) => setPickedZone(e.target.value)}
-            className="w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white"
+            className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
           >
             {zoneOptions.map((z) => (
               <option key={z} value={z}>
@@ -335,23 +335,23 @@ export default function GuestArrivalMessagesAdmin() {
       ) : null}
 
       {!effectiveZone ? (
-        <p className="rounded-md border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+        <p className="rounded-md border border-[#E0992A]/30 bg-[#FBEFD8] px-4 py-3 text-sm text-[#E0992A]">
           No zone is available on this account. Set a zone on your profile or open
           the dashboard to configure zones.
         </p>
       ) : !isAdministrator ? (
-        <p className="rounded-md border border-slate-700/80 bg-slate-900/60 px-4 py-3 text-sm text-slate-300">
-          Only <strong className="text-slate-200">administrators</strong> can load
+        <p className="rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-4 py-3 text-sm text-[#566784]">
+          Only <strong className="text-[#0F2C5C]">administrators</strong> can load
           or edit guest arrival message settings for a zone.
         </p>
       ) : (
-        <div className="rounded-lg border border-slate-800/60 bg-[#0B0E11] overflow-hidden">
-          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800/80 px-4 py-3 sm:px-6">
-            <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-white">
-              <NotebookPen className="h-4 w-4 text-[#00E5D1]" />
+        <div className="rounded-lg border border-[#DCE6F2] bg-white overflow-hidden">
+          <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#DCE6F2] px-4 py-3 sm:px-6">
+            <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-[#0F2C5C]">
+              <NotebookPen className="h-4 w-4 text-[#2F80ED]" />
               Zone copy
             </span>
-            <span className="rounded-full border border-slate-700/80 bg-[#151a20] px-3 py-1.5 font-mono text-xs text-[#00E5D1]">
+            <span className="rounded-full border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-1.5 font-mono text-xs text-[#2F80ED]">
               {effectiveZone}
             </span>
           </header>
@@ -361,10 +361,10 @@ export default function GuestArrivalMessagesAdmin() {
               <div
                 className={`mb-5 rounded-md border px-4 py-3 text-sm ${
                   banner.tone === "success"
-                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-100"
+                    ? "border-[#2FA24A]/30 bg-[#E3F4E8] text-[#2FA24A]"
                     : banner.tone === "error"
-                      ? "border-rose-500/40 bg-rose-500/10 text-rose-100"
-                      : "border-slate-600/80 bg-slate-900/60 text-slate-200"
+                      ? "border-[#E23B4E]/30 bg-[#FCE7EA] text-[#E23B4E]"
+                      : "border-[#DCE6F2] bg-[#F7FAFE] text-[#566784]"
                 }`}
                 role="status"
               >
@@ -376,13 +376,13 @@ export default function GuestArrivalMessagesAdmin() {
               <ArrivalMessagesSkeleton />
             ) : loadState === "error" && !normalized ? (
               <div className="space-y-4">
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-[#8694AC]">
                   Could not load settings for this zone.
                 </p>
                 <button
                   type="button"
                   onClick={() => void load()}
-                  className="inline-flex items-center gap-2 rounded-md border border-slate-600 bg-slate-900 px-3 py-2 text-sm text-slate-200 hover:border-[#00E5D1]/50 hover:text-[#00E5D1]"
+                  className="inline-flex items-center gap-2 rounded-md border border-[#DCE6F2] bg-white px-3 py-2 text-sm text-[#566784] hover:border-[#2F80ED]/50 hover:text-[#2F80ED]"
                 >
                   <RefreshCw className="h-4 w-4" />
                   Retry
@@ -390,7 +390,7 @@ export default function GuestArrivalMessagesAdmin() {
               </div>
             ) : (
               <form className="space-y-6" onSubmit={handleSave}>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-[#8694AC]">
                   Leave a field empty to use the server default (placeholder text
                   shows what guests see). Max {maxLen} characters per message.
                 </p>
@@ -398,7 +398,7 @@ export default function GuestArrivalMessagesAdmin() {
                 <div className="space-y-2">
                   <label
                     htmlFor="expected-arrival-msg"
-                    className="block text-xs font-semibold uppercase tracking-[0.15em] text-slate-400"
+                    className="block text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]"
                   >
                     Expected (on schedule)
                   </label>
@@ -413,14 +413,14 @@ export default function GuestArrivalMessagesAdmin() {
                     value={expectedDraft}
                     onChange={(e) => setExpectedDraft(e.target.value)}
                     disabled={saving}
-                    className="w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white placeholder:text-slate-600 disabled:opacity-60"
+                    className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C] placeholder:text-[#8694AC] disabled:opacity-60"
                   />
                 </div>
 
                 <div className="space-y-2">
                   <label
                     htmlFor="unexpected-arrival-msg"
-                    className="block text-xs font-semibold uppercase tracking-[0.15em] text-slate-400"
+                    className="block text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]"
                   >
                     Unexpected (not on schedule, waiting for approval)
                   </label>
@@ -435,7 +435,7 @@ export default function GuestArrivalMessagesAdmin() {
                     value={unexpectedDraft}
                     onChange={(e) => setUnexpectedDraft(e.target.value)}
                     disabled={saving}
-                    className="w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white placeholder:text-slate-600 disabled:opacity-60"
+                    className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C] placeholder:text-[#8694AC] disabled:opacity-60"
                   />
                 </div>
 
@@ -443,7 +443,7 @@ export default function GuestArrivalMessagesAdmin() {
                   <div className="space-y-2">
                     <label
                       htmlFor="guest-pass-verified-msg"
-                      className="block text-xs font-semibold uppercase tracking-[0.15em] text-slate-400"
+                      className="block text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]"
                     >
                       Guest pass verified (optional)
                     </label>
@@ -458,7 +458,7 @@ export default function GuestArrivalMessagesAdmin() {
                       value={guestPassDraft}
                       onChange={(e) => setGuestPassDraft(e.target.value)}
                       disabled={saving}
-                      className="w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2 text-sm text-white placeholder:text-slate-600 disabled:opacity-60"
+                      className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C] placeholder:text-[#8694AC] disabled:opacity-60"
                     />
                   </div>
                 ) : null}
@@ -467,7 +467,7 @@ export default function GuestArrivalMessagesAdmin() {
                   <button
                     type="submit"
                     disabled={saving}
-                    className="inline-flex items-center justify-center gap-2 rounded-md bg-[#00E5D1] px-4 py-2 text-sm font-bold text-[#0B0E11] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex items-center justify-center gap-2 rounded-md bg-[#2F80ED] px-4 py-2 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {saving ? (
                       <>
@@ -482,7 +482,7 @@ export default function GuestArrivalMessagesAdmin() {
                     type="button"
                     disabled={saving}
                     onClick={() => void handleReset()}
-                    className="inline-flex items-center justify-center rounded-md border border-slate-600 bg-transparent px-4 py-2 text-sm text-slate-200 transition hover:border-[#00E5D1]/50 hover:text-[#00E5D1] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex items-center justify-center rounded-md border border-[#DCE6F2] bg-transparent px-4 py-2 text-sm text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Reset to defaults
                   </button>

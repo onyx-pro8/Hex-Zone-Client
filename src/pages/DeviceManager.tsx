@@ -27,13 +27,13 @@ import { useAuth } from "../hooks/useAuth";
 import { AddressAutocompleteInput } from "../components/AddressAutocompleteInput";
 import { AlertTriangle, CircleDot, Plus, Smartphone, X } from "lucide-react";
 
-const ACCENT = "#00E5D1";
+const ACCENT = "#2F80ED";
 const H3_RESOLUTION = 10;
 const WEB_DEVICE_HID_KEY = "zoneweaver_device_hid";
 const DM_ADDRESS_LABEL =
-  "mb-1.5 block text-xs font-semibold uppercase tracking-[0.15em] text-slate-500";
+  "mb-1.5 block text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]";
 const DM_ADDRESS_INPUT =
-  "w-full rounded-md border border-slate-700 bg-slate-900/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-[#00E5D1] focus:outline-none focus:ring-2 focus:ring-[#00E5D1]/30";
+  "w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] placeholder:text-[#8694AC] focus:border-[#2F80ED] focus:outline-none focus:ring-2 focus:ring-[#2F80ED]/25";
 const DEVICE_LIMIT_MESSAGE_BY_ACCOUNT = {
   PRIVATE: "Private accounts can register up to 1 device.",
   EXCLUSIVE: "Exclusive accounts are limited to 1 device.",
@@ -90,13 +90,13 @@ function formatLastSeen(device: Device): string {
 }
 
 function statusBadgeClass(status: UiStatus): string {
-  if (status === "online") return "bg-emerald-500/15 text-emerald-300";
-  if (status === "error") return "bg-amber-500/15 text-amber-200";
-  return "bg-slate-700/50 text-slate-400";
+  if (status === "online") return "bg-[#E3F4E8] text-[#2FA24A]";
+  if (status === "error") return "bg-[#FBEFD8] text-[#E0992A]";
+  return "bg-[#EDF3FB] text-[#8694AC]";
 }
 
 function userRowStatusClass(active: boolean): string {
-  return active ? "font-medium text-emerald-300" : "font-medium text-slate-500";
+  return active ? "font-medium text-[#2FA24A]" : "font-medium text-[#8694AC]";
 }
 
 function generateDeviceHid(): string {
@@ -804,10 +804,10 @@ export default function DeviceManager() {
       <section className="p-8">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+            <h1 className="text-3xl font-semibold tracking-tight text-[#0F2C5C] sm:text-4xl">
               Account &amp; Device Manager
             </h1>
-            <p className="mt-2 text-slate-400">
+            <p className="mt-2 text-[#8694AC]">
               Account type:{" "}
               <span className="font-semibold" style={{ color: ACCENT }}>
                 {accountLabel}
@@ -817,7 +817,7 @@ export default function DeviceManager() {
           {/* <button
             type="button"
             onClick={openAddModal}
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md px-5 py-3 text-sm font-bold text-[#0B0E11] transition hover:brightness-110"
+            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md px-5 py-3 text-sm font-bold text-white transition hover:brightness-110"
             style={{ backgroundColor: ACCENT }}
           >
             <Plus size={18} strokeWidth={2.5} /> Add device
@@ -825,10 +825,10 @@ export default function DeviceManager() {
         </div>
       </section>
 
-      <section className="layer-card border-amber-500/25 bg-slate-900/90">
-        <div className="flex gap-4 text-sm leading-relaxed text-slate-300">
+      <section className="layer-card border-[#E0992A]/40 bg-white">
+        <div className="flex gap-4 text-sm leading-relaxed text-[#566784]">
           <AlertTriangle
-            className="mt-0.5 h-5 w-5 shrink-0 text-amber-400"
+            className="mt-0.5 h-5 w-5 shrink-0 text-[#E0992A]"
             strokeWidth={2}
             aria-hidden
           />
@@ -837,17 +837,17 @@ export default function DeviceManager() {
       </section>
 
       <section className="layer-card overflow-hidden p-0">
-        <div className="flex items-center gap-2 border-b border-slate-800/80 px-6 py-4">
+        <div className="flex items-center gap-2 border-b border-[#DCE6F2] px-6 py-4">
           <Smartphone
             className="h-5 w-5"
             style={{ color: ACCENT }}
             strokeWidth={2}
           />
-          <h2 className="text-lg font-semibold text-white">Devices</h2>
+          <h2 className="text-lg font-semibold text-[#0F2C5C]">Devices</h2>
         </div>
         <div className="min-w-full overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-800 text-sm text-slate-200">
-            <thead className="bg-slate-950/80 text-xs uppercase tracking-[0.2em] text-slate-500">
+          <table className="min-w-full divide-y divide-[#DCE6F2] text-sm text-[#566784]">
+            <thead className="bg-[#F7FAFE] text-xs uppercase tracking-[0.2em] text-[#8694AC]">
               <tr>
                 <th className="px-6 py-4 text-left font-medium">Device ID</th>
                 <th className="px-6 py-4 text-left font-medium">User</th>
@@ -856,11 +856,11 @@ export default function DeviceManager() {
                 <th className="px-6 py-4 text-left font-medium">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800">
+            <tbody className="divide-y divide-[#DCE6F2]">
               {loading ? (
                 <tr>
                   <td
-                    className="px-6 py-10 text-center text-slate-500"
+                    className="px-6 py-10 text-center text-[#8694AC]"
                     colSpan={5}
                   >
                     Loading devices…
@@ -869,13 +869,13 @@ export default function DeviceManager() {
               ) : sortedDevices.length === 0 ? (
                 <tr>
                   <td
-                    className="px-6 py-10 text-center text-slate-500"
+                    className="px-6 py-10 text-center text-[#8694AC]"
                     colSpan={5}
                   >
                     No devices yet. Please{" "}
-                    <span className="text-slate-300">Refresh</span> to
+                    <span className="text-[#566784]">Refresh</span> to
                     get devices, or check your{" "}
-                    <code className="text-slate-400">Network Connection</code>{" "}
+                    <code className="text-[#8694AC]">Network Connection</code>{" "}
                     and try again later.
                   </td>
                 </tr>
@@ -883,11 +883,11 @@ export default function DeviceManager() {
                 sortedDevices.map((device) => {
                   const ui = deriveUiStatus(device);
                   return (
-                    <tr key={device.id} className="hover:bg-slate-950/60">
-                      <td className="px-6 py-4 font-mono text-sm text-white">
+                    <tr key={device.id} className="hover:bg-[#F7FAFE]">
+                      <td className="px-6 py-4 font-mono text-sm text-[#0F2C5C]">
                         {device.hid}
                       </td>
-                      <td className="px-6 py-4 text-slate-200">
+                      <td className="px-6 py-4 text-[#566784]">
                         {device.user_display_name?.trim() ||
                           device.name?.trim() ||
                           "—"}
@@ -899,7 +899,7 @@ export default function DeviceManager() {
                           <CircleDot size={12} /> {ui}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-slate-400">
+                      <td className="px-6 py-4 text-[#8694AC]">
                         {formatLastSeen(device)}
                       </td>
                       <td className="px-6 py-4">
@@ -922,15 +922,15 @@ export default function DeviceManager() {
       </section>
 
       <section className="layer-card overflow-hidden p-0">
-        <div className="border-b border-slate-800/80 px-6 py-4">
-          <h2 className="text-lg font-semibold text-white">User information</h2>
-          <p className="mt-1 text-sm text-slate-500">
+        <div className="border-b border-[#DCE6F2] px-6 py-4">
+          <h2 className="text-lg font-semibold text-[#0F2C5C]">User information</h2>
+          <p className="mt-1 text-sm text-[#8694AC]">
             Username, email, device assignment, status, and zone
           </p>
         </div>
         <div className="min-w-full overflow-x-auto">
-          <table className="min-w-full divide-slate-800 text-sm text-slate-200">
-            <thead className="bg-slate-950/80 text-xs uppercase tracking-[0.2em] text-slate-500">
+          <table className="min-w-full divide-[#DCE6F2] text-sm text-[#566784]">
+            <thead className="bg-[#F7FAFE] text-xs uppercase tracking-[0.2em] text-[#8694AC]">
               <tr>
                 <th className="px-6 py-4 text-left font-medium">Username</th>
                 <th className="px-6 py-4 text-left font-medium">Email</th>
@@ -943,7 +943,7 @@ export default function DeviceManager() {
               {userRows.length === 0 ? (
                 <tr>
                   <td
-                    className="px-6 py-10 text-center text-slate-500"
+                    className="px-6 py-10 text-center text-[#8694AC]"
                     colSpan={5}
                   >
                     No users linked to devices yet.
@@ -953,13 +953,13 @@ export default function DeviceManager() {
                 userRows.map((row) => (
                   <tr
                     key={row.key}
-                    className={`hover:bg-slate-950/60 ${row.highlight ? "bg-[#00E5D1]/5 ring-1 ring-inset ring-[#00E5D1]/20" : ""}`}
+                    className={`hover:bg-[#F7FAFE] ${row.highlight ? "bg-[#EDF3FB] ring-1 ring-inset ring-[#2F80ED]/25" : ""}`}
                   >
-                    <td className="px-6 py-4 font-mono text-sm text-white">
+                    <td className="px-6 py-4 font-mono text-sm text-[#0F2C5C]">
                       {row.username}
                     </td>
-                    <td className="px-6 py-4 text-slate-300">{row.email}</td>
-                    <td className="px-6 py-4 font-mono text-sm text-slate-300">
+                    <td className="px-6 py-4 text-[#566784]">{row.email}</td>
+                    <td className="px-6 py-4 font-mono text-sm text-[#566784]">
                       {row.deviceId}
                     </td>
                     <td
@@ -985,7 +985,7 @@ export default function DeviceManager() {
         <div className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto overscroll-contain p-4 !mt-0">
           <button
             type="button"
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+            className="fixed inset-0 bg-[#0F2C5C]/30 backdrop-blur-sm"
             aria-label="Close dialog"
             onClick={closeAddModal}
           />
@@ -993,17 +993,17 @@ export default function DeviceManager() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="add-device-title"
-            className="relative z-10 my-auto w-full max-w-lg max-h-[min(90vh,calc(100dvh-2rem))] overflow-y-auto overscroll-contain rounded-2xl border border-slate-800/80 bg-[#0b0e14] p-6 shadow-2xl"
+            className="relative z-10 my-auto w-full max-w-lg max-h-[min(90vh,calc(100dvh-2rem))] overflow-y-auto overscroll-contain rounded-2xl border border-[#DCE6F2] bg-white p-6 shadow-2xl"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2
                   id="add-device-title"
-                  className="text-xl font-semibold text-white"
+                  className="text-xl font-semibold text-[#0F2C5C]"
                 >
                   Add device
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-[#8694AC]">
                   Link a device to a registered user. Settings sync via REST for
                   mobile clients.
                 </p>
@@ -1011,7 +1011,7 @@ export default function DeviceManager() {
               <button
                 type="button"
                 onClick={closeAddModal}
-                className="rounded-md p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white"
+                className="rounded-md p-2 text-[#8694AC] transition hover:bg-[#EDF3FB] hover:text-[#0F2C5C]"
                 aria-label="Close"
               >
                 <X size={22} />
@@ -1020,16 +1020,16 @@ export default function DeviceManager() {
 
             <div className="mt-6 space-y-5">
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">
+                <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]">
                   Registered user
                 </label>
                 {usersError && (
-                  <p className="mt-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                  <p className="mt-2 rounded-md border border-[#E0992A]/40 bg-[#FBEFD8] px-3 py-2 text-sm text-[#E0992A]">
                     {usersError}
                   </p>
                 )}
                 <select
-                  className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900/80 px-3 py-2.5 text-sm text-white focus:border-[#00E5D1] focus:outline-none focus:ring-2 focus:ring-[#00E5D1]/30 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="mt-2 w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] focus:border-[#2F80ED] focus:outline-none focus:ring-2 focus:ring-[#2F80ED]/25 disabled:cursor-not-allowed disabled:opacity-60"
                   value={addForm.userId}
                   onChange={(e) =>
                     setAddForm((f) => ({ ...f, userId: e.target.value }))
@@ -1055,20 +1055,20 @@ export default function DeviceManager() {
                 {!usersLoading &&
                   !usersError &&
                   registeredUsers.length === 0 && (
-                    <p className="mt-2 text-xs text-slate-500">
+                    <p className="mt-2 text-xs text-[#8694AC]">
                       Users come from{" "}
-                      <code className="text-slate-400">GET /members</code>.
+                      <code className="text-[#8694AC]">GET /members</code>.
                     </p>
                   )}
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">
+                <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]">
                   Device ID
                 </label>
                 <div className="mt-2 flex gap-2">
                   <input
-                    className="min-w-0 flex-1 rounded-md border border-slate-700 bg-slate-900/80 px-3 py-2.5 font-mono text-sm text-white focus:border-[#00E5D1] focus:outline-none focus:ring-2 focus:ring-[#00E5D1]/30"
+                    className="min-w-0 flex-1 rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 font-mono text-sm text-[#0F2C5C] focus:border-[#2F80ED] focus:outline-none focus:ring-2 focus:ring-[#2F80ED]/25"
                     value={addForm.hid}
                     onChange={(e) =>
                       setAddForm((f) => ({ ...f, hid: e.target.value }))
@@ -1080,16 +1080,16 @@ export default function DeviceManager() {
                     onClick={() =>
                       setAddForm((f) => ({ ...f, hid: generateDeviceHid() }))
                     }
-                    className="shrink-0 rounded-md border border-slate-600 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:border-[#00E5D1]/50 hover:text-[#00E5D1]"
+                    className="shrink-0 rounded-md border border-[#E4ECF7] px-4 py-2.5 text-sm font-semibold text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED]"
                   >
                     Generate
                   </button>
                 </div>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-[#8694AC]">
                   Use Generate or enter an ID: prefix{" "}
-                  <span className="font-mono text-slate-400">DEV-</span> plus at
+                  <span className="font-mono text-[#8694AC]">DEV-</span> plus at
                   least 3 letters or numbers (e.g.{" "}
-                  <span className="font-mono text-slate-400">DEV-A1B2C3</span>
+                  <span className="font-mono text-[#8694AC]">DEV-A1B2C3</span>
                   ).
                 </p>
               </div>
@@ -1116,13 +1116,13 @@ export default function DeviceManager() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">
+                  <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]">
                     Latitude
                   </label>
                   <input
                     type="number"
                     step="any"
-                    className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900/80 px-3 py-2.5 text-sm text-white focus:border-[#00E5D1] focus:outline-none focus:ring-2 focus:ring-[#00E5D1]/30"
+                    className="mt-2 w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] focus:border-[#2F80ED] focus:outline-none focus:ring-2 focus:ring-[#2F80ED]/25"
                     value={addForm.latitude}
                     onChange={(e) =>
                       setAddForm((f) => ({
@@ -1133,13 +1133,13 @@ export default function DeviceManager() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">
+                  <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]">
                     Longitude
                   </label>
                   <input
                     type="number"
                     step="any"
-                    className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900/80 px-3 py-2.5 text-sm text-white focus:border-[#00E5D1] focus:outline-none focus:ring-2 focus:ring-[#00E5D1]/30"
+                    className="mt-2 w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] focus:border-[#2F80ED] focus:outline-none focus:ring-2 focus:ring-[#2F80ED]/25"
                     value={addForm.longitude}
                     onChange={(e) =>
                       setAddForm((f) => ({
@@ -1152,11 +1152,11 @@ export default function DeviceManager() {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">
+                <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]">
                   Device name
                 </label>
                 <input
-                  className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900/80 px-3 py-2.5 text-sm text-white focus:border-[#00E5D1] focus:outline-none focus:ring-2 focus:ring-[#00E5D1]/30"
+                  className="mt-2 w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] focus:border-[#2F80ED] focus:outline-none focus:ring-2 focus:ring-[#2F80ED]/25"
                   value={addForm.deviceName}
                   onChange={(e) =>
                     setAddForm((f) => ({ ...f, deviceName: e.target.value }))
@@ -1165,10 +1165,10 @@ export default function DeviceManager() {
                 />
               </div>
 
-              <label className="flex cursor-pointer items-center gap-3 rounded-md border border-slate-800/80 bg-slate-900/50 px-4 py-3">
+              <label className="flex cursor-pointer items-center gap-3 rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-4 py-3">
                 <input
                   type="checkbox"
-                  className="rounded border-slate-600 text-[#00E5D1] focus:ring-[#00E5D1]"
+                  className="rounded border-[#E4ECF7] text-[#2F80ED] focus:ring-[#2F80ED]"
                   checked={addForm.propagate_enabled}
                   onChange={(e) =>
                     setAddForm((f) => ({
@@ -1177,20 +1177,20 @@ export default function DeviceManager() {
                     }))
                   }
                 />
-                <span className="text-sm text-slate-200">
+                <span className="text-sm text-[#566784]">
                   Propagate enabled
                 </span>
               </label>
 
               <div>
-                <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">
+                <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]">
                   Propagate radius (km)
                 </label>
                 <input
                   type="number"
                   min={0}
                   step={0.1}
-                  className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900/80 px-3 py-2.5 text-sm text-white focus:border-[#00E5D1] focus:outline-none focus:ring-2 focus:ring-[#00E5D1]/30"
+                  className="mt-2 w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] focus:border-[#2F80ED] focus:outline-none focus:ring-2 focus:ring-[#2F80ED]/25"
                   value={addForm.propagate_radius_km}
                   onChange={(e) =>
                     setAddForm((f) => ({
@@ -1201,10 +1201,10 @@ export default function DeviceManager() {
                 />
               </div>
 
-              <label className="flex cursor-pointer items-center gap-3 rounded-md border border-slate-800/80 bg-slate-900/50 px-4 py-3">
+              <label className="flex cursor-pointer items-center gap-3 rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-4 py-3">
                 <input
                   type="checkbox"
-                  className="rounded border-slate-600 text-[#00E5D1] focus:ring-[#00E5D1]"
+                  className="rounded border-[#E4ECF7] text-[#2F80ED] focus:ring-[#2F80ED]"
                   checked={addForm.enable_notification}
                   onChange={(e) =>
                     setAddForm((f) => ({
@@ -1213,20 +1213,20 @@ export default function DeviceManager() {
                     }))
                   }
                 />
-                <span className="text-sm text-slate-200">
+                <span className="text-sm text-[#566784]">
                   Enable notification
                 </span>
               </label>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">
+                  <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]">
                     Alert threshold (meters)
                   </label>
                   <input
                     type="number"
                     min={1}
-                    className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900/80 px-3 py-2.5 text-sm text-white focus:border-[#00E5D1] focus:outline-none focus:ring-2 focus:ring-[#00E5D1]/30"
+                    className="mt-2 w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] focus:border-[#2F80ED] focus:outline-none focus:ring-2 focus:ring-[#2F80ED]/25"
                     value={addForm.alert_threshold_meters}
                     onChange={(e) =>
                       setAddForm((f) => ({
@@ -1237,13 +1237,13 @@ export default function DeviceManager() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">
+                  <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]">
                     Update interval (seconds)
                   </label>
                   <input
                     type="number"
                     min={5}
-                    className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900/80 px-3 py-2.5 text-sm text-white focus:border-[#00E5D1] focus:outline-none focus:ring-2 focus:ring-[#00E5D1]/30"
+                    className="mt-2 w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] focus:border-[#2F80ED] focus:outline-none focus:ring-2 focus:ring-[#2F80ED]/25"
                     value={addForm.update_interval_seconds}
                     onChange={(e) =>
                       setAddForm((f) => ({
@@ -1256,7 +1256,7 @@ export default function DeviceManager() {
               </div>
 
               {addError && (
-                <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                <p className="rounded-md border border-[#E0992A]/40 bg-[#FBEFD8] px-3 py-2 text-sm text-[#E0992A]">
                   {addError}
                 </p>
               )}
@@ -1265,7 +1265,7 @@ export default function DeviceManager() {
                 <button
                   type="button"
                   onClick={closeAddModal}
-                  className="rounded-md border border-slate-600 px-5 py-2.5 text-sm font-semibold text-slate-200 transition hover:border-slate-500"
+                  className="rounded-md border border-[#E4ECF7] px-5 py-2.5 text-sm font-semibold text-[#566784] transition hover:border-[#C5D4E8]"
                 >
                   Cancel
                 </button>
@@ -1277,7 +1277,7 @@ export default function DeviceManager() {
                     registeredUsers.length === 0
                   }
                   onClick={handleAddDevice}
-                  className="rounded-md px-5 py-2.5 text-sm font-bold text-[#0B0E11] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-md px-5 py-2.5 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                   style={{ backgroundColor: ACCENT }}
                 >
                   {addSubmitting ? "Saving…" : "Save device"}
@@ -1292,26 +1292,26 @@ export default function DeviceManager() {
         <div className="fixed inset-0 z-50 flex justify-end !mt-0">
           <button
             type="button"
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-[#0F2C5C]/30 backdrop-blur-sm"
             aria-label="Close settings"
             onClick={closeDrawer}
           />
           <aside
-            className="relative flex h-full w-full max-w-md flex-col border-l border-slate-800/80 bg-slate-950 shadow-2xl"
+            className="relative flex h-full w-full max-w-md flex-col border-l border-[#DCE6F2] bg-white shadow-2xl"
             role="dialog"
             aria-labelledby="device-settings-title"
           >
-            <div className="flex items-center justify-between gap-4 border-b border-slate-800/80 px-5 py-4">
+            <div className="flex items-center justify-between gap-4 border-b border-[#DCE6F2] px-5 py-4">
               <div className="flex items-center gap-3">
                 <div
-                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-slate-700/80 bg-slate-900/80"
+                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-[#DCE6F2] bg-[#F7FAFE]"
                   style={{ color: ACCENT }}
                 >
                   <Smartphone size={20} strokeWidth={2} />
                 </div>
                 <h2
                   id="device-settings-title"
-                  className="text-lg font-semibold text-white"
+                  className="text-lg font-semibold text-[#0F2C5C]"
                 >
                   Device Settings
                 </h2>
@@ -1319,7 +1319,7 @@ export default function DeviceManager() {
               <button
                 type="button"
                 onClick={closeDrawer}
-                className="rounded-md p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white"
+                className="rounded-md p-2 text-[#8694AC] transition hover:bg-[#EDF3FB] hover:text-[#0F2C5C]"
                 aria-label="Close"
               >
                 <X size={22} />
@@ -1328,24 +1328,24 @@ export default function DeviceManager() {
 
             <div className="flex-1 overflow-y-auto px-5 py-6">
               {settingsLoading ? (
-                <p className="text-sm text-slate-500">Loading settings…</p>
+                <p className="text-sm text-[#8694AC]">Loading settings…</p>
               ) : (
                 <div className="space-y-5">
                   <div>
-                    <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">
+                    <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]">
                       Device ID
                     </label>
                     <input
                       readOnly
-                      className="mt-2 w-full cursor-not-allowed rounded-md border border-slate-800 bg-slate-900/80 px-3 py-2.5 font-mono text-sm text-slate-400"
+                      className="mt-2 w-full cursor-not-allowed rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 font-mono text-sm text-[#8694AC]"
                       value={drawerDevice.hid}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">
+                    <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]">
                       Owner
                     </label>
-                    <p className="mt-2 text-sm text-slate-300">
+                    <p className="mt-2 text-sm text-[#566784]">
                       {drawerDevice.owner
                         ? `${drawerDevice.owner.first_name ?? ""} ${drawerDevice.owner.last_name ?? ""}`.trim() ||
                           drawerDevice.owner.email ||
@@ -1353,23 +1353,23 @@ export default function DeviceManager() {
                         : "—"}
                     </p>
                     {drawerDevice.owner?.email && (
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-[#8694AC]">
                         {drawerDevice.owner.email}
                       </p>
                     )}
                     {drawerDevice.owner?.account_type && (
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-[#8694AC]">
                         {String(drawerDevice.owner.role ?? "user")} ·{" "}
                         {drawerDevice.owner.account_type}
                       </p>
                     )}
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">
+                    <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]">
                       Device name
                     </label>
                     <input
-                      className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900/80 px-3 py-2.5 text-sm text-white ring-[#00E5D1]/40 focus:border-[#00E5D1] focus:outline-none focus:ring-2"
+                      className="mt-2 w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] ring-[#2F80ED]/25 focus:border-[#2F80ED] focus:outline-none focus:ring-2"
                       value={form.name}
                       onChange={(e) =>
                         setForm((f) => ({ ...f, name: e.target.value }))
@@ -1388,10 +1388,10 @@ export default function DeviceManager() {
                     inputClassName={DM_ADDRESS_INPUT}
                     className="relative z-10"
                   />
-                  <label className="flex cursor-pointer items-center gap-3 rounded-md border border-slate-800/80 bg-slate-900/50 px-4 py-3">
+                  <label className="flex cursor-pointer items-center gap-3 rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-4 py-3">
                     <input
                       type="checkbox"
-                      className="rounded border-slate-600 text-[#00E5D1] focus:ring-[#00E5D1]"
+                      className="rounded border-[#E4ECF7] text-[#2F80ED] focus:ring-[#2F80ED]"
                       checked={form.propagate_enabled}
                       onChange={(e) =>
                         setForm((f) => ({
@@ -1400,19 +1400,19 @@ export default function DeviceManager() {
                         }))
                       }
                     />
-                    <span className="text-sm text-slate-200">
+                    <span className="text-sm text-[#566784]">
                       Propagate enabled
                     </span>
                   </label>
                   <div>
-                    <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">
+                    <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]">
                       Propagate radius (km)
                     </label>
                     <input
                       type="number"
                       min={0}
                       step={0.1}
-                      className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900/80 px-3 py-2.5 text-sm text-white focus:border-[#00E5D1] focus:outline-none focus:ring-2 focus:ring-[#00E5D1]/30"
+                      className="mt-2 w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] focus:border-[#2F80ED] focus:outline-none focus:ring-2 focus:ring-[#2F80ED]/25"
                       value={form.propagate_radius_km}
                       onChange={(e) =>
                         setForm((f) => ({
@@ -1422,10 +1422,10 @@ export default function DeviceManager() {
                       }
                     />
                   </div>
-                  <label className="flex cursor-pointer items-center gap-3 rounded-md border border-slate-800/80 bg-slate-900/50 px-4 py-3">
+                  <label className="flex cursor-pointer items-center gap-3 rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-4 py-3">
                     <input
                       type="checkbox"
-                      className="rounded border-slate-600 text-[#00E5D1] focus:ring-[#00E5D1]"
+                      className="rounded border-[#E4ECF7] text-[#2F80ED] focus:ring-[#2F80ED]"
                       checked={form.enable_notification}
                       onChange={(e) =>
                         setForm((f) => ({
@@ -1434,18 +1434,18 @@ export default function DeviceManager() {
                         }))
                       }
                     />
-                    <span className="text-sm text-slate-200">
+                    <span className="text-sm text-[#566784]">
                       Enable notification
                     </span>
                   </label>
                   <div>
-                    <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">
+                    <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]">
                       Alert threshold (meters)
                     </label>
                     <input
                       type="number"
                       min={1}
-                      className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900/80 px-3 py-2.5 text-sm text-white focus:border-[#00E5D1] focus:outline-none focus:ring-2 focus:ring-[#00E5D1]/30"
+                      className="mt-2 w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] focus:border-[#2F80ED] focus:outline-none focus:ring-2 focus:ring-[#2F80ED]/25"
                       value={form.alert_threshold_meters}
                       onChange={(e) =>
                         setForm((f) => ({
@@ -1456,13 +1456,13 @@ export default function DeviceManager() {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">
+                    <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]">
                       Update interval (seconds)
                     </label>
                     <input
                       type="number"
                       min={5}
-                      className="mt-2 w-full rounded-md border border-slate-700 bg-slate-900/80 px-3 py-2.5 text-sm text-white focus:border-[#00E5D1] focus:outline-none focus:ring-2 focus:ring-[#00E5D1]/30"
+                      className="mt-2 w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] focus:border-[#2F80ED] focus:outline-none focus:ring-2 focus:ring-[#2F80ED]/25"
                       value={form.update_interval_seconds}
                       onChange={(e) =>
                         setForm((f) => ({
@@ -1473,7 +1473,7 @@ export default function DeviceManager() {
                     />
                   </div>
                   {settingsError && (
-                    <p className="rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                    <p className="rounded-md border border-[#E0992A]/40 bg-[#FBEFD8] px-3 py-2 text-sm text-[#E0992A]">
                       {settingsError}
                     </p>
                   )}
@@ -1481,23 +1481,23 @@ export default function DeviceManager() {
               )}
             </div>
 
-            <div className="border-t border-slate-800/80 px-5 py-4">
+            <div className="border-t border-[#DCE6F2] px-5 py-4">
               <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
                 <div>
-                  <span className="text-slate-500">Status </span>
+                  <span className="text-[#8694AC]">Status </span>
                   <span
                     className={
                       drawerUiStatus === "online"
-                        ? "font-medium text-emerald-300"
+                        ? "font-medium text-[#2FA24A]"
                         : drawerUiStatus === "error"
-                          ? "font-medium text-amber-200"
-                          : "font-medium text-slate-500"
+                          ? "font-medium text-[#E0992A]"
+                          : "font-medium text-[#8694AC]"
                     }
                   >
                     {drawerUiStatus}
                   </span>
                 </div>
-                <div className="text-slate-500">
+                <div className="text-[#8694AC]">
                   Last seen: {formatLastSeen(drawerDevice)}
                 </div>
               </div>
@@ -1506,7 +1506,7 @@ export default function DeviceManager() {
                   type="button"
                   disabled={heartbeatBusy || settingsLoading}
                   onClick={onSendHeartbeat}
-                  className="mt-3 w-full rounded-md border border-slate-600 py-2.5 text-sm font-semibold text-slate-200 transition hover:border-[#00E5D1]/50 hover:text-[#00E5D1] disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mt-3 w-full rounded-md border border-[#E4ECF7] py-2.5 text-sm font-semibold text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED] disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {heartbeatBusy ? "Sending heartbeat…" : "Send heartbeat"}
                 </button>
@@ -1515,7 +1515,7 @@ export default function DeviceManager() {
                 type="button"
                 disabled={settingsSaving || settingsLoading}
                 onClick={saveSettings}
-                className="mt-3 w-full rounded-md py-3 text-sm font-bold text-[#0B0E11] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-3 w-full rounded-md py-3 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                 style={{ backgroundColor: ACCENT }}
               >
                 {settingsSaving ? "Saving…" : "Save settings"}

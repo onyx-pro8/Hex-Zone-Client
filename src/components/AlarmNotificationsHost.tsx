@@ -56,27 +56,27 @@ export function AlarmNotificationsHost() {
   };
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-4 z-[60] flex flex-col items-end gap-3 px-4 sm:px-6">
+    <div className="pointer-events-none fixed inset-x-0 top-20 z-[1200] flex flex-col items-end gap-3 px-4 sm:px-6">
       {showPermissionBanner ? (
-        <div className="pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100 shadow-lg backdrop-blur">
-          <BellRing className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
+        <div className="pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-2xl border border-[#E0992A]/40 bg-[#FBEFD8] px-4 py-3 text-sm text-[#8A5A12] shadow-lg backdrop-blur">
+          <BellRing className="mt-0.5 h-5 w-5 shrink-0 text-[#E0992A]" />
           <div className="flex-1 leading-snug">
             <p className="font-semibold">Enable alarm notifications</p>
-            <p className="text-amber-100/80">
+            <p className="text-[#8A5A12]/90">
               Get a browser popup the moment a PANIC, SENSOR or UNKNOWN alarm reaches this account
               — even when this tab is in the background.
             </p>
             <div className="mt-2 flex gap-2">
               <button
                 type="button"
-                className="rounded-lg bg-amber-400/90 px-3 py-1 text-xs font-semibold text-slate-900 hover:bg-amber-300"
+                className="rounded-lg bg-[#E0992A] px-3 py-1 text-xs font-semibold text-white hover:brightness-110"
                 onClick={() => void handleEnable()}
               >
                 Enable notifications
               </button>
               <button
                 type="button"
-                className="rounded-lg border border-amber-400/40 px-3 py-1 text-xs text-amber-100 hover:bg-amber-500/10"
+                className="rounded-lg border border-[#E0992A]/40 px-3 py-1 text-xs text-[#8A5A12] hover:bg-[#FBEFD8]"
                 onClick={handleDismissBanner}
               >
                 Not now
@@ -86,7 +86,7 @@ export function AlarmNotificationsHost() {
           <button
             type="button"
             aria-label="Dismiss"
-            className="text-amber-300 hover:text-amber-100"
+            className="text-[#E0992A] hover:text-[#8A5A12]"
             onClick={handleDismissBanner}
           >
             <X className="h-4 w-4" />
@@ -97,23 +97,23 @@ export function AlarmNotificationsHost() {
       {activeAlarms.map((alarm) => (
         <div
           key={alarm.id}
-          className="pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-2xl border border-rose-500/40 bg-rose-600/15 px-4 py-3 text-sm text-rose-50 shadow-2xl backdrop-blur"
+          className="pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-2xl border border-[#E23B4E]/40 bg-[#FCE7EA] px-4 py-3 text-sm text-[#7A1622] shadow-2xl backdrop-blur"
           role="alert"
         >
-          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-rose-300" />
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[#E23B4E]" />
           <div className="flex-1 leading-snug">
             <div className="flex items-center justify-between gap-2">
               <p className="font-semibold uppercase tracking-wide">{alarm.title}</p>
-              <span className="text-xs text-rose-200/80">
+              <span className="text-xs text-[#B23A48]">
                 {new Date(alarm.createdAt).toLocaleTimeString()}
               </span>
             </div>
-            <p className="text-rose-100/90">{alarm.body}</p>
+            <p className="text-[#7A1622]/90">{alarm.body}</p>
           </div>
           <button
             type="button"
             aria-label="Dismiss alarm"
-            className="text-rose-200 hover:text-white"
+            className="text-[#E23B4E] hover:text-[#7A1622]"
             onClick={() => dismissAlarm(alarm.id)}
           >
             <X className="h-4 w-4" />

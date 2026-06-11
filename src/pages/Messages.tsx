@@ -1,5 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
-import { Smartphone } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  BellRing,
+  HelpCircle,
+  Megaphone,
+  MessageSquare,
+  Radar,
+  Siren,
+  Wrench,
+} from "lucide-react";
 import { MessageList } from "../components/messages/MessageList";
 import { MessageDetail } from "../components/messages/MessageDetail";
 import { MessageBlocksPanel } from "../components/messages/MessageBlocksPanel";
@@ -28,11 +36,42 @@ import {
 } from "../lib/messageTypes";
 import type { GuestRequestRow } from "../lib/guestRealtime";
 import { listGuestRequestsForZone } from "../services/api/accessPermissions";
+import {
+  resolveBroadcastName,
+  useAppSettings,
+  type QuickMessageType,
+} from "../lib/appSettings";
+import { messageBroadcastLabel } from "../lib/messageBroadcast";
+import type { Message } from "../services/api/messages";
+
+type QuickAction = {
+  type: QuickMessageType;
+  label: string;
+  icon: typeof BellRing;
+  tone: "alarm" | "messaging";
+};
+
+const ALARM_ACTIONS: QuickAction[] = [
+  { type: "PANIC", label: "PANIC", icon: BellRing, tone: "alarm" },
+  { type: "SENSOR", label: "SENSOR", icon: Radar, tone: "alarm" },
+  { type: "NS_PANIC", label: "NS PANIC", icon: Siren, tone: "alarm" },
+  { type: "UNKNOWN", label: "UNKNOWN", icon: HelpCircle, tone: "alarm" },
+];
+
+const MESSAGING_ACTIONS: QuickAction[] = [
+  { type: "PRIVATE", label: "PRIVATE MESSAGE", icon: MessageSquare, tone: "messaging" },
+  { type: "PA", label: "PUBLIC ANNOUNCEMENT", icon: Megaphone, tone: "messaging" },
+  { type: "SERVICE", label: "SERVICES", icon: Wrench, tone: "messaging" },
+];
 
 export default function Messages() {
   const { user } = useAuth();
+  const settings = useAppSettings();
+  const selfBroadcastName = resolveBroadcastName(user?.name);
   const userZoneId = user?.zoneId ?? user?.zone_id;
   const ownerId = Number(user?.id);
+  const [quickStatus, setQuickStatus] = useState("");
+  const [quickBusy, setQuickBusy] = useState<QuickMessageType | null>(null);
   const [zoneFilter, setZoneFilter] = useState("all");
   const [scopeFilter, setScopeFilter] = useState<"all" | MessageVisibility>("all");
   const [categoryFilter, setCategoryFilter] = useState<"all" | MessageCategory>("all");
@@ -270,6 +309,101 @@ export default function Messages() {
   const activeMessage =
     filteredMessages.find((msg) => msg.id === activeMessageId) ?? null;
 
+  const ownerNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    owners.forEach((row) => {
+      const id = Number(row.id);
+      if (!Number.isFinite(id) || id <= 0) return;
+      const name =
+        `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() ||
+        row.email ||
+        "";
+      if (name) map.set(id, name);
+    });
+    members.forEach((row) => {
+      const id = Number(row.account_owner_id ?? row.id);
+      if (!Number.isFinite(id) || id <= 0 || map.has(id)) return;
+      const name =
+        `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() ||
+        row.name ||
+        row.email ||
+        "";
+      if (name) map.set(id, name);
+    });
+    return map;
+  }, [owners, members]);
+
+  const getBroadcastName = useCallback(
+    (message: Message) =>
+      messageBroadcastLabel(message, {
+        selfOwnerId: Number.isFinite(ownerId) ? ownerId : null,
+        selfBroadcastName,
+        resolveOwnerName: (id) => ownerNameById.get(id) ?? null,
+      }),
+    [ownerId, selfBroadcastName, ownerNameById],
+  );
+
+  const sendQuickAlert = useCallback(
+    async (type: QuickMessageType) => {
+      if (quickBusy) return;
+      const presetText = (settings.quickMessages[type] ?? "").trim();
+      if (!presetText) {
+        // Types without a preset (e.g. PRIVATE) switch the composer instead.
+        setComposeType(type as MessageType);
+        setComposeText("");
+        return;
+      }
+      const position = user?.mapCenter ?? user?.map_center ?? null;
+      if (
+        !position ||
+        !Number.isFinite(position.latitude) ||
+        !Number.isFinite(position.longitude)
+      ) {
+        setQuickStatus(
+          "Set your location on the map before sending quick alerts.",
+        );
+        return;
+      }
+      setQuickBusy(type);
+      setQuickStatus(`Sending ${toMessageTypeLabel(type as MessageType)}…`);
+      const propagateResult = await propagateMessageFeatureMessage({
+        type: type as MessageFeatureType,
+        hid: resolveGuestBrowserDeviceId(),
+        msg: { description: presetText, broadcast_name: selfBroadcastName },
+        position: {
+          latitude: position.latitude,
+          longitude: position.longitude,
+        },
+      });
+      setQuickBusy(null);
+      if (propagateResult.error) {
+        setQuickStatus(propagateResult.error);
+        return;
+      }
+      const body = propagateResult.data;
+      if (body && !body.skipped && body.id) {
+        dispatchGeoPropagationInbox({
+          ...body,
+          sender_id:
+            body.sender_id ?? (Number.isFinite(ownerId) ? ownerId : undefined),
+          zone_id: body.zone_id ?? body.zone_ids?.[0] ?? (composeZoneId ?? undefined),
+        });
+      }
+      setQuickStatus(`${toMessageTypeLabel(type as MessageType)} sent.`);
+      void refreshInbox();
+    },
+    [
+      quickBusy,
+      settings.quickMessages,
+      user?.mapCenter,
+      user?.map_center,
+      selfBroadcastName,
+      ownerId,
+      composeZoneId,
+      refreshInbox,
+    ],
+  );
+
   const handleSend = async () => {
     if (!composeType) {
       setComposeStatus("Message Type is required.");
@@ -316,7 +450,7 @@ export default function Messages() {
       const propagateResult = await propagateMessageFeatureMessage({
         type: featureType,
         hid: resolveGuestBrowserDeviceId(),
-        msg: { description: composeText.trim() },
+        msg: { description: composeText.trim(), broadcast_name: selfBroadcastName },
         position: {
           latitude: position.latitude,
           longitude: position.longitude,
@@ -350,6 +484,7 @@ export default function Messages() {
     const result = await sendMessage({
       message: composeText.trim(),
       type: composeType,
+      broadcast_name: selfBroadcastName,
       ...(composeZoneId ? { zone_id: composeZoneId } : {}),
       ...(accessGuest && composeReceiverId.trim()
         ? { guest_id: composeReceiverId.trim() }
@@ -393,50 +528,111 @@ export default function Messages() {
   const composeScope = getMessageScopeForType(composeType);
   const composeCategory = getMessageTypeCategory(composeType);
 
+  const selectMessagingType = (type: QuickMessageType) => {
+    setComposeType(type as MessageType);
+    const preset = (settings.quickMessages[type] ?? "").trim();
+    if (preset) setComposeText(preset);
+    setQuickStatus("");
+  };
+
   return (
-    <section className="space-y-6 p-8">
-      <div className="flex items-center gap-3 rounded-2xl border border-slate-800/80 bg-slate-950/90 px-4 py-3">
-        <Smartphone
-          className="h-5 w-5 shrink-0 text-orange-400"
-          strokeWidth={2}
-          aria-hidden
-        />
-        <p className="text-sm text-slate-300">
-          <span className="font-medium text-slate-200">Live message feed.</span>{" "}
-          <span className="text-slate-500">WebSocket with polling fallback.</span>
+    <section className="space-y-6 p-6 sm:p-8">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-2xl border border-[#DCE6F2] bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center gap-2 rounded-xl bg-[#FCE7EA] px-3 py-2 text-[#E23B4E]">
+            <BellRing className="h-5 w-5" aria-hidden />
+            <span className="text-sm font-extrabold tracking-wide">ALERT</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {ALARM_ACTIONS.map((action) => {
+              const Icon = action.icon;
+              return (
+                <button
+                  key={action.type}
+                  type="button"
+                  disabled={quickBusy === action.type}
+                  onClick={() => void sendQuickAlert(action.type)}
+                  className="flex flex-col items-center justify-center gap-2 rounded-xl border border-[#F3C2CA] bg-[#FCE7EA] px-3 py-6 text-[#E23B4E] transition hover:brightness-95 disabled:opacity-60"
+                >
+                  <Icon className="h-7 w-7" aria-hidden />
+                  <span className="text-sm font-extrabold tracking-wide">
+                    {action.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-[#DCE6F2] bg-white p-4 shadow-sm">
+          <div className="mb-3 flex items-center gap-2 rounded-xl bg-[#FBEFD8] px-3 py-2 text-[#E0992A]">
+            <Megaphone className="h-5 w-5" aria-hidden />
+            <span className="text-sm font-extrabold tracking-wide">Messaging</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {MESSAGING_ACTIONS.map((action) => {
+              const Icon = action.icon;
+              return (
+                <button
+                  key={action.type}
+                  type="button"
+                  onClick={() => selectMessagingType(action.type)}
+                  className="flex flex-col items-center justify-center gap-2 rounded-xl border border-[#F0DBB0] bg-[#FBEFD8] px-3 py-6 text-center text-[#E0992A] transition hover:brightness-95"
+                >
+                  <Icon className="h-7 w-7" aria-hidden />
+                  <span className="text-xs font-extrabold leading-tight tracking-wide">
+                    {action.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      {quickStatus ? (
+        <p className="rounded-xl border border-[#DCE6F2] bg-white px-4 py-2 text-sm text-[#566784]">
+          {quickStatus}
         </p>
+      ) : null}
+
+      <div className="flex items-center gap-3 rounded-2xl border border-[#DCE6F2] bg-white px-4 py-3 shadow-sm">
+        <span className="text-sm text-[#566784]">
+          <span className="font-semibold text-[#0F2C5C]">Live message feed.</span>{" "}
+          Sending as <span className="font-semibold text-[#2F80ED]">{selfBroadcastName}</span> ·
+          WebSocket with polling fallback.
+        </span>
       </div>
 
-      <details className="rounded-2xl border border-slate-700/85 bg-slate-950/75 text-sm text-slate-300">
+      <details className="rounded-2xl border border-[#DCE6F2] bg-white text-sm text-[#566784] shadow-sm">
         <summary className="cursor-pointer select-none px-4 py-2.5 [&::-webkit-details-marker]:hidden">
-          <span className="font-medium text-slate-100">Access info</span>
-          <span className="mt-1 block text-xs text-slate-500">
+          <span className="font-semibold text-[#0F2C5C]">Access info</span>
+          <span className="mt-1 block text-xs text-[#8694AC]">
             {accessZonePermissionCount > 0
               ? "This inbox batch includes PERMISSION rows; expand only if you need integration notes."
               : "Quiet summary — expand for details or enable verbose banner via env."}
           </span>
         </summary>
-        <div className="space-y-3 border-t border-slate-800/80 px-4 py-3 text-xs leading-relaxed text-slate-400">
+        <div className="space-y-3 border-t border-[#DCE6F2] px-4 py-3 text-xs leading-relaxed text-[#566784]">
           {showMessagesIntegrationBanner ? (
             <>
               <p>
                 Access Zone permission traffic belongs in each owner&apos;s stream from{" "}
-                <span className="font-mono text-[11px] text-slate-200">
+                <span className="font-mono text-[11px] text-[#566784]">
                   GET {import.meta.env.VITE_API_BASE_URL?.replace(/\/+$/, "") || "…"}
                   /messages/
                 </span>{" "}
-                (query <span className="font-mono text-[11px] text-slate-200">owner_id</span>, same as chat).{" "}
-                <span className="font-medium text-slate-200">Permission traffic requires the backend to mirror</span>{" "}
-                PERMISSION rows into member <span className="font-mono text-[11px] text-slate-200">/messages/</span>;
+                (query <span className="font-mono text-[11px] text-[#566784]">owner_id</span>, same as chat).{" "}
+                <span className="font-medium text-[#566784]">Permission traffic requires the backend to mirror</span>{" "}
+                PERMISSION rows into member <span className="font-mono text-[11px] text-[#566784]">/messages/</span>;
                 this UI does not fabricate PERMISSION envelopes. Fallback: monitor the{" "}
-                <strong className="font-medium text-slate-100">Guest access requests</strong> panel below (polls the
+                <strong className="font-medium text-[#0F2C5C]">Guest access requests</strong> panel below (polls the
                 guest-requests list for the resolved zone—status only, not a substitute for full message history).
               </p>
               {accessZonePermissionCount === 0 ? (
-                <p className="text-slate-500">
+                <p className="text-[#8694AC]">
                   No PERMISSION type entries in your current inbox batch—if approvals still feel silent, confirm
                   mirroring or use the Access panel while the API team aligns. CHAT from guests must also be mirrored
-                  into <span className="font-mono text-slate-300">/messages/</span> for admins to see the same thread as
+                  into <span className="font-mono text-[#566784]">/messages/</span> for admins to see the same thread as
                   the guest app.
                 </p>
               ) : null}
@@ -444,21 +640,21 @@ export default function Messages() {
           ) : (
             <p>
               CHAT and PERMISSION lines appear here when the API includes them in{" "}
-              <span className="font-mono text-slate-300">GET /messages/</span> for your owner. The{" "}
-              <span className="font-medium text-slate-200">Guest access requests</span> block below is a lightweight
+              <span className="font-mono text-[#566784]">GET /messages/</span> for your owner. The{" "}
+              <span className="font-medium text-[#566784]">Guest access requests</span> block below is a lightweight
               status poll, not the full history. Set{" "}
-              <span className="font-mono text-slate-300">VITE_SHOW_MESSAGES_INTEGRATION_BANNER=true</span> for verbose
+              <span className="font-mono text-[#566784]">VITE_SHOW_MESSAGES_INTEGRATION_BANNER=true</span> for verbose
               contract notes.
             </p>
           )}
         </div>
       </details>
 
-      <div className="grid gap-4 rounded-[2rem] border border-slate-800/80 bg-slate-950/80 p-5 lg:grid-cols-6">
+      <div className="grid gap-4 rounded-2xl border border-[#DCE6F2] bg-white p-5 shadow-sm lg:grid-cols-6">
         <select
           value={zoneFilter}
           onChange={(e) => setZoneFilter(e.target.value)}
-          className="rounded-md border border-[#00E5D1]/45 bg-slate-950/90 px-3 py-2.5 text-sm text-slate-100"
+          className="rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] outline-none focus:border-[#2F80ED]"
         >
           <option value="all">All zones</option>
           {allZoneIds.map((zone) => (
@@ -470,7 +666,7 @@ export default function Messages() {
         <select
           value={scopeFilter}
           onChange={(e) => setScopeFilter(e.target.value as "all" | MessageVisibility)}
-          className="rounded-md border border-[#00E5D1]/45 bg-slate-950/90 px-3 py-2.5 text-sm text-slate-100"
+          className="rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] outline-none focus:border-[#2F80ED]"
         >
           <option value="all">All Scope</option>
           <option value="public">Public</option>
@@ -479,7 +675,7 @@ export default function Messages() {
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value as "all" | MessageCategory)}
-          className="rounded-md border border-[#00E5D1]/45 bg-slate-950/90 px-3 py-2.5 text-sm text-slate-100"
+          className="rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] outline-none focus:border-[#2F80ED]"
         >
           <option value="all">All Category</option>
           <option value="Alarm">Alarm</option>
@@ -489,7 +685,7 @@ export default function Messages() {
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value as "all" | MessageType)}
-          className="rounded-md border border-[#00E5D1]/45 bg-slate-950/90 px-3 py-2.5 text-sm text-slate-100"
+          className="rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] outline-none focus:border-[#2F80ED]"
         >
           <option value="all">All Message Types</option>
           {groupedTypeOptions.map((group) => (
@@ -506,51 +702,51 @@ export default function Messages() {
           type="date"
           value={dateFilter}
           onChange={(e) => setDateFilter(e.target.value)}
-          className="rounded-md border border-slate-700 bg-slate-950/90 px-3 py-2.5 text-sm text-slate-100"
+          className="rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] outline-none focus:border-[#2F80ED]"
         />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search text or zone..."
-          className="lg:col-span-2 rounded-md border border-slate-700 bg-slate-950/90 px-3 py-2.5 text-sm text-slate-100"
+          className="lg:col-span-2 rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] outline-none focus:border-[#2F80ED]"
         />
       </div>
 
-      <details className="rounded-2xl border border-slate-800/80 bg-slate-950/70 px-4 py-3 text-sm text-slate-300">
-        <summary className="cursor-pointer select-none font-medium text-slate-100">
+      <details className="rounded-2xl border border-[#DCE6F2] bg-white px-4 py-3 text-sm text-[#566784] shadow-sm">
+        <summary className="cursor-pointer select-none font-semibold text-[#0F2C5C]">
           Guest access requests (zone:{" "}
-          <span className="font-mono text-[#00E5D1]">{effectiveZoneForGuests || "—"}</span>
-          ){guestsLoading ? <span className="ml-2 text-xs font-normal text-slate-500">loading…</span> : null}
+          <span className="font-mono text-[#2F80ED]">{effectiveZoneForGuests || "—"}</span>
+          ){guestsLoading ? <span className="ml-2 text-xs font-normal text-[#8694AC]">loading…</span> : null}
         </summary>
         {guestListError ? (
-          <p className="mt-2 text-xs text-amber-200">
+          <p className="mt-2 text-xs text-[#E0992A]">
             {guestListError} Configure <span className="font-mono">VITE_ADMIN_GUEST_REQUESTS_LIST_URL</span> when your
             path differs from the contract default.
           </p>
         ) : (
-          <div className="mt-3 max-h-[220px] overflow-auto rounded-lg border border-slate-800/80 bg-slate-950/90">
+          <div className="mt-3 max-h-[220px] overflow-auto rounded-lg border border-[#DCE6F2] bg-[#F7FAFE]">
             {guestRows.length === 0 ? (
-              <p className="p-4 text-xs text-slate-500">
+              <p className="p-4 text-xs text-[#8694AC]">
                 No rows for this zone. Incoming guest QR flows should appear once the backend exposes guest-requests for the
                 member API.
               </p>
             ) : (
               <table className="w-full border-collapse text-left text-xs">
-                <thead className="sticky top-0 bg-slate-950/95 text-[10px] uppercase tracking-[0.12em] text-slate-500">
+                <thead className="sticky top-0 bg-[#EDF3FB] text-[10px] uppercase tracking-[0.12em] text-[#8694AC]">
                   <tr>
-                    <th className="border-b border-slate-800 p-2">Guest</th>
-                    <th className="border-b border-slate-800 p-2">Id</th>
-                    <th className="border-b border-slate-800 p-2">Expect</th>
-                    <th className="border-b border-slate-800 p-2">Status</th>
+                    <th className="border-b border-[#DCE6F2] p-2">Guest</th>
+                    <th className="border-b border-[#DCE6F2] p-2">Id</th>
+                    <th className="border-b border-[#DCE6F2] p-2">Expect</th>
+                    <th className="border-b border-[#DCE6F2] p-2">Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {guestRows.map((r) => (
-                    <tr key={r.id} className="border-b border-slate-800/60 text-slate-200 last:border-b-0">
+                    <tr key={r.id} className="border-b border-[#DCE6F2] text-[#566784] last:border-b-0">
                       <td className="p-2">{r.guestName ?? "—"}</td>
-                      <td className="max-w-[140px] break-all p-2 font-mono text-[11px] text-slate-400">{r.id}</td>
-                      <td className="p-2 capitalize text-slate-400">{r.expectation}</td>
-                      <td className="p-2 font-medium text-[#00E5D1]">{r.status}</td>
+                      <td className="max-w-[140px] break-all p-2 font-mono text-[11px] text-[#8694AC]">{r.id}</td>
+                      <td className="p-2 capitalize text-[#8694AC]">{r.expectation}</td>
+                      <td className="p-2 font-medium text-[#2F80ED]">{r.status}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -558,7 +754,7 @@ export default function Messages() {
             )}
           </div>
         )}
-        <p className="mt-2 text-[11px] text-slate-500">
+        <p className="mt-2 text-[11px] text-[#8694AC]">
           Refresh: on zone change, plus background poll every ~18s. Compose CHAT via guest ids from this list when
           shown.
         </p>
@@ -567,15 +763,16 @@ export default function Messages() {
       <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
         <div className="space-y-3">
           {error ? (
-            <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>
+            <p className="rounded-lg border border-[#E23B4E]/30 bg-[#FCE7EA] px-3 py-2 text-sm text-[#E23B4E]">{error}</p>
           ) : null}
           {loading ? (
-            <p className="text-sm text-slate-500">Syncing messages…</p>
+            <p className="text-sm text-[#566784]">Syncing messages…</p>
           ) : null}
           <MessageList
             messages={sortedFilteredMessages}
             activeId={activeMessageId}
             onSelect={setActiveMessageId}
+            getBroadcastName={getBroadcastName}
           />
         </div>
         <div className="space-y-4">
@@ -586,18 +783,18 @@ export default function Messages() {
               onBlocksChanged={() => void refreshInbox()}
             />
           ) : null}
-          <section className="space-y-3 rounded-2xl border border-slate-800/80 bg-slate-950/80 p-5">
-            <p className="text-xs font-medium uppercase tracking-[0.25em] text-slate-500">
+          <section className="space-y-3 rounded-2xl border border-[#DCE6F2] bg-white p-5 shadow-sm">
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-[#8694AC]">
               Compose
             </p>
-            <label className="block text-xs font-medium text-slate-400">Message Type</label>
+            <label className="block text-xs font-medium text-[#566784]">Message Type</label>
             <select
               value={composeType}
               onChange={(e) => {
                 setComposeTypeNotice(null);
                 setComposeType(e.target.value as MessageType);
               }}
-              className="w-full rounded-md border border-slate-700 bg-slate-950/90 px-3 py-2.5 text-sm text-slate-100"
+              className="w-full rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] outline-none focus:border-[#2F80ED]"
             >
               {composeTypeOptions.map((group) => (
                 <optgroup key={group.category} label={group.category}>
@@ -609,31 +806,31 @@ export default function Messages() {
                 </optgroup>
               ))}
             </select>
-            <div className="grid grid-cols-2 gap-2 rounded-md border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs text-slate-300">
+            <div className="grid grid-cols-2 gap-2 rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-xs text-[#566784]">
               <p>
-                Category: <span className="font-medium">{composeCategory}</span>
+                Category: <span className="font-semibold text-[#0F2C5C]">{composeCategory}</span>
               </p>
               <p>
-                Scope: <span className="font-medium capitalize">{composeScope}</span>
+                Scope: <span className="font-semibold capitalize text-[#0F2C5C]">{composeScope}</span>
               </p>
-              <p className="col-span-2 text-slate-500">Scope is determined by selected type.</p>
+              <p className="col-span-2 text-[#8694AC]">Scope is determined by selected type.</p>
             </div>
             {composeTypeNotice ? (
-              <p className="text-xs text-amber-200">{composeTypeNotice}</p>
+              <p className="text-xs text-[#E0992A]">{composeTypeNotice}</p>
             ) : null}
             {isAccessGuestChannelType(composeType) && (
               <>
-                <p className="text-xs text-slate-500">
-                  CHAT here goes to <span className="font-medium text-slate-300">guests</span> in this zone only (not
+                <p className="text-xs text-[#8694AC]">
+                  CHAT here goes to <span className="font-medium text-[#566784]">guests</span> in this zone only (not
                   member-to-member). Zone for list:{" "}
-                  <span className="font-mono text-slate-400">
+                  <span className="font-mono text-[#8694AC]">
                     {effectiveZoneForGuests || "—"}
                   </span>
                 </p>
                 <select
                   value={composeReceiverId}
                   onChange={(e) => setComposeReceiverId(e.target.value)}
-                  className="w-full rounded-md border border-slate-700 bg-slate-950/90 px-3 py-2.5 text-sm text-slate-100"
+                  className="w-full rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] outline-none focus:border-[#2F80ED]"
                 >
                   <option value="">
                     {guestsLoading ? "Loading guests…" : "Pick a guest (guest id)"}
@@ -646,13 +843,13 @@ export default function Messages() {
                   ))}
                 </select>
                 {guestListError ? (
-                  <p className="text-xs text-amber-200">
+                  <p className="text-xs text-[#E0992A]">
                     Guest list: {guestListError} (set{" "}
                     <span className="font-mono">VITE_ADMIN_GUEST_REQUESTS_LIST_URL</span> if your API path differs).
                   </p>
                 ) : null}
                 {!guestsLoading && !guestListError && selectableGuests.length === 0 ? (
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-[#8694AC]">
                     No guests in this zone yet, or approvals are still pending. You can also open the zone on the
                     Dashboard to review guest requests.
                   </p>
@@ -664,7 +861,7 @@ export default function Messages() {
                 <select
                   value={composeReceiverId}
                   onChange={(e) => setComposeReceiverId(e.target.value)}
-                  className="w-full rounded-md border border-slate-700 bg-slate-950/90 px-3 py-2.5 text-sm text-slate-100"
+                  className="w-full rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] outline-none focus:border-[#2F80ED]"
                 >
                   <option value="">
                     {ownersLoading ? "Loading owner IDs..." : "Pick receiver owner ID"}
@@ -684,41 +881,42 @@ export default function Messages() {
               value={composeText}
               onChange={(e) => setComposeText(e.target.value)}
               placeholder="Type your message..."
-              className="w-full rounded-md border border-slate-700 bg-slate-950/90 px-3 py-2.5 text-sm text-slate-100"
+              className="w-full rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] outline-none focus:border-[#2F80ED]"
             />
             <button
               type="button"
               onClick={handleSend}
-              className="w-full rounded-md bg-[#00E5D1] px-4 py-2.5 text-sm font-bold text-[#0B0E11]"
+              className="w-full rounded-lg bg-[#2F80ED] px-4 py-2.5 text-sm font-bold text-white transition hover:brightness-110"
             >
               Send Message
             </button>
-            <p className="text-xs text-slate-500">
-              Sending as owner <span className="font-mono">{ownerId || "?"}</span>
+            <p className="text-xs text-[#8694AC]">
+              Sending as <span className="font-semibold text-[#2F80ED]">{selfBroadcastName}</span>{" "}
+              (owner <span className="font-mono">{ownerId || "?"}</span>)
             </p>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-[#8694AC]">
               {zonesLoading
                 ? "Loading zone IDs from database..."
                 : `Zone IDs loaded: ${allZoneIds.length}`}
             </p>
             {isAccessGuestChannelType(composeType) && (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-[#8694AC]">
                 {guestsLoading
                   ? "Loading guest list…"
                   : `Guests available: ${selectableGuests.length}`}
               </p>
             )}
             {!isAccessGuestChannelType(composeType) && isPrivateMessageType(composeType) && (
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-[#8694AC]">
                 {ownersLoading
                   ? "Loading owner IDs from database..."
                   : `Owner IDs in your zone (${composeZoneId ?? "none"}): ${selectableReceivers.length}`}
               </p>
             )}
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-[#8694AC]">
               Selected type: {toMessageTypeLabel(composeType)}
             </p>
-            {composeStatus && <p className="text-xs text-slate-500">{composeStatus}</p>}
+            {composeStatus && <p className="text-xs text-[#566784]">{composeStatus}</p>}
           </section>
         </div>
       </div>

@@ -8,9 +8,9 @@ import {
 } from "../lib/addressSearch";
 
 const defaultLabelClass =
-  "mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500";
+  "mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8694AC]";
 const defaultInputClass =
-  "w-full rounded-md border border-slate-700/80 bg-[#151a20] px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-[#00E5D1]/60 focus:outline-none focus:ring-1 focus:ring-[#00E5D1]/25";
+  "w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] placeholder:text-[#8694AC] focus:border-[#2F80ED]/60 focus:outline-none focus:ring-1 focus:ring-[#2F80ED]/25";
 
 export type AddressAutocompleteInputProps = {
   id: string;
@@ -153,7 +153,7 @@ export function AddressAutocompleteInput({
           className={`${inputClassName} ${addressSuggestLoading ? "pr-10" : ""}`}
         />
         {addressSuggestLoading && (
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#00E5D1]">
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#2F80ED]">
             <Loader2
               className="h-4 w-4 animate-spin"
               aria-hidden
@@ -166,7 +166,7 @@ export function AddressAutocompleteInput({
         <ul
           id={addressListId}
           role="listbox"
-          className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md border border-slate-600/90 bg-[#1a222c] py-1 shadow-lg"
+          className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md border border-[#DCE6F2] bg-white py-1 shadow-lg"
         >
           {addressSuggestions.map((feature, index) => {
             const mainLabel = formatPhotonLabel(feature.properties);
@@ -190,8 +190,8 @@ export function AddressAutocompleteInput({
                   type="button"
                   className={`flex w-full flex-col gap-0.5 px-3 py-2.5 text-left text-sm transition ${
                     index === addressHighlight
-                      ? "bg-[#00E5D1]/15 text-[#00E5D1]"
-                      : "text-slate-200 hover:bg-white/5"
+                      ? "bg-[#EDF3FB] text-[#2F80ED]"
+                      : "text-[#0F2C5C] hover:bg-[#EDF3FB]"
                   }`}
                   onMouseDown={(ev) => ev.preventDefault()}
                   onClick={() => selectAddressSuggestion(feature)}
@@ -199,7 +199,7 @@ export function AddressAutocompleteInput({
                 >
                   <span className="font-medium">{mainLabel}</span>
                   {sub ? (
-                    <span className="text-xs text-slate-500">{sub}</span>
+                    <span className="text-xs text-[#8694AC]">{sub}</span>
                   ) : null}
                 </button>
               </li>

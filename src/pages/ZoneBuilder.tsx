@@ -119,28 +119,28 @@ export default function ZoneBuilder() {
         <section className="layer-card">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-sm uppercase tracking-[0.3em] text-teal-300">Zone Builder</p>
-              <h1 className="text-3xl font-semibold text-white">Interactive H3 and geofence design.</h1>
+              <p className="text-sm uppercase tracking-[0.3em] text-[#2F80ED]">Zone Builder</p>
+              <h1 className="text-3xl font-semibold text-[#0F2C5C]">Interactive H3 and geofence design.</h1>
             </div>
-            <div className="rounded-3xl bg-slate-800/90 px-4 py-3 text-sm text-slate-300">Live map-driven workflow</div>
+            <div className="rounded-3xl bg-[#EDF3FB] px-4 py-3 text-sm text-[#566784]">Live map-driven workflow</div>
           </div>
-          <p className="text-slate-400">Click cells to build hex-based zones or draw a geo-fence polygon for custom coverage.</p>
+          <p className="text-[#8694AC]">Click cells to build hex-based zones or draw a geo-fence polygon for custom coverage.</p>
         </section>
 
         <div className="grid gap-6">
           <div className="layer-card">
             <div className="grid gap-4 md:grid-cols-3">
-              <div className="rounded-3xl border border-slate-800/80 bg-slate-950/90 p-5">
-                <p className="text-sm uppercase tracking-[0.3em] text-slate-500">Selected cells</p>
-                <p className="mt-4 text-3xl font-semibold text-white">{selectedCells.length}</p>
+              <div className="rounded-3xl border border-[#DCE6F2] bg-[#F7FAFE] p-5">
+                <p className="text-sm uppercase tracking-[0.3em] text-[#8694AC]">Selected cells</p>
+                <p className="mt-4 text-3xl font-semibold text-[#0F2C5C]">{selectedCells.length}</p>
               </div>
-              <div className="rounded-3xl border border-slate-800/80 bg-slate-950/90 p-5">
-                <p className="text-sm uppercase tracking-[0.3em] text-slate-500">Polygon area</p>
-                <p className="mt-4 text-3xl font-semibold text-white">{areaKm2.toFixed(2)} km²</p>
+              <div className="rounded-3xl border border-[#DCE6F2] bg-[#F7FAFE] p-5">
+                <p className="text-sm uppercase tracking-[0.3em] text-[#8694AC]">Polygon area</p>
+                <p className="mt-4 text-3xl font-semibold text-[#0F2C5C]">{areaKm2.toFixed(2)} km²</p>
               </div>
-              <div className="rounded-3xl border border-slate-800/80 bg-slate-950/90 p-5">
-                <p className="text-sm uppercase tracking-[0.3em] text-slate-500">Definition</p>
-                <p className="mt-4 text-2xl font-semibold text-teal-300 uppercase tracking-[0.15em]">{mode === 'hex' ? 'H3 Hex' : 'Geo-fence'}</p>
+              <div className="rounded-3xl border border-[#DCE6F2] bg-[#F7FAFE] p-5">
+                <p className="text-sm uppercase tracking-[0.3em] text-[#8694AC]">Definition</p>
+                <p className="mt-4 text-2xl font-semibold text-[#2F80ED] uppercase tracking-[0.15em]">{mode === 'hex' ? 'H3 Hex' : 'Geo-fence'}</p>
               </div>
             </div>
           </div>
@@ -161,19 +161,19 @@ export default function ZoneBuilder() {
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="text-sm uppercase tracking-[0.3em] text-teal-300">Controls</p>
-              <h2 className="text-xl font-semibold text-white">Builder settings</h2>
+              <p className="text-sm uppercase tracking-[0.3em] text-[#2F80ED]">Controls</p>
+              <h2 className="text-xl font-semibold text-[#0F2C5C]">Builder settings</h2>
             </div>
-            <div className="rounded-full bg-slate-950/90 px-3 py-2 text-sm text-slate-300">Mode: {mode === 'hex' ? 'H3' : 'Geo-fence'}</div>
+            <div className="rounded-full bg-[#F7FAFE] px-3 py-2 text-sm text-[#566784]">Mode: {mode === 'hex' ? 'H3' : 'Geo-fence'}</div>
           </div>
           <div className="space-y-4">
-            <label className="block text-sm text-slate-300">Definition mode</label>
+            <label className="block text-sm text-[#566784]">Definition mode</label>
             <div className="grid gap-2 sm:grid-cols-2">
               <button
                 type="button"
                 onClick={() => setMode('hex')}
                 className={`rounded-3xl px-4 py-3 text-left text-sm transition ${
-                  mode === 'hex' ? 'bg-teal-500/15 text-teal-200' : 'bg-slate-900/80 text-slate-300 hover:bg-slate-800/80'
+                  mode === 'hex' ? 'bg-[#EDF3FB] text-[#2F80ED]' : 'bg-[#EDF3FB] text-[#566784] hover:bg-[#E4ECF7]'
                 }`}
               >
                 <Square className="mb-2 h-5 w-5" /> H3 Hex
@@ -182,13 +182,13 @@ export default function ZoneBuilder() {
                 type="button"
                 onClick={() => setMode('polygon')}
                 className={`rounded-3xl px-4 py-3 text-left text-sm transition ${
-                  mode === 'polygon' ? 'bg-teal-500/15 text-teal-200' : 'bg-slate-900/80 text-slate-300 hover:bg-slate-800/80'
+                  mode === 'polygon' ? 'bg-[#EDF3FB] text-[#2F80ED]' : 'bg-[#EDF3FB] text-[#566784] hover:bg-[#E4ECF7]'
                 }`}
               >
                 <ArrowDownRight className="mb-2 h-5 w-5" /> Geo-fence
               </button>
             </div>
-            <label className="block text-sm text-slate-300">
+            <label className="block text-sm text-[#566784]">
               Resolution: {resolution}
               <input
                 type="range"
@@ -196,45 +196,45 @@ export default function ZoneBuilder() {
                 max={15}
                 value={resolution}
                 onChange={(event) => setResolution(Number(event.target.value))}
-                className="mt-3 w-full accent-teal-400"
+                className="mt-3 w-full accent-[#2F80ED]"
               />
             </label>
-            <label className="block text-sm text-slate-300">
+            <label className="block text-sm text-[#566784]">
               Zone color
               <input
                 type="color"
                 value={selectedColor}
                 onChange={(event) => setSelectedColor(event.target.value)}
-                className="mt-3 h-12 w-full cursor-pointer rounded-3xl border border-slate-800/80 bg-slate-950/90 p-2"
+                className="mt-3 h-12 w-full cursor-pointer rounded-3xl border border-[#DCE6F2] bg-[#F7FAFE] p-2"
               />
             </label>
           </div>
         </div>
-        <div className="space-y-4 rounded-3xl border border-slate-800/80 bg-slate-950/90 p-5">
-          <p className="text-sm uppercase tracking-[0.3em] text-teal-300">Zone payload</p>
-          <label className="block text-sm text-slate-300">
+        <div className="space-y-4 rounded-3xl border border-[#DCE6F2] bg-[#F7FAFE] p-5">
+          <p className="text-sm uppercase tracking-[0.3em] text-[#2F80ED]">Zone payload</p>
+          <label className="block text-sm text-[#566784]">
             Name
             <input
               value={zoneName}
               onChange={(event) => setZoneName(event.target.value)}
-              className="mt-2 w-full rounded-3xl border border-slate-800/90 bg-slate-950/90 px-4 py-3 text-slate-100"
+              className="mt-2 w-full rounded-3xl border border-[#DCE6F2] bg-[#F7FAFE] px-4 py-3 text-[#0F2C5C]"
             />
           </label>
-          <label className="block text-sm text-slate-300">
+          <label className="block text-sm text-[#566784]">
             Description
             <textarea
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               rows={3}
-              className="mt-2 w-full rounded-3xl border border-slate-800/90 bg-slate-950/90 px-4 py-3 text-slate-100"
+              className="mt-2 w-full rounded-3xl border border-[#DCE6F2] bg-[#F7FAFE] px-4 py-3 text-[#0F2C5C]"
             />
           </label>
-          <label className="block text-sm text-slate-300">
+          <label className="block text-sm text-[#566784]">
             Zone type
             <select
               value={zoneType}
               onChange={(event) => setZoneType(event.target.value)}
-              className="mt-2 w-full rounded-3xl border border-slate-800/90 bg-slate-950/90 px-4 py-3 text-slate-100"
+              className="mt-2 w-full rounded-3xl border border-[#DCE6F2] bg-[#F7FAFE] px-4 py-3 text-[#0F2C5C]"
             >
               {zoneTypes.map((type) => (
                 <option key={type} value={type}>
@@ -244,40 +244,40 @@ export default function ZoneBuilder() {
             </select>
           </label>
         </div>
-        <div className="space-y-4 rounded-3xl border border-slate-800/80 bg-slate-950/90 p-5">
+        <div className="space-y-4 rounded-3xl border border-[#DCE6F2] bg-[#F7FAFE] p-5">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-sm uppercase tracking-[0.3em] text-teal-300">Exports</p>
-            <span className="rounded-full bg-slate-800/80 px-3 py-1 text-xs text-slate-300">{selectedCells.length} cells</span>
+            <p className="text-sm uppercase tracking-[0.3em] text-[#2F80ED]">Exports</p>
+            <span className="rounded-full bg-[#EDF3FB] px-3 py-1 text-xs text-[#566784]">{selectedCells.length} cells</span>
           </div>
           <div className="grid gap-3">
             <button
               type="button"
               onClick={handleExportJson}
-              className="flex items-center justify-center gap-2 rounded-3xl bg-slate-900/90 px-4 py-3 text-sm text-slate-100 transition hover:bg-slate-800/90"
+              className="flex items-center justify-center gap-2 rounded-3xl bg-[#EDF3FB] px-4 py-3 text-sm text-[#566784] transition hover:bg-[#E4ECF7]"
             >
               <Upload size={16} /> Export JSON
             </button>
             <button
               type="button"
               onClick={handleExportCsv}
-              className="flex items-center justify-center gap-2 rounded-3xl bg-slate-900/90 px-4 py-3 text-sm text-slate-100 transition hover:bg-slate-800/90"
+              className="flex items-center justify-center gap-2 rounded-3xl bg-[#EDF3FB] px-4 py-3 text-sm text-[#566784] transition hover:bg-[#E4ECF7]"
             >
               <Download size={16} /> Export CSV
             </button>
           </div>
         </div>
-        <div className="rounded-3xl border border-slate-800/80 bg-slate-950/90 p-5">
-          <div className="mb-4 flex items-center gap-3 text-sm text-slate-300">
+        <div className="rounded-3xl border border-[#DCE6F2] bg-[#F7FAFE] p-5">
+          <div className="mb-4 flex items-center gap-3 text-sm text-[#566784]">
             <Zap size={16} /> <span>Actions</span>
           </div>
           <button
             type="button"
             onClick={handleSave}
-            className="w-full rounded-3xl bg-teal-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-teal-400"
+            className="w-full rounded-3xl bg-[#2F80ED] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#2567D9]"
           >
             Save zone
           </button>
-          {status && <p className="mt-4 text-sm text-slate-300">{status}</p>}
+          {status && <p className="mt-4 text-sm text-[#566784]">{status}</p>}
         </div>
       </aside>
     </div>

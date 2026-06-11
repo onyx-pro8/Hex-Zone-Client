@@ -24,11 +24,11 @@ const apiEndpointPreview: { method: "GET" | "POST" | "PUT"; path: string }[] = [
 function methodBadgeClass(method: "GET" | "POST" | "PUT") {
   switch (method) {
     case "GET":
-      return "bg-white text-blue-600";
+      return "bg-[#EDF3FB] text-[#2F80ED]";
     case "POST":
-      return "bg-emerald-100/95 text-emerald-900";
+      return "bg-[#E3F4E8] text-[#2FA24A]";
     case "PUT":
-      return "bg-amber-100 text-amber-900";
+      return "bg-[#FBEFD8] text-[#E0992A]";
   }
 }
 
@@ -37,51 +37,48 @@ const developerFeatures: {
   description: string;
   icon: LucideIcon;
   iconWrap: string;
-  cardClass?: string;
 }[] = [
   {
     title: "H3 Hexagonal Indexing",
     description:
       "Earth's surface divided into hex cells. Each user gets 3 acceptable zones at resolution 13 – precise enough for city blocks.",
     icon: Hexagon,
-    iconWrap: "border border-sky-500/45 bg-sky-500/10 text-sky-300",
+    iconWrap: "border border-sky-200 bg-sky-50 text-sky-600",
   },
   {
     title: "Private Networks",
     description:
       "Many users, one device each. Everyone shares the same zone type. Perfect for delivery teams, security patrols, or family tracking.",
     icon: User,
-    iconWrap: "border border-violet-500/45 bg-violet-500/10 text-violet-300",
+    iconWrap: "border border-violet-200 bg-violet-50 text-violet-600",
   },
   {
     title: "Exclusive Access",
     description:
       "Solo deployment. One user, one device, any zone type you need. Full flexibility for individual use cases.",
     icon: Lock,
-    iconWrap: "border border-emerald-400/50 bg-emerald-500/15 text-emerald-200",
-    cardClass:
-      "border-[#00E5D1]/35 bg-gradient-to-br from-teal-950/85 via-emerald-950/50 to-slate-950/90 shadow-[0_0_40px_-12px_rgba(0,229,209,0.22)]",
+    iconWrap: "border border-emerald-200 bg-emerald-50 text-emerald-600",
   },
   {
     title: "Developer First API",
     description:
       "REST endpoints for users, devices, alerts, and settings. Your mobile app talks directly to the zone server.",
     icon: Code2,
-    iconWrap: "border border-orange-500/45 bg-orange-500/10 text-orange-300",
+    iconWrap: "border border-orange-200 bg-orange-50 text-orange-600",
   },
   {
     title: "Real-time Alerts",
     description:
       "Zone entry, exit, geofence breaches, device offline. Store and retrieve alerts per device via API.",
     icon: Bell,
-    iconWrap: "border border-rose-500/45 bg-rose-500/10 text-rose-300",
+    iconWrap: "border border-rose-200 bg-rose-50 text-rose-600",
   },
   {
     title: "Scan to Join",
     description:
       "QR codes contain zone IDs. New users scan, enter their details, and they're automatically linked to your private zone.",
     icon: QrCode,
-    iconWrap: "border border-indigo-500/45 bg-indigo-500/10 text-indigo-300",
+    iconWrap: "border border-indigo-200 bg-indigo-50 text-indigo-600",
   },
 ];
 
@@ -92,7 +89,7 @@ const networkCards = [
     users: 3,
     devices: 3,
     type: "H3 r13",
-    accent: "bg-[#00E5D1]/10 text-[#00E5D1]",
+    accent: "bg-[#EDF3FB] text-[#2F80ED]",
   },
   {
     title: "Exclusive Zone",
@@ -100,7 +97,7 @@ const networkCards = [
     users: 1,
     devices: 1,
     type: "Geofence",
-    accent: "bg-slate-800/80 text-slate-400",
+    accent: "bg-[#EDF3FB] text-[#566784]",
   },
 ];
 
@@ -110,14 +107,14 @@ export default function Landing() {
       <div>
         <div className="grid gap-10 xl:grid-cols-[1.4fr_0.9fr] xl:items-center">
           <div className="space-y-6">
-            <span className="inline-flex items-center gap-2 rounded-full bg-[#00E5D1]/10 px-4 py-2 text-sm font-medium text-[#00E5D1]">
+            <span className="inline-flex items-center gap-2 rounded-full bg-[#EDF3FB] px-4 py-2 text-sm font-medium text-[#2F80ED]">
               <Hexagon size={16} /> REST API Ready
             </span>
             <div className="space-y-4">
-              <h1 className="max-w-3xl text-5xl font-semibold text-white sm:text-6xl">
+              <h1 className="max-w-3xl text-5xl font-semibold text-[#0F2C5C] sm:text-6xl">
                 Weave Your Spatial Zones
               </h1>
-              <p className="max-w-2xl text-lg leading-8 text-slate-400">
+              <p className="max-w-2xl text-lg leading-8 text-[#566784]">
                 A geospatial platform that bridges web and mobile. Define zones
                 using H3 hexagonal indexing, connect devices via REST API, and
                 track everything in real time.
@@ -126,39 +123,41 @@ export default function Landing() {
             <div className="flex flex-wrap gap-4">
               <Link
                 to="/register"
-                className="inline-flex items-center justify-center rounded-md bg-[#00E5D1] px-6 py-3 text-sm font-bold text-[#0B0E11] transition hover:brightness-110"
+                className="inline-flex items-center justify-center rounded-md bg-[#2F80ED] px-6 py-3 text-sm font-bold text-white transition hover:brightness-110"
               >
                 Create Account
               </Link>
               <Link
                 to="/api"
-                className="inline-flex items-center justify-center rounded-md border border-slate-700/80 px-6 py-3 text-sm text-slate-200 transition hover:border-[#00E5D1]/50 hover:text-[#00E5D1]"
+                className="inline-flex items-center justify-center rounded-md border border-[#DCE6F2] bg-white px-6 py-3 text-sm text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED]"
               >
                 API Docs
               </Link>
             </div>
-            <div className="grid gap-3 sm:grid-cols-3 text-sm text-slate-400">
-              <div className="rounded-3xl bg-slate-900/80 p-4">H3 Indexing</div>
-              <div className="rounded-3xl bg-slate-900/80 p-4">
+            <div className="grid gap-3 sm:grid-cols-3 text-sm text-[#566784]">
+              <div className="rounded-3xl border border-[#DCE6F2] bg-white p-4">
+                H3 Indexing
+              </div>
+              <div className="rounded-3xl border border-[#DCE6F2] bg-white p-4">
                 Mobile REST API
               </div>
-              <div className="rounded-3xl bg-slate-900/80 p-4">
+              <div className="rounded-3xl border border-[#DCE6F2] bg-white p-4">
                 QR Onboarding
               </div>
             </div>
           </div>
 
-          <div className="rounded-[2rem] border border-slate-800/80 bg-slate-900/90 p-8 shadow-glow">
+          <div className="rounded-[2rem] border border-[#DCE6F2] bg-white p-8 shadow-glow">
             <div className="mb-6 flex items-center justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-white">
+                <h2 className="text-lg font-semibold text-[#0F2C5C]">
                   Zone Network
                 </h2>
-                <p className="text-sm text-slate-400">
+                <p className="text-sm text-[#566784]">
                   Live status of your current network and API connectivity.
                 </p>
               </div>
-              <span className="rounded-md bg-slate-950/80 px-3 py-2 text-xs uppercase tracking-[0.2em] text-[#00E5D1]">
+              <span className="rounded-md bg-[#EDF3FB] px-3 py-2 text-xs uppercase tracking-[0.2em] text-[#2F80ED]">
                 Live
               </span>
             </div>
@@ -166,14 +165,14 @@ export default function Landing() {
               {networkCards.map((card) => (
                 <div
                   key={card.title}
-                  className="rounded-3xl border border-slate-800/80 bg-slate-950/80 p-5"
+                  className="rounded-3xl border border-[#DCE6F2] bg-[#F7FAFE] p-5"
                 >
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <p className="text-sm uppercase tracking-[0.3em] text-slate-500">
+                      <p className="text-sm uppercase tracking-[0.3em] text-[#8694AC]">
                         {card.title}
                       </p>
-                      <p className="mt-2 text-lg font-semibold text-white">
+                      <p className="mt-2 text-lg font-semibold text-[#0F2C5C]">
                         {card.type}
                       </p>
                     </div>
@@ -183,19 +182,19 @@ export default function Landing() {
                       {card.label}
                     </span>
                   </div>
-                  <div className="mt-5 grid gap-3 text-sm text-slate-400 sm:grid-cols-2">
-                    <div className="rounded-2xl bg-slate-900/90 p-3">
+                  <div className="mt-5 grid gap-3 text-sm text-[#566784] sm:grid-cols-2">
+                    <div className="rounded-2xl border border-[#DCE6F2] bg-white p-3">
                       {card.users} users
                     </div>
-                    <div className="rounded-2xl bg-slate-900/90 p-3">
+                    <div className="rounded-2xl border border-[#DCE6F2] bg-white p-3">
                       {card.devices} devices
                     </div>
                   </div>
                 </div>
               ))}
             </div>
-            <div className="mt-6 rounded-3xl bg-slate-950/80 p-4 text-sm text-slate-400">
-              <p className="font-medium text-white">
+            <div className="mt-6 rounded-3xl border border-[#DCE6F2] bg-[#F7FAFE] p-4 text-sm text-[#566784]">
+              <p className="font-medium text-[#0F2C5C]">
                 Developer-friendly REST API
               </p>
               <p className="mt-2">
@@ -210,10 +209,10 @@ export default function Landing() {
       <div className="">
         <div className="layer-card">
           <div className="pb-12 pt-16 px-8">
-            <h2 className="text-2xl font-semibold text-white">
-              How Zone Weaver Works
+            <h2 className="text-2xl font-semibold text-[#0F2C5C]">
+              How Safe Zone Patrol Works
             </h2>
-            <p className="mt-3 text-slate-400">
+            <p className="mt-3 text-[#566784]">
               From registration to real-time device tracking in three steps.
             </p>
             <div className="mt-12 grid gap-4 sm:grid-cols-3">
@@ -235,14 +234,14 @@ export default function Landing() {
                 },
               ].map((step, index) => (
                 <div key={step.title} className="p-5 flex gap-4">
-                  <p className="text-3xl font-bold text-[#00E5D1]">
+                  <p className="text-3xl font-bold text-[#2F80ED]">
                     0{index + 1}
                   </p>
                   <div>
-                    <h3 className="text-xl font-semibold text-white">
+                    <h3 className="text-xl font-semibold text-[#0F2C5C]">
                       {step.title}
                     </h3>
-                    <p className="mt-2 text-slate-400">{step.description}</p>
+                    <p className="mt-2 text-[#566784]">{step.description}</p>
                   </div>
                 </div>
               ))}
@@ -250,26 +249,28 @@ export default function Landing() {
           </div>
         </div>
         <div className="py-16 px-8">
-          <h2 className="text-2xl font-semibold text-white">
+          <h2 className="text-2xl font-semibold text-[#0F2C5C]">
             Pick Your Network Type
           </h2>
-          <p className="mt-3 text-slate-400">
+          <p className="mt-3 text-[#566784]">
             Two models, built for different scales
           </p>
           <div className="mt-10 grid gap-6 md:grid-cols-2">
-            <div className="flex flex-col rounded-3xl border border-slate-800/80 bg-slate-950/80 p-6 shadow-glow">
+            <div className="flex flex-col rounded-3xl border border-[#DCE6F2] bg-white p-6 shadow-glow">
               <div className="flex gap-4">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-sky-500/15">
-                  <Users className="h-5 w-5 text-sky-300" strokeWidth={2} />
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-sky-200 bg-sky-50">
+                  <Users className="h-5 w-5 text-sky-600" strokeWidth={2} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-white">Private</h3>
-                  <p className="mt-1 text-sm leading-relaxed text-slate-400">
+                  <h3 className="text-lg font-semibold text-[#0F2C5C]">
+                    Private
+                  </h3>
+                  <p className="mt-1 text-sm leading-relaxed text-[#566784]">
                     Team coordination, family tracking, fleet management
                   </p>
                 </div>
               </div>
-              <ul className="mt-6 flex flex-1 flex-col gap-3 text-sm text-slate-300">
+              <ul className="mt-6 flex flex-1 flex-col gap-3 text-sm text-[#566784]">
                 {[
                   "Many users allowed",
                   "1 device per user",
@@ -279,7 +280,7 @@ export default function Landing() {
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-3">
                     <CircleCheck
-                      className="mt-0.5 h-5 w-5 shrink-0 text-[#00E5D1]"
+                      className="mt-0.5 h-5 w-5 shrink-0 text-[#2F80ED]"
                       strokeWidth={2}
                     />
                     <span>{item}</span>
@@ -288,27 +289,27 @@ export default function Landing() {
               </ul>
               <Link
                 to="/register"
-                className="mt-8 inline-flex w-full items-center justify-center rounded-md bg-[#00E5D1] px-5 py-3 text-sm font-bold text-[#0B0E11] transition hover:brightness-110"
+                className="mt-8 inline-flex w-full items-center justify-center rounded-md bg-[#2F80ED] px-5 py-3 text-sm font-bold text-white transition hover:brightness-110"
               >
                 Create Private Zone
               </Link>
             </div>
 
-            <div className="flex flex-col rounded-3xl border border-orange-500/50 bg-slate-950/80 p-6 shadow-glow ring-1 ring-orange-500/20">
+            <div className="flex flex-col rounded-3xl border border-[#E0992A]/40 bg-white p-6 shadow-glow ring-1 ring-[#E0992A]/15">
               <div className="flex gap-4">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-500/20">
-                  <User className="h-5 w-5 text-amber-200" strokeWidth={2} />
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#E0992A]/30 bg-[#FBEFD8]">
+                  <User className="h-5 w-5 text-[#E0992A]" strokeWidth={2} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-white">
+                  <h3 className="text-lg font-semibold text-[#0F2C5C]">
                     Exclusive
                   </h3>
-                  <p className="mt-1 text-sm leading-relaxed text-slate-400">
+                  <p className="mt-1 text-sm leading-relaxed text-[#566784]">
                     Solo deployments, individual tracking, personal zones
                   </p>
                 </div>
               </div>
-              <ul className="mt-6 flex flex-1 flex-col gap-3 text-sm text-slate-300">
+              <ul className="mt-6 flex flex-1 flex-col gap-3 text-sm text-[#566784]">
                 {[
                   "1 user only",
                   "1 device per user",
@@ -318,7 +319,7 @@ export default function Landing() {
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-3">
                     <CircleCheck
-                      className="mt-0.5 h-5 w-5 shrink-0 text-orange-400"
+                      className="mt-0.5 h-5 w-5 shrink-0 text-[#E0992A]"
                       strokeWidth={2}
                     />
                     <span>{item}</span>
@@ -327,7 +328,7 @@ export default function Landing() {
               </ul>
               <Link
                 to="/register"
-                className="mt-8 inline-flex w-full items-center justify-center rounded-md bg-orange-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-orange-400"
+                className="mt-8 inline-flex w-full items-center justify-center rounded-md bg-[#E0992A] px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110"
               >
                 Create Exclusive Zone
               </Link>
@@ -336,10 +337,10 @@ export default function Landing() {
         </div>
         <div className="layer-card">
           <div className="pb-12 pt-16 px-8">
-            <h2 className="text-2xl font-semibold text-white">
+            <h2 className="text-2xl font-semibold text-[#0F2C5C]">
               Built for developers
             </h2>
-            <p className="mt-3 max-w-3xl text-slate-400">
+            <p className="mt-3 max-w-3xl text-[#566784]">
               Everything your mobile app needs to communicate with the zone
               server.
             </p>
@@ -349,17 +350,17 @@ export default function Landing() {
                 return (
                   <div
                     key={feature.title}
-                    className={`rounded-3xl border p-5 border-slate-800/80 bg-slate-950/80 shadow-glow`}
+                    className="rounded-3xl border border-[#DCE6F2] bg-white p-5 shadow-glow"
                   >
                     <div
                       className={`mb-4 flex h-11 w-11 items-center justify-center rounded-xl ${feature.iconWrap}`}
                     >
                       <Icon className="h-5 w-5" strokeWidth={2} />
                     </div>
-                    <h3 className="font-semibold text-white">
+                    <h3 className="font-semibold text-[#0F2C5C]">
                       {feature.title}
                     </h3>
-                    <p className="mt-2 text-sm leading-relaxed text-slate-400">
+                    <p className="mt-2 text-sm leading-relaxed text-[#566784]">
                       {feature.description}
                     </p>
                   </div>
@@ -372,32 +373,32 @@ export default function Landing() {
         <div className="py-16 px-8">
           <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
             <div className="space-y-4">
-              <h2 className="text-2xl font-semibold text-white">
+              <h2 className="text-2xl font-semibold text-[#0F2C5C]">
                 REST API Endpoints
               </h2>
-              <p className="max-w-xl text-slate-400">
+              <p className="max-w-xl text-[#566784]">
                 Your mobile app integrates with these endpoints. Authentication,
                 user management, device settings, and alert handling.
               </p>
               <Link
                 to="/api"
-                className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#00E5D1] transition hover:brightness-110"
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#2F80ED] transition hover:brightness-110"
               >
                 Explore full API <span aria-hidden>→</span>
               </Link>
             </div>
 
-            <div className="rounded-3xl border border-slate-800/80 bg-slate-950/90 p-6 shadow-glow">
+            <div className="rounded-3xl border border-[#DCE6F2] bg-white p-6 shadow-glow">
               <div className="mb-5 flex items-center gap-2">
                 <Radio
-                  className="h-4 w-4 shrink-0 text-[#00E5D1]"
+                  className="h-4 w-4 shrink-0 text-[#2F80ED]"
                   strokeWidth={2}
                 />
-                <span className="text-sm font-medium text-white">
+                <span className="text-sm font-medium text-[#0F2C5C]">
                   API Reference
                 </span>
               </div>
-              <ul className="divide-y divide-slate-800/90">
+              <ul className="divide-y divide-[#DCE6F2]">
                 {apiEndpointPreview.map((row) => (
                   <li
                     key={`${row.method}-${row.path}`}
@@ -408,7 +409,7 @@ export default function Landing() {
                     >
                       {row.method}
                     </span>
-                    <code className="font-mono text-sm text-white">
+                    <code className="font-mono text-sm text-[#0F2C5C]">
                       {row.path}
                     </code>
                   </li>
@@ -420,37 +421,37 @@ export default function Landing() {
 
         {/* CTA hero — full-bleed below API endpoints */}
         <div
-          className="relative left-1/2 right-auto w-screen max-w-[100vw] -translate-x-1/2 overflow-hidden border-t border-slate-800/60 bg-[#0B0E11]"
+          className="relative left-1/2 right-auto w-screen max-w-[100vw] -translate-x-1/2 overflow-hidden border-t border-[#DCE6F2] bg-[#EDF3FB]"
           aria-labelledby="ready-to-weave-heading"
         >
           <div
-            className="pointer-events-none absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-orange-500/15 blur-3xl"
+            className="pointer-events-none absolute -bottom-24 -right-24 h-80 w-80 rounded-full bg-[#2F80ED]/10 blur-3xl"
             aria-hidden
           />
           <div className="flex flex-col">
             <div className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center sm:py-20">
               <Hexagon
-                className="mb-8 h-14 w-14 text-[#00E5D1]"
+                className="mb-8 h-14 w-14 text-[#2F80ED]"
                 strokeWidth={1.25}
                 aria-hidden
               />
               <h2
                 id="ready-to-weave-heading"
-                className="text-3xl font-bold tracking-tight text-white sm:text-4xl"
+                className="text-3xl font-bold tracking-tight text-[#0F2C5C] sm:text-4xl"
               >
                 Ready to Weave?
               </h2>
-              <p className="mt-4 max-w-md text-base leading-relaxed text-slate-400 sm:text-lg">
+              <p className="mt-4 max-w-md text-base leading-relaxed text-[#566784] sm:text-lg">
                 Create your zone network. Connect your devices. Start tracking.
               </p>
               <Link
                 to="/register"
-                className="mt-10 inline-flex items-center justify-center rounded-md bg-[#00E5D1] px-6 py-3 text-base font-bold text-[#0B0E11] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00E5D1]"
+                className="mt-10 inline-flex items-center justify-center rounded-md bg-[#2F80ED] px-6 py-3 text-base font-bold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2F80ED]"
               >
                 Start Building Zones
               </Link>
             </div>
-git           </div>
+          </div>
         </div>
       </div>
     </section>

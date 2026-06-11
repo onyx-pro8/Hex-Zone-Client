@@ -16,13 +16,13 @@ import {
   H3Cell,
 } from "../lib/h3";
 
-const accent = "text-[#00E5D1]";
-const accentBorder = "border-[#00E5D1]/50";
-const accentBg = "bg-[#00E5D1]";
-const panelBg = "bg-[#151a20]";
+const accent = "text-[#2F80ED]";
+const accentBorder = "border-[#2F80ED]/45";
+const accentBg = "bg-[#2F80ED]";
+const panelBg = "bg-[#F7FAFE]";
 const labelClass =
-  "mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500";
-const inputClass = `${panelBg} w-full rounded-md border border-slate-700/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-[#00E5D1]/60 focus:outline-none focus:ring-1 focus:ring-[#00E5D1]/25`;
+  "mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8694AC]";
+const inputClass = `${panelBg} w-full rounded-md border border-[#DCE6F2] px-3 py-2.5 text-sm text-[#0F2C5C] placeholder:text-[#8694AC] focus:border-[#2F80ED]/60 focus:outline-none focus:ring-1 focus:ring-[#2F80ED]/25`;
 
 const accountOptions: {
   value: AccountType;
@@ -173,21 +173,21 @@ export default function CreateAccount() {
           addressLabel={address}
         />
 
-        <div className="flex flex-col border-t border-slate-800/80 bg-[#0B0E11] lg:border-l lg:border-t-0">
+        <div className="flex flex-col border-t border-[#DCE6F2] bg-[#F3F7FD] lg:border-l lg:border-t-0">
           <div
-            className={`flex items-center gap-2 border-b px-6 py-3 text-xs ${accent} ${accentBorder} bg-[#00E5D1]/10`}
+            className={`flex items-center gap-2 border-b px-6 py-3 text-xs ${accent} ${accentBorder} bg-[#EDF3FB]`}
           >
             <QrCode className="h-4 w-4 shrink-0" strokeWidth={2} />
             <span>Have a QR code? Scan to auto-populate your Zone ID</span>
           </div>
 
           <div className="flex flex-1 flex-col overflow-y-auto px-6 py-8 sm:px-10">
-            <h1 className="text-center text-2xl font-semibold tracking-tight text-white">
+            <h1 className="text-center text-2xl font-semibold tracking-tight text-[#0F2C5C]">
               Create Account
             </h1>
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-              <div className="rounded-md border border-slate-700/80 bg-[#151a20] p-4">
+              <div className="rounded-md border border-[#DCE6F2] bg-white p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <label htmlFor="reg-code" className={labelClass}>
                     Registration code
@@ -196,7 +196,7 @@ export default function CreateAccount() {
                     type="button"
                     onClick={() => void loadRegistrationCode()}
                     disabled={regCodeLoading}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-slate-600 bg-slate-800/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-slate-300 transition hover:bg-slate-700/90 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-[#E4ECF7] bg-[#EDF3FB] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-[#566784] transition hover:bg-[#EDF3FB] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {regCodeLoading ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
@@ -207,13 +207,13 @@ export default function CreateAccount() {
                   </button>
                 </div>
                 {regCodeLoading && (
-                  <p className="mt-2 flex items-center gap-2 text-sm text-slate-400">
+                  <p className="mt-2 flex items-center gap-2 text-sm text-[#8694AC]">
                     <Loader2 className="h-4 w-4 shrink-0 animate-spin" strokeWidth={2} />
                     Requesting registration code from server…
                   </p>
                 )}
                 {regCodeError && !regCodeLoading && (
-                  <p className="mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                  <p className="mt-2 rounded-md border border-[#E0992A]/40 bg-[#FBEFD8] px-3 py-2 text-sm text-[#E0992A]">
                     {regCodeError}
                   </p>
                 )}
@@ -222,11 +222,11 @@ export default function CreateAccount() {
                     id="reg-code"
                     readOnly
                     value={registrationCode}
-                    className={`${inputClass} mt-2 font-mono text-[#00E5D1]`}
+                    className={`${inputClass} mt-2 font-mono text-[#2F80ED]`}
                     aria-describedby="reg-code-hint"
                   />
                 )}
-                <p id="reg-code-hint" className="mt-2 text-xs text-slate-500">
+                <p id="reg-code-hint" className="mt-2 text-xs text-[#8694AC]">
                   Issued by the server when you open this page. It is sent again when you
                   create your account, then you can sign in at Login.
                 </p>
@@ -329,19 +329,19 @@ export default function CreateAccount() {
                         }}
                         className={`rounded-md border px-4 py-4 text-left transition ${
                           active
-                            ? `border-[#00E5D1] bg-[#00E5D1]/10 shadow-[0_0_24px_-8px_rgba(0,229,209,0.45)]`
-                            : "border-slate-700/80 bg-[#151a20] hover:border-slate-600"
+                            ? `border-[#2F80ED] bg-[#EDF3FB] shadow-glow`
+                            : "border-[#DCE6F2] bg-white hover:border-[#C5D4E8]"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <p className="font-semibold text-white">
+                          <p className="font-semibold text-[#0F2C5C]">
                             {option.title}
                           </p>
                         </div>
-                        <p className="mt-2 text-sm text-slate-400">
+                        <p className="mt-2 text-sm text-[#8694AC]">
                           {option.lines[0]}
                         </p>
-                        <p className="mt-1 text-sm text-slate-500">
+                        <p className="mt-1 text-sm text-[#8694AC]">
                           {option.lines[1]}
                         </p>
                       </button>
@@ -350,7 +350,7 @@ export default function CreateAccount() {
                 </div>
               </div>
 
-              <div className="rounded-md border border-slate-700/80 bg-[#151a20] p-4">
+              <div className="rounded-md border border-[#DCE6F2] bg-white p-4">
                 <p className={labelClass}>Registration type</p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <button
@@ -358,8 +358,8 @@ export default function CreateAccount() {
                     onClick={() => setRegistrationType("ADMINISTRATOR")}
                     className={`rounded-md border px-4 py-3 text-left transition ${
                       registrationType === "ADMINISTRATOR"
-                        ? "border-[#00E5D1] bg-[#00E5D1]/10 text-white"
-                        : "border-slate-700/80 text-slate-300 hover:border-slate-600"
+                        ? "border-[#2F80ED] bg-[#EDF3FB] text-[#0F2C5C]"
+                        : "border-[#DCE6F2] text-[#566784] hover:border-[#C5D4E8]"
                     }`}
                   >
                     Administrator
@@ -369,8 +369,8 @@ export default function CreateAccount() {
                     onClick={() => setRegistrationType("USER")}
                     className={`rounded-md border px-4 py-3 text-left transition ${
                       registrationType === "USER"
-                        ? "border-[#00E5D1] bg-[#00E5D1]/10 text-white"
-                        : "border-slate-700/80 text-slate-300 hover:border-slate-600"
+                        ? "border-[#2F80ED] bg-[#EDF3FB] text-[#0F2C5C]"
+                        : "border-[#DCE6F2] text-[#566784] hover:border-[#C5D4E8]"
                     }`}
                   >
                     User
@@ -391,7 +391,7 @@ export default function CreateAccount() {
                       placeholder="101"
                       className={inputClass}
                     />
-                    <p className="mt-2 text-xs text-slate-500">
+                    <p className="mt-2 text-xs text-[#8694AC]">
                       Linked users must use the admin account owner ID and matching
                       account type/zone scope.
                     </p>
@@ -399,7 +399,7 @@ export default function CreateAccount() {
                 )}
               </div>
 
-              <div className="rounded-md border border-slate-700/80 bg-[#151a20] p-4">
+              <div className="rounded-md border border-[#DCE6F2] bg-white p-4">
                 <p className={labelClass}>Zone ID</p>
                 <div className="flex flex-wrap gap-2">
                   <button
@@ -407,8 +407,8 @@ export default function CreateAccount() {
                     onClick={() => setUseExistingZone(false)}
                     className={`rounded-md px-4 py-2 text-sm font-medium transition ${
                       !useExistingZone
-                        ? `${accentBg} text-[#0B0E11]`
-                        : "bg-slate-800/90 text-slate-300 hover:bg-slate-700/90"
+                        ? `${accentBg} text-white`
+                        : "bg-[#EDF3FB] text-[#566784] hover:bg-[#EDF3FB]"
                     }`}
                   >
                     Generate New
@@ -418,8 +418,8 @@ export default function CreateAccount() {
                     onClick={() => setUseExistingZone(true)}
                     className={`rounded-md px-4 py-2 text-sm font-medium transition ${
                       useExistingZone
-                        ? `${accentBg} text-[#0B0E11]`
-                        : "bg-slate-800/90 text-slate-300 hover:bg-slate-700/90"
+                        ? `${accentBg} text-white`
+                        : "bg-[#EDF3FB] text-[#566784] hover:bg-[#EDF3FB]"
                     }`}
                   >
                     Enter Existing
@@ -434,9 +434,9 @@ export default function CreateAccount() {
                       if (useExistingZone) setExistingZoneId(e.target.value);
                     }}
                     placeholder="ZN-XXXXXXXX"
-                    className={`min-w-0 flex-1 rounded-md border border-slate-700/80 px-3 py-2.5 font-mono text-sm focus:border-[#00E5D1]/60 focus:outline-none focus:ring-1 focus:ring-[#00E5D1]/25 ${
+                    className={`min-w-0 flex-1 rounded-md border border-[#DCE6F2] px-3 py-2.5 font-mono text-sm focus:border-[#2F80ED]/60 focus:outline-none focus:ring-1 focus:ring-[#2F80ED]/25 ${
                       useExistingZone
-                        ? `${panelBg} text-white`
+                        ? `${panelBg} text-[#0F2C5C]`
                         : `${panelBg} ${accent}`
                     }`}
                   />
@@ -444,7 +444,7 @@ export default function CreateAccount() {
                     type="button"
                     disabled={useExistingZone}
                     onClick={() => setZoneId(generateZoneId())}
-                    className="shrink-0 rounded-md border border-slate-600 bg-slate-800/90 px-4 py-2.5 text-sm font-medium text-slate-200 transition hover:bg-slate-700/90 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="shrink-0 rounded-md border border-[#E4ECF7] bg-[#EDF3FB] px-4 py-2.5 text-sm font-medium text-[#566784] transition hover:bg-[#EDF3FB] disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Regenerate
                   </button>
@@ -470,7 +470,7 @@ export default function CreateAccount() {
                   <button
                     type="button"
                     onClick={() => setShowPassword((s) => !s)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-slate-500 transition hover:bg-white/5 hover:text-slate-300"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-[#8694AC] transition hover:bg-[#EDF3FB] hover:text-[#566784]"
                     aria-label={
                       showPassword ? "Hide characters" : "Show characters"
                     }
@@ -485,7 +485,7 @@ export default function CreateAccount() {
               </div>
 
               {error && (
-                <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                <p className="rounded-md border border-[#E23B4E]/30 bg-[#FCE7EA] px-3 py-2 text-sm text-[#E23B4E]">
                   {error}
                 </p>
               )}
@@ -499,7 +499,7 @@ export default function CreateAccount() {
                   Boolean(regCodeError) ||
                   !registrationCode.trim()
                 }
-                className={`flex w-full items-center justify-center gap-2 rounded-md ${accentBg} py-3.5 text-sm font-bold text-[#0B0E11] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60`}
+                className={`flex w-full items-center justify-center gap-2 rounded-md ${accentBg} py-3.5 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60`}
               >
                 {loading ? (
                   "Creating account…"
@@ -512,14 +512,14 @@ export default function CreateAccount() {
               </button>
             </form>
             {userOnExclusiveAccount && (
-              <p className="mt-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+              <p className="mt-3 rounded-md border border-[#E0992A]/40 bg-[#FBEFD8] px-3 py-2 text-sm text-[#E0992A]">
                 Exclusive accounts only allow 1 invited user. Ask your
                 administrator to send a QR invite from their dashboard, then
                 join via that link.
               </p>
             )}
 
-            <p className="mt-8 text-center text-sm text-slate-500">
+            <p className="mt-8 text-center text-sm text-[#8694AC]">
               Already have an account?{" "}
               <Link
                 to="/login"

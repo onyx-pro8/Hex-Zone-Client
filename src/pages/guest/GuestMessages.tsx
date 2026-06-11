@@ -167,24 +167,24 @@ export default function GuestMessages() {
   return (
     <section className="mx-auto max-w-5xl space-y-6">
       <header>
-        <h1 className="text-2xl font-semibold text-slate-100">Guest messages</h1>
-        <p className="text-sm text-slate-400">
+        <h1 className="text-2xl font-semibold text-[#0F2C5C]">Guest messages</h1>
+        <p className="text-sm text-[#8694AC]">
           Guests can send CHAT only. Permission events are automatic.
         </p>
-        <div className="mt-3 rounded-lg border border-slate-700/80 bg-slate-900/50 px-3 py-2 text-xs text-slate-400">
+        <div className="mt-3 rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-xs text-[#8694AC]">
           Access Zone flow (PERMISSION / CHAT): choose a zone, then pick a{" "}
-          <span className="font-medium text-slate-300">host or administrator</span> (peer). Messages use that
+          <span className="font-medium text-[#566784]">host or administrator</span> (peer). Messages use that
           account for threading. If the peer list stays empty after the backend ships{" "}
-          <span className="font-mono text-slate-500">{peersPathHint || "…/peers"}</span>, ask your backend team
+          <span className="font-mono text-[#8694AC]">{peersPathHint || "…/peers"}</span>, ask your backend team
           to return zone staff as documented in{" "}
-          <code className="rounded bg-slate-800 px-1 text-[10px]">docs/BACKEND_ACCESS_ZONE_FULL_CONTRACT.md</code>{" "}
+          <code className="rounded bg-[#EDF3FB] px-1 text-[10px]">docs/BACKEND_ACCESS_ZONE_FULL_CONTRACT.md</code>{" "}
           (give them the whole file).
         </div>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(260px,360px)_minmax(0,1fr)]">
-        <div className="space-y-3 rounded-xl border border-slate-800/80 bg-slate-950/60 p-4">
-          <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+        <div className="space-y-3 rounded-xl border border-[#DCE6F2] bg-white p-4">
+          <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-[#8694AC]">
             Zone
           </label>
           <select
@@ -193,7 +193,7 @@ export default function GuestMessages() {
               setZoneId(ev.target.value);
               setPeerId("");
             }}
-            className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+            className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
           >
             {(zones.length ? zones : zoneId ? [zoneId] : [""]).map((z) => (
               <option key={z || "empty"} value={z}>
@@ -202,22 +202,22 @@ export default function GuestMessages() {
             ))}
           </select>
           {loadingPeers ? (
-            <p className="flex items-center gap-2 text-xs text-slate-500">
+            <p className="flex items-center gap-2 text-xs text-[#8694AC]">
               <Loader2 className="h-3 w-3 animate-spin" /> Loading peers…
             </p>
           ) : null}
           {peersError ? (
-            <p className="text-xs text-rose-300">{peersError}</p>
+            <p className="text-xs text-rose-600">{peersError}</p>
           ) : null}
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+            <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-[#8694AC]">
               Hosts in this zone
             </label>
             <button
               type="button"
               disabled={loadingPeers || !zoneId.trim()}
               onClick={() => void loadPeers()}
-              className="inline-flex items-center gap-1 rounded-md border border-slate-700 px-2 py-1 text-[11px] text-slate-300 hover:border-[#00E5D1]/40 disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-md border border-[#DCE6F2] px-2 py-1 text-[11px] text-[#566784] hover:border-[#2F80ED]/50 disabled:opacity-50"
             >
               <RefreshCw className={`h-3 w-3 ${loadingPeers ? "animate-spin" : ""}`} />
               Refresh peers
@@ -235,12 +235,12 @@ export default function GuestMessages() {
                       onClick={() => setPeerId(p.owner_id)}
                       className={`w-full rounded-lg border px-3 py-2 text-left text-xs transition ${
                         selected
-                          ? "border-[#00E5D1]/55 bg-[#00E5D1]/12 text-slate-100"
-                          : "border-slate-800 bg-slate-900/60 text-slate-300 hover:border-slate-600"
+                          ? "border-[#2F80ED]/45 bg-[#EDF3FB] text-[#0F2C5C]"
+                          : "border-[#DCE6F2] bg-[#F7FAFE] text-[#566784] hover:border-[#2F80ED]/50"
                       }`}
                     >
-                      <p className="font-medium text-slate-100">{p.display_name || "Host"}</p>
-                      <p className="mt-0.5 font-mono text-[10px] text-slate-500">{p.owner_id}</p>
+                      <p className="font-medium text-[#0F2C5C]">{p.display_name || "Host"}</p>
+                      <p className="mt-0.5 font-mono text-[10px] text-[#8694AC]">{p.owner_id}</p>
                     </button>
                   </li>
                 );
@@ -251,7 +251,7 @@ export default function GuestMessages() {
           <select
             value={peerId}
             onChange={(ev) => setPeerId(ev.target.value)}
-            className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+            className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
           >
             <option value="">Select a peer…</option>
             {peers.map((p) => (
@@ -261,24 +261,24 @@ export default function GuestMessages() {
             ))}
           </select>
           {!loadingPeers && !peersError && zoneId.trim() && peers.length === 0 ? (
-            <div className="space-y-1 rounded-md border border-amber-500/25 bg-amber-950/20 px-3 py-2 text-xs text-amber-100">
+            <div className="space-y-1 rounded-md border border-[#E0992A]/30 bg-[#FBEFD8] px-3 py-2 text-xs text-[#E0992A]">
               <p>{noHostsHint}</p>
-              <p className="text-[11px] text-amber-100/85">
+              <p className="text-[11px] text-[#E0992A]">
                 Full contract:{" "}
-                <span className="font-mono text-amber-50/95">docs/BACKEND_ACCESS_ZONE_FULL_CONTRACT.md</span> (section 4.3).
+                <span className="font-mono text-[#E0992A]">docs/BACKEND_ACCESS_ZONE_FULL_CONTRACT.md</span> (section 4.3).
               </p>
             </div>
           ) : null}
         </div>
 
-        <div className="flex min-h-[280px] flex-col rounded-xl border border-slate-800/80 bg-slate-950/60 p-4">
-          <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+        <div className="flex min-h-[280px] flex-col rounded-xl border border-[#DCE6F2] bg-white p-4">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8694AC]">
             Thread
           </h2>
           {!peerId ? (
-            <p className="mt-4 text-sm text-slate-500">Choose a peer to load messages.</p>
+            <p className="mt-4 text-sm text-[#8694AC]">Choose a peer to load messages.</p>
           ) : loadingThread && !messages.length ? (
-            <p className="mt-4 flex items-center gap-2 text-sm text-slate-400">
+            <p className="mt-4 flex items-center gap-2 text-sm text-[#8694AC]">
               <Loader2 className="h-4 w-4 animate-spin" /> Loading…
             </p>
           ) : (
@@ -294,58 +294,58 @@ export default function GuestMessages() {
                     key={m.id}
                     className={`rounded-md border px-3 py-2 ${
                       zoneBroadcast
-                        ? "border-amber-500/50 bg-amber-950/35"
+                        ? "border-[#E0992A]/30 bg-[#FBEFD8]"
                         : isPermission
-                          ? "border-amber-500/30 bg-amber-950/20"
-                          : "border-slate-800/80 bg-slate-900/50"
+                          ? "border-[#E0992A]/30 bg-[#FBEFD8]"
+                          : "border-[#DCE6F2] bg-[#F7FAFE]"
                     }`}
                   >
-                    <p className="text-[10px] uppercase tracking-wider text-slate-500">
+                    <p className="text-[10px] uppercase tracking-wider text-[#8694AC]">
                       {t}
                       {m.created_at ? ` · ${m.created_at}` : ""}
                       {zoneBroadcast ? (
                         <span
-                          className="ml-2 font-medium text-amber-200"
+                          className="ml-2 font-medium text-[#E0992A]"
                           title="Unscheduled guest waiting for approval"
                         >
                           · Zone alert
                         </span>
                       ) : null}
                       {privateAudit ? (
-                        <span className="ml-2 text-slate-400" title="Private staff audit">
+                        <span className="ml-2 text-[#8694AC]" title="Private staff audit">
                           · Private
                         </span>
                       ) : null}
                       {isPermission ? (
-                        <span className="ml-2 text-amber-200/95"> · read-only in thread</span>
+                        <span className="ml-2 text-[#E0992A]"> · read-only in thread</span>
                       ) : null}
                     </p>
-                    <p className={isPermission ? "text-amber-50/95" : "text-slate-200"}>{m.text ?? "—"}</p>
+                    <p className={isPermission ? "text-[#E0992A]" : "text-[#566784]"}>{m.text ?? "—"}</p>
                   </li>
                 );
               })}
             </ul>
           )}
-          {msgError ? <p className="mt-2 text-xs text-rose-300">{msgError}</p> : null}
+          {msgError ? <p className="mt-2 text-xs text-rose-600">{msgError}</p> : null}
         </div>
       </div>
 
       {peerId ? (
-        <form onSubmit={(ev) => void handleSend(ev)} className="space-y-3 rounded-xl border border-slate-800/80 bg-slate-950/60 p-4">
+        <form onSubmit={(ev) => void handleSend(ev)} className="space-y-3 rounded-xl border border-[#DCE6F2] bg-white p-4">
           <div className="flex flex-wrap items-end gap-3">
             <div className="min-w-[200px] flex-1">
-              <label className="mb-1 block text-xs uppercase text-slate-500">Message</label>
+              <label className="mb-1 block text-xs uppercase text-[#8694AC]">Message</label>
               <input
                 value={text}
                 onChange={(ev) => setText(ev.target.value)}
                 placeholder="Write a message…"
-                className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+                className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
               />
             </div>
             <button
               type="submit"
               disabled={sending || !text.trim() || !guestCanChat}
-              className="inline-flex items-center gap-2 rounded-md bg-[#00E5D1] px-4 py-2 text-sm font-bold text-[#0B0E11] disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-md bg-[#2F80ED] px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
             >
               {sending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -355,7 +355,7 @@ export default function GuestMessages() {
               Send
             </button>
           </div>
-          <p className="text-xs text-slate-500">Sending as CHAT.</p>
+          <p className="text-xs text-[#8694AC]">Sending as CHAT.</p>
         </form>
       ) : null}
     </section>

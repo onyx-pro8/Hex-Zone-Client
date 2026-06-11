@@ -353,7 +353,7 @@ function PolygonVertexHandle({
       pathOptions={{
         color: "#0B0E11",
         weight: 2,
-        fillColor: "#00E5D1",
+        fillColor: "#2F80ED",
         fillOpacity: 1,
       }}
       eventHandlers={
@@ -523,7 +523,7 @@ export default function HexMapperMap({
 
   const primaryTileUrl = grayscale
     ? "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
-    : "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+    : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
 
   const fallbackTileUrl = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
   const tileUrl = useFallbackTiles ? fallbackTileUrl : primaryTileUrl;
@@ -535,7 +535,7 @@ export default function HexMapperMap({
     : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
   return (
-    <div className="h-full min-h-[320px] w-full overflow-hidden [&_.leaflet-container]:bg-[#1a1a1a]">
+    <div className="h-full min-h-[320px] w-full overflow-hidden [&_.leaflet-container]:bg-[#EDF3FB]">
       <MapContainer
         center={center}
         zoom={12}

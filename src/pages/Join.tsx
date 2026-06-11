@@ -6,13 +6,13 @@ import AuthMapPanel from "../components/AuthMapPanel";
 import { AddressAutocompleteInput } from "../components/AddressAutocompleteInput";
 import { addressToMockCoords, getHexGrid, H3Cell } from "../lib/h3";
 
-const accent = "text-[#00E5D1]";
-const accentBorder = "border-[#00E5D1]/50";
-const accentBg = "bg-[#00E5D1]";
-const panelBg = "bg-[#151a20]";
+const accent = "text-[#2F80ED]";
+const accentBorder = "border-[#2F80ED]/45";
+const accentBg = "bg-[#2F80ED]";
+const panelBg = "bg-[#F7FAFE]";
 const labelClass =
-  "mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500";
-const inputClass = `${panelBg} w-full rounded-md border border-slate-700/80 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-[#00E5D1]/60 focus:outline-none focus:ring-1 focus:ring-[#00E5D1]/25`;
+  "mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8694AC]";
+const inputClass = `${panelBg} w-full rounded-md border border-[#DCE6F2] px-3 py-2.5 text-sm text-[#0F2C5C] placeholder:text-[#8694AC] focus:border-[#2F80ED]/60 focus:outline-none focus:ring-1 focus:ring-[#2F80ED]/25`;
 
 export default function Join() {
   const navigate = useNavigate();
@@ -86,19 +86,19 @@ export default function Join() {
           addressLabel={address}
         />
 
-        <div className="flex flex-col border-t border-slate-800/80 bg-[#0B0E11] lg:border-l lg:border-t-0">
+        <div className="flex flex-col border-t border-[#DCE6F2] bg-[#F3F7FD] lg:border-l lg:border-t-0">
           <div
-            className={`flex items-center gap-2 border-b px-6 py-3 text-xs ${accent} ${accentBorder} bg-[#00E5D1]/10`}
+            className={`flex items-center gap-2 border-b px-6 py-3 text-xs ${accent} ${accentBorder} bg-[#EDF3FB]`}
           >
             <QrCode className="h-4 w-4 shrink-0" strokeWidth={2} />
             <span>Joining a private zone — your zone ID is set from the invite</span>
           </div>
 
           <div className="flex flex-1 flex-col overflow-y-auto px-6 py-8 sm:px-10">
-            <h1 className="text-center text-2xl font-semibold tracking-tight text-white">
+            <h1 className="text-center text-2xl font-semibold tracking-tight text-[#0F2C5C]">
               Join with QR
             </h1>
-            <p className="mt-2 text-center text-sm text-slate-400">
+            <p className="mt-2 text-center text-sm text-[#8694AC]">
               Complete your profile to join this network.
             </p>
 
@@ -213,7 +213,7 @@ export default function Join() {
                   <button
                     type="button"
                     onClick={() => setShowPassword((s) => !s)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-slate-500 transition hover:bg-white/5 hover:text-slate-300"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-[#8694AC] transition hover:bg-[#EDF3FB] hover:text-[#566784]"
                     aria-label={
                       showPassword ? "Hide characters" : "Show characters"
                     }
@@ -228,7 +228,7 @@ export default function Join() {
               </div>
 
               {error && (
-                <p className="rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                <p className="rounded-md border border-[#E23B4E]/30 bg-[#FCE7EA] px-3 py-2 text-sm text-[#E23B4E]">
                   {error}
                 </p>
               )}
@@ -236,7 +236,7 @@ export default function Join() {
               <button
                 type="submit"
                 disabled={loading}
-                className={`flex w-full items-center justify-center gap-2 rounded-md ${accentBg} py-3.5 text-sm font-bold text-[#0B0E11] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60`}
+                className={`flex w-full items-center justify-center gap-2 rounded-md ${accentBg} py-3.5 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60`}
               >
                 {loading ? (
                   "Joining…"
@@ -249,7 +249,7 @@ export default function Join() {
               </button>
             </form>
 
-            <p className="mt-8 text-center text-sm text-slate-500">
+            <p className="mt-8 text-center text-sm text-[#8694AC]">
               Need your own zone?{" "}
               <Link
                 to="/register"

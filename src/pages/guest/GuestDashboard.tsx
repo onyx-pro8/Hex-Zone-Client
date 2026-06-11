@@ -126,23 +126,23 @@ export default function GuestDashboard() {
   return (
     <section className="mx-auto w-full min-w-0 max-w-[min(1920px,100%)] space-y-6">
       <header className="space-y-1">
-        <h1 className="text-2xl font-semibold text-slate-100">Guest dashboard</h1>
-        <p className="text-sm text-slate-400">
-          Signed in as <span className="text-slate-200">{displayName}</span>
+        <h1 className="text-2xl font-semibold text-[#0F2C5C]">Guest dashboard</h1>
+        <p className="text-sm text-[#8694AC]">
+          Signed in as <span className="text-[#566784]">{displayName}</span>
         </p>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-[#8694AC]">
           Guest access is read-only for dashboard, map, and members.
         </p>
       </header>
 
       {loading ? (
-        <p className="flex items-center gap-2 text-sm text-slate-400">
+        <p className="flex items-center gap-2 text-sm text-[#8694AC]">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Loading…
         </p>
       ) : null}
 
       {!loading && profileError ? (
-        <p className="rounded-md border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+        <p className="rounded-md border border-[#E0992A]/30 bg-[#FBEFD8] px-3 py-2 text-sm text-[#E0992A]">
           {profileError} Saved session data below still works if your token is valid (e.g. open Messages). If this
           persists, confirm the server exposes <span className="font-mono">GET /api/guest/me</span> and matches the
           response shape this app expects.
@@ -150,13 +150,13 @@ export default function GuestDashboard() {
       ) : null}
 
       {!loading ? (
-        <div className="space-y-4 rounded-2xl border border-slate-800/80 bg-slate-950/60 p-5">
+        <div className="space-y-4 rounded-2xl border border-[#DCE6F2] bg-white p-5">
           <div>
-            <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+            <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8694AC]">
               Zones
             </h2>
             {zones.length ? (
-              <ul className="mt-2 space-y-1 font-mono text-sm text-[#00E5D1]">
+              <ul className="mt-2 space-y-1 font-mono text-sm text-[#2F80ED]">
                 {zones.map((z) => (
                   <li key={z} className="break-all">
                     {z}
@@ -164,9 +164,9 @@ export default function GuestDashboard() {
                 ))}
               </ul>
             ) : (
-              <p className="mt-2 text-sm text-slate-500">
+              <p className="mt-2 text-sm text-[#8694AC]">
                 No zone on this session. Return to{" "}
-                <Link className="text-[#00E5D1] underline" to="/access">
+                <Link className="text-[#2F80ED] underline" to="/access">
                   guest access
                 </Link>{" "}
                 with your invite link.
@@ -177,17 +177,17 @@ export default function GuestDashboard() {
           {primaryZone ? (
             <Link
               to={`/guest/messages?zone=${encodeURIComponent(primaryZone)}`}
-              className="inline-flex items-center gap-2 rounded-md bg-[#00E5D1] px-4 py-2.5 text-sm font-bold text-[#0B0E11] transition hover:brightness-110"
+              className="inline-flex items-center gap-2 rounded-md bg-[#2F80ED] px-4 py-2.5 text-sm font-bold text-white transition hover:brightness-110"
             >
               <MessageSquare className="h-4 w-4" /> Open messages
             </Link>
           ) : (
-            <p className="text-sm text-slate-500">Pick a zone from your host to use messaging.</p>
+            <p className="text-sm text-[#8694AC]">Pick a zone from your host to use messaging.</p>
           )}
 
           {dashboardGeoReady && guestMapModel ? (
             <div className="space-y-2">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8694AC]">
                 Zone map (read-only)
               </h2>
               <GuestZoneReadOnlyMap center={guestMapModel.center} polygons={guestMapModel.polygons} />
@@ -198,25 +198,25 @@ export default function GuestDashboard() {
           !guestMapModel &&
           dashboard != null &&
           typeof dashboard === "object" ? (
-            <div className="rounded-lg border border-slate-800/80 bg-slate-900/40 px-3 py-2 text-xs text-slate-400">
+            <div className="rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-xs text-[#8694AC]">
               Map requires backend dashboard map payload (
-              <span className="font-mono text-slate-500">geojson</span>,{" "}
-              <span className="font-mono text-slate-500">bounds</span>,{" "}
-              <span className="font-mono text-slate-500">h3_cells</span>,{" "}
-              <span className="font-mono text-slate-500">geo_fence</span>). See README.md (Guest session, Backend
+              <span className="font-mono text-[#8694AC]">geojson</span>,{" "}
+              <span className="font-mono text-[#8694AC]">bounds</span>,{" "}
+              <span className="font-mono text-[#8694AC]">h3_cells</span>,{" "}
+              <span className="font-mono text-[#8694AC]">geo_fence</span>). See README.md (Guest session, Backend
               integration) and share{" "}
-              <span className="font-mono text-slate-300">docs/BACKEND_ACCESS_ZONE_FULL_CONTRACT.md</span> with your API
+              <span className="font-mono text-[#566784]">docs/BACKEND_ACCESS_ZONE_FULL_CONTRACT.md</span> with your API
               team.
             </div>
           ) : null}
 
           {dash && (dash.label || dash.welcome_text || linkRows.length > 0) ? (
-            <div className="space-y-3 rounded-xl border border-emerald-500/25 bg-emerald-950/15 px-4 py-4 text-emerald-50">
+            <div className="space-y-3 rounded-xl border border-[#2FA24A]/30 bg-[#E3F4E8] px-4 py-4 text-[#2FA24A]">
               {dash.label ? (
-                <h3 className="text-lg font-semibold text-white">{dash.label}</h3>
+                <h3 className="text-lg font-semibold text-[#0F2C5C]">{dash.label}</h3>
               ) : null}
               {dash.welcome_text ? (
-                <p className="text-sm leading-relaxed text-emerald-100/95">{dash.welcome_text}</p>
+                <p className="text-sm leading-relaxed text-[#2FA24A]">{dash.welcome_text}</p>
               ) : null}
               {linkRows.length > 0 ? (
                 <ul className="space-y-1 text-sm">
@@ -226,7 +226,7 @@ export default function GuestDashboard() {
                         href={l.href}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-[#00E5D1] underline hover:text-emerald-200"
+                        className="text-[#2F80ED] underline hover:text-[#2F80ED]"
                       >
                         {l.label}
                       </a>
@@ -238,12 +238,12 @@ export default function GuestDashboard() {
           ) : null}
 
           {dashNote ? (
-            <p className="text-xs text-amber-200/90">Dashboard extra: {dashNote}</p>
+            <p className="text-xs text-[#E0992A]">Dashboard extra: {dashNote}</p>
           ) : null}
 
           {dashboard != null && typeof dashboard === "object" ? (
-            <details className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 text-xs text-slate-400">
-              <summary className="cursor-pointer font-medium text-slate-300">
+            <details className="rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] p-3 text-xs text-[#8694AC]">
+              <summary className="cursor-pointer font-medium text-[#566784]">
                 Raw zone dashboard JSON
               </summary>
               <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-all">

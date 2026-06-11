@@ -4,11 +4,14 @@ import { registerGuestSessionAuthNavigate } from "./lib/guestSessionAuthRedirect
 import { AuthProvider, useAuth } from "./hooks/useAuth";
 import Navbar from "./components/Navbar";
 import { Footer } from "./components/Footer";
+import { Sidebar } from "./components/layout/Sidebar";
+import { AppHeader } from "./components/layout/AppHeader";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import CreateAccount from "./pages/CreateAccount";
 import DeviceManager from "./pages/DeviceManager";
 import Messages from "./pages/Messages";
+import Settings from "./pages/Settings";
 import Dashboard from "./pages/Dashboard";
 import Members from "./pages/Members";
 import ApiDocs from "./pages/ApiDocs";
@@ -38,27 +41,22 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
   return token ? children : <Navigate to="/login" replace />;
 }
 
-function AppMain() {
-  const navigate = useNavigate();
-  const { pathname } = useLocation();
-  useEffect(() => {
-    registerGuestSessionAuthNavigate(navigate);
-    return () => registerGuestSessionAuthNavigate(null);
-  }, [navigate]);
-  const guestWideLayout = pathname.startsWith("/guest/");
-  const dashboardFullBleed = pathname === "/dashboard";
+const MEMBER_SHELL_PATHS = new Set([
+  "/dashboard",
+  "/messages",
+  "/members",
+  "/settings",
+  "/devices",
+  "/guest-passes",
+  "/guest-arrival-messages",
+  "/guest-access-qr",
+  "/qr",
+  "/api",
+]);
+
+function RoutesView() {
   return (
-    <main
-      className={[
-        "mx-auto flex-1 pt-28",
-        dashboardFullBleed
-          ? "w-full min-w-0 max-w-none px-0"
-          : guestWideLayout
-            ? "w-full min-w-0 max-w-none px-4 sm:px-6 lg:px-10"
-            : "max-w-7xl px-5",
-      ].join(" ")}
-    >
-      <Routes>
+    <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/access" element={<GuestAccess />} />
         <Route
@@ -96,6 +94,14 @@ function AppMain() {
           element={
             <ProtectedRoute>
               <Messages />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
             </ProtectedRoute>
           }
         />
@@ -149,7 +155,53 @@ function AppMain() {
         />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </main>
+  );
+}
+
+function Shell() {
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const { token } = useAuth();
+  useEffect(() => {
+    registerGuestSessionAuthNavigate(navigate);
+    return () => registerGuestSessionAuthNavigate(null);
+  }, [navigate]);
+
+  const useMemberShell = Boolean(token) && MEMBER_SHELL_PATHS.has(pathname);
+
+  if (useMemberShell) {
+    return (
+      <div className="flex min-h-screen bg-[#F3F7FD] text-[#0F2C5C]">
+        <Sidebar />
+        <div className="flex min-w-0 flex-1 flex-col md:pl-64">
+          <AppHeader />
+          <main className="min-w-0 flex-1 overflow-x-hidden">
+            <RoutesView />
+          </main>
+        </div>
+      </div>
+    );
+  }
+
+  const guestWideLayout = pathname.startsWith("/guest/");
+  const dashboardFullBleed = pathname === "/dashboard";
+  return (
+    <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-[#F3F7FD] text-[#0F2C5C]">
+      <Navbar />
+      <main
+        className={[
+          "mx-auto flex-1 pt-28",
+          dashboardFullBleed
+            ? "w-full min-w-0 max-w-none px-0"
+            : guestWideLayout
+              ? "w-full min-w-0 max-w-none px-4 sm:px-6 lg:px-10"
+              : "max-w-7xl px-5",
+        ].join(" ")}
+      >
+        <RoutesView />
+      </main>
+      <Footer />
+    </div>
   );
 }
 
@@ -159,11 +211,7 @@ export default function App() {
       <AppStateProvider>
         <MessageFeatureBootstrap />
         <AlarmNotificationsHost />
-        <div className="min-h-screen bg-slate-950 text-slate-100 flex min-w-0 flex-col overflow-x-hidden">
-          <Navbar />
-          <AppMain />
-          <Footer />
-        </div>
+        <Shell />
       </AppStateProvider>
     </AuthProvider>
   );

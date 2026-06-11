@@ -71,13 +71,13 @@ type ToolbarEntry =
   | { type: "guest-logout" };
 
 const apiLinkClassName =
-  "inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-slate-700/80 bg-[#151a20]/90 px-4 py-2 text-sm text-slate-200 transition hover:border-[#00E5D1]/50 hover:text-[#00E5D1]";
+  "inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-[#DCE6F2] bg-white px-4 py-2 text-sm text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED]";
 
 const accountBtnClassName =
-  "inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-slate-700/80 bg-[#151a20]/90 px-4 py-2 text-sm text-slate-200 transition hover:border-[#00E5D1]/50 hover:text-[#00E5D1]";
+  "inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md border border-[#DCE6F2] bg-white px-4 py-2 text-sm text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED]";
 
 const signOutOnlyBtnClassName =
-  "inline-flex shrink-0 whitespace-nowrap rounded-md border border-slate-700/80 bg-[#151a20]/90 px-4 py-2 text-sm text-slate-200 transition hover:border-[#00E5D1]/50 hover:text-[#00E5D1]";
+  "inline-flex shrink-0 whitespace-nowrap rounded-md border border-[#DCE6F2] bg-white px-4 py-2 text-sm text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED]";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -294,25 +294,25 @@ export default function Navbar() {
   const navLinkCls = ({ isActive }: { isActive: boolean }) =>
     `rounded-md px-3 py-2 text-sm transition ${
       isActive
-        ? "bg-[#00E5D1]/15 font-medium text-[#00E5D1]"
-        : "text-slate-400 hover:bg-slate-800/80 hover:text-slate-100"
+        ? "bg-[#EDF3FB] font-medium text-[#2F80ED]"
+        : "text-[#566784] hover:bg-[#EDF3FB] hover:text-[#0F2C5C]"
     }`;
 
   const dropdownLinkCls = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-2.5 rounded-md px-3 py-2.5 text-sm transition ${
       isActive
-        ? "bg-[#00E5D1]/15 font-medium text-[#00E5D1]"
-        : "text-slate-300 hover:bg-slate-800/80 hover:text-slate-100"
+        ? "bg-[#EDF3FB] font-medium text-[#2F80ED]"
+        : "text-[#566784] hover:bg-[#EDF3FB] hover:text-[#0F2C5C]"
     }`;
 
   const dropdownMenuButtonCls =
-    "flex w-full items-center gap-2.5 rounded-md px-3 py-2.5 text-left text-sm text-slate-300 transition hover:bg-slate-800/80 hover:text-slate-100";
+    "flex w-full items-center gap-2.5 rounded-md px-3 py-2.5 text-left text-sm text-[#566784] transition hover:bg-[#EDF3FB] hover:text-[#0F2C5C]";
 
   const moreBtnClassName =
-    "inline-flex shrink-0 items-center gap-1.5 rounded-md border border-slate-700/80 bg-[#151a20]/90 px-3 py-2 text-sm text-slate-200 transition hover:border-[#00E5D1]/50 hover:text-[#00E5D1]";
+    "inline-flex shrink-0 items-center gap-1.5 rounded-md border border-[#DCE6F2] bg-white px-3 py-2 text-sm text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED]";
 
   return (
-    <header className="border-b border-slate-800/80 bg-transparent backdrop-blur-xl fixed w-full z-50">
+    <header className="border-b border-[#DCE6F2] bg-white/90 backdrop-blur-xl fixed w-full z-50">
       <div
         className={`mx-auto flex w-full max-w-full items-center gap-3 sm:px-12 px-6 py-4 ${
           !showSessionNav ? "justify-between" : ""
@@ -322,15 +322,17 @@ export default function Navbar() {
           to="/"
           className="group flex shrink-0 items-center gap-3 transition hover:opacity-95"
         >
-          <div className="grid h-11 w-11 place-items-center rounded-md border-2 border-[#00E5D1]/80 bg-[#0B0E11]/40 shadow-[0_0_24px_-8px_rgba(0,229,209,0.35)]">
-            <div className="h-4 w-4 rounded-full bg-[#00E5D1] transition group-hover:brightness-110" />
-          </div>
+          <img
+            src="/logo-mark.png"
+            alt="Safe Zone Patrol"
+            className="h-11 w-11 shrink-0"
+          />
           <div>
-            <p className="text-lg uppercase font-bold tracking-[0.25em] text-slate-400">
-              Zone Weaver
+            <p className="text-lg font-extrabold tracking-tight text-[#0F2C5C]">
+              Safe <span className="text-[#2FA24A]">Zone</span> Patrol
             </p>
-            <p className="text-sm text-white group-hover:text-[#00E5D1]">
-              weave your spatial network
+            <p className="text-sm text-[#8694AC] group-hover:text-[#2F80ED]">
+              neighbourhood safety network
             </p>
           </div>
         </Link>
@@ -415,7 +417,7 @@ export default function Navbar() {
                     type="button"
                     onClick={() => setMoreOpen((v) => !v)}
                     className={`${moreBtnClassName} ${
-                      moreOpen ? "border-[#00E5D1]/50 text-[#00E5D1]" : ""
+                      moreOpen ? "border-[#2F80ED]/50 text-[#2F80ED]" : ""
                     }`}
                     aria-expanded={moreOpen}
                     aria-haspopup="menu"
@@ -428,7 +430,7 @@ export default function Navbar() {
                   </button>
                   {moreOpen && (
                     <nav
-                      className="absolute right-0 top-full z-[100] mt-2 flex w-56 min-w-[14rem] flex-col gap-0.5 rounded-lg border border-slate-700/80 bg-[#0B0E11]/95 p-2 shadow-xl backdrop-blur-xl"
+                      className="absolute right-0 top-full z-[100] mt-2 flex w-56 min-w-[14rem] flex-col gap-0.5 rounded-lg border border-[#DCE6F2] bg-white p-2 shadow-xl"
                       role="menu"
                     >
                       {overflowToolbar.map((entry, idx) => {
@@ -495,7 +497,7 @@ export default function Navbar() {
                         return (
                           <Fragment key={key}>
                             {showAccountDivider && (
-                              <div className="my-1.5 border-t border-slate-800/80" />
+                              <div className="my-1.5 border-t border-[#DCE6F2]" />
                             )}
                             {row}
                           </Fragment>
@@ -541,7 +543,7 @@ export default function Navbar() {
           <div className="flex shrink-0 items-center gap-2">
             <Link
               to="/api"
-              className="rounded-md border border-slate-700/80 bg-[#151a20]/90 px-4 py-2 text-sm text-slate-200 transition hover:border-[#00E5D1]/50 hover:text-[#00E5D1]"
+              className="rounded-md border border-[#DCE6F2] bg-white px-4 py-2 text-sm text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED]"
             >
               <span className="inline-flex items-center gap-2">
                 <Terminal size={14} /> API
@@ -550,15 +552,15 @@ export default function Navbar() {
 
             <Link
               to="/login"
-              className="rounded-md border border-slate-700/80 bg-[#151a20]/90 px-4 py-2 text-sm text-slate-200 transition hover:border-[#00E5D1]/50 hover:text-[#00E5D1]"
+              className="rounded-md border border-[#DCE6F2] bg-white px-4 py-2 text-sm text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED]"
             >
               Sign In
             </Link>
             <Link
               to="/register"
-              className="rounded-md bg-[#00E5D1] px-4 py-2 text-sm font-bold text-[#0B0E11] transition hover:brightness-110"
+              className="rounded-md bg-[#2F80ED] px-4 py-2 text-sm font-bold text-white transition hover:brightness-110"
             >
-              Start Weaving
+              Get Started
             </Link>
           </div>
         )}

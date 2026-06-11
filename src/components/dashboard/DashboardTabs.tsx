@@ -23,8 +23,8 @@ export function DashboardTabs({
           onClick={() => onChange(tab.id)}
           className={`rounded-md border px-2 py-2 text-xs transition ${
             activeTab === tab.id
-              ? "border-[#00E5D1] bg-[#00E5D1]/10 text-[#00E5D1]"
-              : "border-slate-700/80 bg-[#151a20] text-slate-400"
+              ? "border-[#2F80ED] bg-[#EDF3FB] text-[#2F80ED]"
+              : "border-[#DCE6F2] bg-white text-[#8694AC] hover:bg-[#EDF3FB]"
           }`}
         >
           {tab.label}
