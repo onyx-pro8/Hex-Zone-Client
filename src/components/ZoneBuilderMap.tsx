@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -10,7 +10,13 @@ import {
   useMap,
   useMapEvent,
 } from "react-leaflet";
-import { getCellFromCoords, getHexGrid, H3Cell } from "../lib/h3";
+import {
+  getCellFromCoords,
+  getViewportHexGrid,
+  H3Cell,
+} from "../lib/h3";
+
+type Viewport = { center: [number, number]; edge: [number, number] };
 
 interface ZoneBuilderMapProps {
   resolution: number;
@@ -67,6 +73,24 @@ function MapClickHandler({
   return null;
 }
 
+/** Reports the live map center + a viewport edge so the hex grid can follow
+ *  pan/zoom. Emits on mount and after every move/zoom. */
+function ViewportTracker({ onChange }: { onChange: (v: Viewport) => void }) {
+  const map = useMap();
+  const emit = useCallback(() => {
+    const c = map.getCenter();
+    const ne = map.getBounds().getNorthEast();
+    onChange({ center: [c.lat, c.lng], edge: [ne.lat, c.lng] });
+  }, [map, onChange]);
+
+  useEffect(() => {
+    emit();
+  }, [emit]);
+  useMapEvent("moveend", emit);
+  useMapEvent("zoomend", emit);
+  return null;
+}
+
 export default function ZoneBuilderMap({
   resolution,
   selectedCells,
@@ -90,10 +114,13 @@ export default function ZoneBuilderMap({
     ? polygonPoints.slice(0, polygonPoints.length - 1)
     : polygonPoints;
 
-  const hexGrid = useMemo<H3Cell[]>(
-    () => getHexGrid(center, resolution, 2),
-    [center, resolution],
-  );
+  const [viewport, setViewport] = useState<Viewport | null>(null);
+
+  const hexGrid = useMemo<H3Cell[]>(() => {
+    const c = viewport?.center ?? center;
+    const edge = viewport?.edge ?? ([center[0] + 0.05, center[1]] as [number, number]);
+    return getViewportHexGrid(c, edge, resolution);
+  }, [viewport, center, resolution]);
 
   const tileUrl = darkBasemap
     ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
@@ -118,6 +145,7 @@ export default function ZoneBuilderMap({
         className="h-full w-full"
       >
         <MapRecenter center={center} />
+        <ViewportTracker onChange={setViewport} />
         <TileLayer attribution={tileAttribution} url={tileUrl} />
         {hexGrid.map((hex: H3Cell) => {
           const isActive = selectedCells.includes(hex.id);

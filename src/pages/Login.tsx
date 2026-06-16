@@ -2,6 +2,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Eye, EyeOff, QrCode } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { getLastEmail, persistLastEmail } from "../services/api/client";
 import AuthMapPanel from "../components/AuthMapPanel";
 import { AUTH_MAP_DEFAULT_CENTER, getHexGrid, H3Cell } from "../lib/h3";
 
@@ -14,7 +15,7 @@ const labelClass =
 const inputClass = `${panelBg} w-full rounded-md border border-[#DCE6F2] px-3 py-2.5 text-sm text-[#0F2C5C] placeholder:text-[#8694AC] focus:border-[#2F80ED]/60 focus:outline-none focus:ring-1 focus:ring-[#2F80ED]/25`;
 
 export default function Login() {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => getLastEmail());
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
@@ -33,6 +34,7 @@ export default function Login() {
 
     try {
       await login(email, password, { rememberMe });
+      persistLastEmail(email);
       navigate("/dashboard");
     } catch (err) {
       const message =

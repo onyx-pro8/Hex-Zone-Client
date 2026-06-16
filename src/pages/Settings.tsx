@@ -106,14 +106,17 @@ export default function Settings() {
   };
 
   return (
-    <section className="space-y-6 p-6 sm:p-8">
-      <div className="rounded-2xl border border-[#DCE6F2] bg-white p-6 text-center shadow-sm">
-        <div className="flex items-center justify-center gap-2 text-xl font-extrabold tracking-wide text-[#0F2C5C]">
-          <SettingsIcon className="h-6 w-6 text-[#2F80ED]" /> SETTINGS
-        </div>
-        <p className="mt-1 text-sm text-[#566784]">Hardware Configuration</p>
+    <section className="space-y-6">
+      <div className="rounded-2xl border border-[#DCE6F2] bg-white p-6 shadow-sm">
+        <span className="inline-flex items-center gap-2 rounded-full bg-[#EDF3FB] px-4 py-2 text-sm font-medium text-[#2F80ED]">
+          <SettingsIcon className="h-4 w-4" /> Hardware configuration
+        </span>
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#566784]">
+          Configure your broadcast identity, address, shared-notification
+          integration, and the pre-programmed quick-alert messages.
+        </p>
         {loading ? (
-          <p className="mt-2 inline-flex items-center gap-2 text-sm text-[#8694AC]">
+          <p className="mt-3 inline-flex items-center gap-2 text-sm text-[#8694AC]">
             <Loader2 className="h-4 w-4 animate-spin" /> Loading your settings…
           </p>
         ) : null}

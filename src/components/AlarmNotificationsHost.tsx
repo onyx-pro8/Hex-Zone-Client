@@ -94,32 +94,56 @@ export function AlarmNotificationsHost() {
         </div>
       ) : null}
 
-      {activeAlarms.map((alarm) => (
-        <div
-          key={alarm.id}
-          className="pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-2xl border border-[#E23B4E]/40 bg-[#FCE7EA] px-4 py-3 text-sm text-[#7A1622] shadow-2xl backdrop-blur"
-          role="alert"
-        >
-          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[#E23B4E]" />
-          <div className="flex-1 leading-snug">
-            <div className="flex items-center justify-between gap-2">
-              <p className="font-semibold uppercase tracking-wide">{alarm.title}</p>
-              <span className="text-xs text-[#B23A48]">
-                {new Date(alarm.createdAt).toLocaleTimeString()}
-              </span>
-            </div>
-            <p className="text-[#7A1622]/90">{alarm.body}</p>
-          </div>
-          <button
-            type="button"
-            aria-label="Dismiss alarm"
-            className="text-[#E23B4E] hover:text-[#7A1622]"
-            onClick={() => dismissAlarm(alarm.id)}
+      {activeAlarms.map((alarm) => {
+        const isNsPanic =
+          String(alarm.type).toUpperCase().replace(/-/g, "_") === "NS_PANIC";
+        return (
+          <div
+            key={alarm.id}
+            className={[
+              "pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-2xl border px-4 py-3 text-sm shadow-2xl backdrop-blur",
+              isNsPanic
+                ? "border-[#B5179E]/50 bg-[#F6E1F2] text-[#6A1060] ring-2 ring-[#B5179E]/40"
+                : "border-[#E23B4E]/40 bg-[#FCE7EA] text-[#7A1622]",
+            ].join(" ")}
+            role="alert"
           >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      ))}
+            <AlertTriangle
+              className={[
+                "mt-0.5 h-5 w-5 shrink-0",
+                isNsPanic ? "text-[#B5179E]" : "text-[#E23B4E]",
+              ].join(" ")}
+            />
+            <div className="flex-1 leading-snug">
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-semibold uppercase tracking-wide">
+                  {isNsPanic ? `🔕 ${alarm.title}` : alarm.title}
+                </p>
+                <span
+                  className={`text-xs ${isNsPanic ? "text-[#9A2A8C]" : "text-[#B23A48]"}`}
+                >
+                  {new Date(alarm.createdAt).toLocaleTimeString()}
+                </span>
+              </div>
+              <p className={isNsPanic ? "text-[#6A1060]/90" : "text-[#7A1622]/90"}>
+                {alarm.body}
+              </p>
+            </div>
+            <button
+              type="button"
+              aria-label="Dismiss alarm"
+              className={
+                isNsPanic
+                  ? "text-[#B5179E] hover:text-[#6A1060]"
+                  : "text-[#E23B4E] hover:text-[#7A1622]"
+              }
+              onClick={() => dismissAlarm(alarm.id)}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }

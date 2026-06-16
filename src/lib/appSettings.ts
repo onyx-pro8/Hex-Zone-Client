@@ -19,6 +19,7 @@ export const QUICK_MESSAGE_TYPES = [
   "UNKNOWN",
   "PA",
   "SERVICE",
+  "WELLNESS_CHECK",
   "PRIVATE",
 ] as const;
 
@@ -54,6 +55,7 @@ export const QUICK_MESSAGE_LABELS: Record<QuickMessageType, string> = {
   UNKNOWN: "Unknown alert",
   PA: "Public announcement",
   SERVICE: "Service request",
+  WELLNESS_CHECK: "Wellness check",
   PRIVATE: "Private message",
 };
 
@@ -81,6 +83,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
     UNKNOWN: "Unknown alert reported in the zone.",
     PA: "Public announcement for the neighbourhood.",
     SERVICE: "Service request submitted.",
+    WELLNESS_CHECK: "Wellness check: please confirm you are safe and well.",
     PRIVATE: "",
   },
 };

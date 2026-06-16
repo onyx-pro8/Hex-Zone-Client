@@ -47,7 +47,27 @@ export type MessageFeaturePropagationResponse = {
   skipped?: boolean;
   reason?: string | null;
   metadata?: Record<string, unknown> | null;
-  fanout?: Record<string, unknown> | null;
+  push_sent?: number | null;
+  push_failed?: number | null;
+  priority?: string | null;
+  response_tracking_enabled?: boolean | null;
+};
+
+export type WellnessAcknowledgement = {
+  id: string;
+  owner_id: number;
+  status: string;
+  note?: string | null;
+  created_at: string;
+};
+
+export type WellnessAckSummary = {
+  message_event_id: string;
+  expected_recipient_ids: number[];
+  pending_recipient_ids: number[];
+  acknowledgements: WellnessAcknowledgement[];
+  response_tracking_enabled: boolean;
+  acknowledgement?: WellnessAcknowledgement;
 };
 
 export type MessageFeaturePermissionDecision = {
@@ -186,6 +206,52 @@ export async function propagateMessageFeatureMessage(payload: MessageFeaturePayl
   );
 }
 
+export type InZoneMember = {
+  id: number;
+  name: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string;
+  zone_id: string | null;
+};
+
+export type InZoneMembersResponse = {
+  zone_ids: string[];
+  members: InZoneMember[];
+};
+
+/** Members currently located inside the caller's zone(s) — the valid PRIVATE
+ *  recipients per server delivery rules (cross-account, location-based). */
+export async function listInZoneMembers(position?: MessageFeaturePosition) {
+  return requestMessageFeature<InZoneMembersResponse>(
+    "GET",
+    "/message-feature/members/in-zone",
+    {
+      params: position
+        ? { latitude: position.latitude, longitude: position.longitude }
+        : undefined,
+    },
+  );
+}
+
+export async function listWellnessAcknowledgements(messageEventId: string) {
+  return requestMessageFeature<WellnessAckSummary>(
+    "GET",
+    `/message-feature/messages/${encodeURIComponent(messageEventId)}/wellness-acks`,
+  );
+}
+
+export async function acknowledgeWellnessCheck(
+  messageEventId: string,
+  payload: { status?: "ok" | "need_help"; note?: string } = {},
+) {
+  return requestMessageFeature<WellnessAckSummary>(
+    "POST",
+    `/message-feature/messages/${encodeURIComponent(messageEventId)}/wellness-ack`,
+    { data: payload },
+  );
+}
+
 export async function ingestMessageFeatureMessage(
   payload: MessageFeaturePayload,
   apiKey: string,
@@ -249,12 +315,66 @@ export async function decideMessageFeaturePermission(payload: MessageFeaturePayl
   );
 }
 
-export async function listNewMessageFeatureMessages(since: string) {
+export async function listNewMessageFeatureMessages(
+  since: string,
+  type?: MessageFeatureType,
+) {
   return requestMessageFeature<MessageFeaturePropagationResponse[]>(
     "GET",
     "/message-feature/messages/new",
     {
-      params: { since },
+      params: type ? { since, type } : { since },
+    },
+  );
+}
+
+export type EmergencyEvent = {
+  id: string;
+  messageEventId: string | null;
+  type: string;
+  senderId: number | null;
+  zoneId: string | null;
+  recipientCount: number;
+  latitude: number | null;
+  longitude: number | null;
+  text: string | null;
+  createdAt: string;
+};
+
+export async function listEmergencyEvents(params?: {
+  limit?: number;
+  skip?: number;
+  type?: "PANIC" | "NS_PANIC";
+}) {
+  return requestMessageFeature<EmergencyEvent[]>(
+    "GET",
+    "/message-feature/emergency-events",
+    {
+      params: {
+        limit: params?.limit ?? 100,
+        skip: params?.skip ?? 0,
+        ...(params?.type ? { type: params.type } : {}),
+      },
+    },
+  );
+}
+
+export type PrivateThreadMessage = {
+  id: string;
+  type: string;
+  senderId: number | null;
+  receiverId: number | null;
+  text: string | null;
+  body: Record<string, unknown> | null;
+  createdAt: string;
+};
+
+export async function getPrivateThread(otherOwnerId: number, limit = 100) {
+  return requestMessageFeature<PrivateThreadMessage[]>(
+    "GET",
+    "/message-feature/messages/private-thread",
+    {
+      params: { other_owner_id: otherOwnerId, limit },
     },
   );
 }

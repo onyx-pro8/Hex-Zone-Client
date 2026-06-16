@@ -1,4 +1,4 @@
-import { cellToBoundary, gridDisk, latLngToCell } from 'h3-js';
+import { cellToBoundary, gridDisk, gridDistance, latLngToCell } from 'h3-js';
 
 export type H3Cell = {
   id: string;
@@ -40,6 +40,59 @@ export function getHexGrid(center: [number, number], resolution: number, radius 
 
 export function getCellFromCoords(lat: number, lng: number, resolution: number) {
   return latLngToCell(lat, lng, resolution);
+}
+
+/** Cap on rendered hexes per viewport. Keeps Leaflet responsive: above this,
+ *  the grid clamps to a centered cluster and the user zooms in for full coverage. */
+export const MAX_VIEWPORT_HEX_CELLS = 400;
+
+/** Largest gridDisk radius whose cell count (3r(r+1)+1) stays within the cap. */
+function maxRadiusForCap(maxCells: number): number {
+  return Math.max(1, Math.floor((Math.sqrt(12 * maxCells - 3) - 3) / 6));
+}
+
+/**
+ * Build an H3 grid that covers the current map viewport at `resolution`.
+ *
+ * The disk radius is derived from how many cells fit between the viewport
+ * center and its edge (via `gridDistance`), then clamped so we never render
+ * more than `MAX_VIEWPORT_HEX_CELLS`. This keeps cells visible at any zoom:
+ * zoom out and the grid clamps to a centered cluster; zoom in and it fills the
+ * screen with the precise cells you can click.
+ */
+export function getViewportHexGrid(
+  center: [number, number],
+  edge: [number, number],
+  resolution: number,
+  maxCells = MAX_VIEWPORT_HEX_CELLS,
+): H3Cell[] {
+  let origin: string;
+  try {
+    origin = latLngToCell(center[0], center[1], resolution);
+  } catch {
+    return [];
+  }
+
+  let radius = 2;
+  try {
+    const edgeCell = latLngToCell(edge[0], edge[1], resolution);
+    const distance = gridDistance(origin, edgeCell);
+    if (Number.isFinite(distance) && distance > 0) {
+      radius = distance;
+    }
+  } catch {
+    radius = 2;
+  }
+
+  radius = Math.min(Math.max(radius, 1), maxRadiusForCap(maxCells));
+
+  let ring: string[];
+  try {
+    ring = gridDisk(origin, radius) as string[];
+  } catch {
+    return [];
+  }
+  return ring.map((cell) => ({ id: cell, polygon: h3ToPolygon(cell) }));
 }
 
 export function addressToMockCoords(address: string): [number, number] {

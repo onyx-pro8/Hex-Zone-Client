@@ -14,7 +14,7 @@ export default function GuestPasses() {
 
   if (!zoneId) {
     return (
-      <section className="space-y-6 p-8">
+      <section className="space-y-6">
         <h1 className="text-2xl font-semibold text-[#0F2C5C] sm:text-3xl">
           Guest Passes
         </h1>

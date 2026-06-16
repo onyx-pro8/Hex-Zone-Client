@@ -34,7 +34,7 @@ function isClosedPolygon(points: [number, number][]) {
 }
 
 export default function ZoneBuilder() {
-  const [resolution, setResolution] = useState(13);
+  const [resolution, setResolution] = useState(9);
   const [mode, setMode] = useState<'hex' | 'polygon'>('hex');
   const [selectedColor, setSelectedColor] = useState('#20c997');
   const [selectedCells, setSelectedCells] = useState<string[]>([]);

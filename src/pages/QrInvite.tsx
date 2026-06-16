@@ -105,22 +105,19 @@ export default function QrInvite() {
   };
 
   return (
-    <section className="space-y-10">
-      <div>
+    <section className="space-y-6">
+      <div className="rounded-2xl border border-[#DCE6F2] bg-white p-6 shadow-sm">
         <span className="inline-flex items-center gap-2 rounded-full bg-[#EDF3FB] px-4 py-2 text-sm font-medium text-[#2F80ED]">
           <QrCode size={16} strokeWidth={2} /> Scan to join
         </span>
-        <h1 className="mt-4 text-3xl font-semibold text-[#0F2C5C] sm:text-4xl">
-          QR invite
-        </h1>
-        <p className="mt-3 max-w-2xl text-lg leading-relaxed text-[#566784]">
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#566784]">
           {isExclusiveAccount
             ? "Exclusive accounts can invite exactly 1 user. They scan this code, enter their details, and register under your account."
             : "Generate a code that links to your zone. New teammates scan it, enter their details, and register on your private network."}
         </p>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-start">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:items-start">
         <div className="rounded-[2rem] border border-[#DCE6F2] bg-white p-8 shadow-glow flex-1 flex flex-col">
           <div className="mb-6 flex items-center gap-2">
             <Hexagon className="h-5 w-5 text-[#2F80ED]" strokeWidth={2} />

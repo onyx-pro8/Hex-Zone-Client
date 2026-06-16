@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   BellRing,
+  HeartPulse,
   HelpCircle,
   Megaphone,
   MessageSquare,
@@ -15,6 +16,8 @@ import { useMessageFeed } from "../hooks/useMessageFeed";
 import { sendMessage, type MessageVisibility } from "../services/api/messages";
 import {
   propagateMessageFeatureMessage,
+  listInZoneMembers,
+  type InZoneMember,
   type MessageFeatureType,
 } from "../services/api/messageFeature";
 import { dispatchGeoPropagationInbox } from "../lib/inboxRealtime";
@@ -34,7 +37,11 @@ import {
   type MessageCategory,
   type MessageType,
 } from "../lib/messageTypes";
-import type { GuestRequestRow } from "../lib/guestRealtime";
+import {
+  getMessageWorkflow,
+  isEmergencyMessageType,
+  requiresAdminToSendType,
+} from "../lib/messageWorkflow";
 import { listGuestRequestsForZone } from "../services/api/accessPermissions";
 import {
   resolveBroadcastName,
@@ -42,6 +49,7 @@ import {
   type QuickMessageType,
 } from "../lib/appSettings";
 import { messageBroadcastLabel } from "../lib/messageBroadcast";
+import type { GuestRequestRow } from "../lib/guestRealtime";
 import type { Message } from "../services/api/messages";
 
 type QuickAction = {
@@ -62,10 +70,13 @@ const MESSAGING_ACTIONS: QuickAction[] = [
   { type: "PRIVATE", label: "PRIVATE MESSAGE", icon: MessageSquare, tone: "messaging" },
   { type: "PA", label: "PUBLIC ANNOUNCEMENT", icon: Megaphone, tone: "messaging" },
   { type: "SERVICE", label: "SERVICES", icon: Wrench, tone: "messaging" },
+  { type: "WELLNESS_CHECK", label: "WELLNESS CHECK", icon: HeartPulse, tone: "messaging" },
 ];
 
 export default function Messages() {
   const { user } = useAuth();
+  const isAdministrator =
+    String(user?.role ?? "").toLowerCase() === "administrator";
   const settings = useAppSettings();
   const selfBroadcastName = resolveBroadcastName(user?.name);
   const userZoneId = user?.zoneId ?? user?.zone_id;
@@ -89,6 +100,10 @@ export default function Messages() {
   const [owners, setOwners] = useState<OwnerListItem[]>([]);
   const [ownersLoading, setOwnersLoading] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
+  const [inZoneMembers, setInZoneMembers] = useState<InZoneMember[]>([]);
+  const [inZoneLoading, setInZoneLoading] = useState(false);
+  const [inZoneError, setInZoneError] = useState<string | null>(null);
+  const [senderZoneIds, setSenderZoneIds] = useState<string[]>([]);
   const [guestRows, setGuestRows] = useState<GuestRequestRow[]>([]);
   const [guestsLoading, setGuestsLoading] = useState(false);
   const [guestListError, setGuestListError] = useState<string | null>(null);
@@ -199,66 +214,71 @@ export default function Messages() {
   useEffect(() => {
     setComposeReceiverId("");
   }, [composeType]);
-  const selectableReceivers = useMemo(() => {
-    const readOwnerZoneId = (row: OwnerListItem): string => {
-      const loose = row as OwnerListItem & {
-        zoneId?: string | number | null;
-        zone?: { id?: string | number | null } | null;
-      };
-      const raw = loose.zone_id ?? loose.zoneId ?? loose.zone?.id;
-      return raw == null ? "" : String(raw).trim();
+
+  /** PRIVATE recipients: everyone whose live location is inside the same
+   *  zone(s) as the sender — cross-account, matching server delivery rules. */
+  useEffect(() => {
+    if (!isPrivateMessageType(composeType)) {
+      setInZoneMembers([]);
+      setInZoneError(null);
+      setSenderZoneIds([]);
+      return;
+    }
+
+    let active = true;
+    setInZoneLoading(true);
+    setInZoneError(null);
+
+    const load = async () => {
+      const profileCenter = user?.mapCenter ?? user?.map_center ?? null;
+      let position: { latitude: number; longitude: number } | undefined;
+
+      if (
+        profileCenter &&
+        Number.isFinite(profileCenter.latitude) &&
+        Number.isFinite(profileCenter.longitude)
+      ) {
+        position = {
+          latitude: profileCenter.latitude,
+          longitude: profileCenter.longitude,
+        };
+      } else if (
+        typeof navigator !== "undefined" &&
+        "geolocation" in navigator
+      ) {
+        position = await new Promise<
+          { latitude: number; longitude: number } | undefined
+        >((resolve) => {
+          navigator.geolocation.getCurrentPosition(
+            (pos) =>
+              resolve({
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+              }),
+            () => resolve(undefined),
+            { enableHighAccuracy: true, timeout: 8000, maximumAge: 60_000 },
+          );
+        });
+      }
+
+      const result = await listInZoneMembers(position);
+      if (!active) return;
+      setInZoneLoading(false);
+      if (result.error) {
+        setInZoneError(result.error);
+        setInZoneMembers([]);
+        setSenderZoneIds([]);
+        return;
+      }
+      setInZoneMembers(result.data?.members ?? []);
+      setSenderZoneIds(result.data?.zone_ids ?? []);
     };
 
-    const fromOwners = owners
-      .filter((row) => {
-        const notSelf = Number(row.id) !== ownerId;
-        if (!notSelf) return false;
-        if (!composeZoneId) return true;
-        const ownerZoneId = readOwnerZoneId(row);
-        // Keep owners with unknown zone visible to avoid an empty picker
-        // when the backend omits zone metadata.
-        if (!ownerZoneId) return true;
-        return ownerZoneId === composeZoneId;
-      })
-      .map((row) => {
-        const name =
-          `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() ||
-          row.email ||
-          "Owner";
-        const zoneId = readOwnerZoneId(row);
-        return {
-          id: Number(row.id),
-          name,
-          zoneId,
-        };
-      });
-    if (fromOwners.length > 0) return fromOwners;
-
-    const candidates = members
-      .map((row) => {
-        const id = Number(row.account_owner_id ?? row.id);
-        if (!Number.isFinite(id) || id <= 0) return null;
-        const name =
-          `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() ||
-          row.name ||
-          row.email ||
-          "Member";
-        const zoneId = String(row.zone_id ?? "").trim();
-        return { id, name, zoneId };
-      })
-      .filter((row): row is { id: number; name: string; zoneId: string } => Boolean(row));
-
-    const deduped = Array.from(
-      new Map(candidates.map((row) => [row.id, row])).values(),
-    );
-    return deduped.filter((row) => {
-      const notSelf = Number(row.id) !== ownerId;
-      if (!notSelf) return false;
-      if (!composeZoneId) return true;
-      if (!row.zoneId) return true;
-      return row.zoneId === composeZoneId;
-    });
-  }, [owners, members, composeZoneId, ownerId]);
+    void load();
+    return () => {
+      active = false;
+    };
+  }, [composeType, user?.mapCenter, user?.map_center]);
 
   /** Defaults (all zones / all scope / category / type) intentionally include CHAT: meta is Access + private from MESSAGE_TYPE_META. */
   const filteredMessages = useMemo(() => {
@@ -343,9 +363,18 @@ export default function Messages() {
     [ownerId, selfBroadcastName, ownerNameById],
   );
 
+  const confirmEmergencySend = useCallback((type: MessageType): boolean => {
+    if (!isEmergencyMessageType(type)) return true;
+    const label = toMessageTypeLabel(type);
+    return window.confirm(
+      `${label} is a maximum-priority emergency alert sent to everyone in your zone. Block filters are bypassed. Send now?`,
+    );
+  }, []);
+
   const sendQuickAlert = useCallback(
     async (type: QuickMessageType) => {
       if (quickBusy) return;
+      if (!confirmEmergencySend(type as MessageType)) return;
       const presetText = (settings.quickMessages[type] ?? "").trim();
       if (!presetText) {
         // Types without a preset (e.g. PRIVATE) switch the composer instead.
@@ -401,6 +430,7 @@ export default function Messages() {
       ownerId,
       composeZoneId,
       refreshInbox,
+      confirmEmergencySend,
     ],
   );
 
@@ -409,6 +439,14 @@ export default function Messages() {
       setComposeStatus("Message Type is required.");
       return;
     }
+    if (
+      requiresAdminToSendType(composeType) &&
+      !isAdministrator
+    ) {
+      setComposeStatus("Only administrators can send SERVICE messages.");
+      return;
+    }
+    if (!confirmEmergencySend(composeType)) return;
     if (!composeText.trim()) return;
     const accessGuest = isAccessGuestChannelType(composeType);
     if (accessGuest) {
@@ -511,11 +549,31 @@ export default function Messages() {
       groupedTypeOptions
         .map((group) => ({
           ...group,
-          options: group.options.filter((option) => option.type !== "PERMISSION"),
+          options: group.options.filter((option) => {
+            if (option.type === "PERMISSION") return false;
+            if (
+              requiresAdminToSendType(option.type) &&
+              !isAdministrator
+            ) {
+              return false;
+            }
+            return true;
+          }),
         }))
         .filter((group) => group.options.length > 0),
-    [groupedTypeOptions],
+    [groupedTypeOptions, isAdministrator],
   );
+  const visibleMessagingActions = useMemo(
+    () =>
+      MESSAGING_ACTIONS.filter(
+        (action) =>
+          !requiresAdminToSendType(action.type as MessageType) ||
+          isAdministrator,
+      ),
+    [isAdministrator],
+  );
+  const composeWorkflow = getMessageWorkflow(composeType);
+
   const [composeTypeNotice, setComposeTypeNotice] = useState<string | null>(null);
 
   useEffect(() => {
@@ -536,7 +594,7 @@ export default function Messages() {
   };
 
   return (
-    <section className="space-y-6 p-6 sm:p-8">
+    <section className="space-y-6">
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-2xl border border-[#DCE6F2] bg-white p-4 shadow-sm">
           <div className="mb-3 flex items-center gap-2 rounded-xl bg-[#FCE7EA] px-3 py-2 text-[#E23B4E]">
@@ -546,13 +604,21 @@ export default function Messages() {
           <div className="grid grid-cols-2 gap-3">
             {ALARM_ACTIONS.map((action) => {
               const Icon = action.icon;
+              const urgent = isEmergencyMessageType(action.type as MessageType);
+              const nsPanic = action.type === "NS_PANIC";
               return (
                 <button
                   key={action.type}
                   type="button"
                   disabled={quickBusy === action.type}
                   onClick={() => void sendQuickAlert(action.type)}
-                  className="flex flex-col items-center justify-center gap-2 rounded-xl border border-[#F3C2CA] bg-[#FCE7EA] px-3 py-6 text-[#E23B4E] transition hover:brightness-95 disabled:opacity-60"
+                  className={`flex flex-col items-center justify-center gap-2 rounded-xl border px-3 py-6 transition disabled:opacity-60 ${
+                    nsPanic
+                      ? "border-[#B5179E] bg-[#B5179E] text-white shadow-md hover:brightness-110"
+                      : urgent
+                        ? "border-[#E23B4E] bg-[#E23B4E] text-white shadow-md hover:brightness-110"
+                        : "border-[#F3C2CA] bg-[#FCE7EA] text-[#E23B4E] hover:brightness-95"
+                  }`}
                 >
                   <Icon className="h-7 w-7" aria-hidden />
                   <span className="text-sm font-extrabold tracking-wide">
@@ -570,14 +636,22 @@ export default function Messages() {
             <span className="text-sm font-extrabold tracking-wide">Messaging</span>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            {MESSAGING_ACTIONS.map((action) => {
+            {visibleMessagingActions.map((action) => {
               const Icon = action.icon;
+              // WELLNESS CHECK is a one-tap send (uses its preset text); other
+              // messaging types open the composer so the user can edit copy.
+              const oneTap = action.type === "WELLNESS_CHECK";
               return (
                 <button
                   key={action.type}
                   type="button"
-                  onClick={() => selectMessagingType(action.type)}
-                  className="flex flex-col items-center justify-center gap-2 rounded-xl border border-[#F0DBB0] bg-[#FBEFD8] px-3 py-6 text-center text-[#E0992A] transition hover:brightness-95"
+                  disabled={oneTap && quickBusy === action.type}
+                  onClick={() =>
+                    oneTap
+                      ? void sendQuickAlert(action.type)
+                      : selectMessagingType(action.type)
+                  }
+                  className="flex flex-col items-center justify-center gap-2 rounded-xl border border-[#F0DBB0] bg-[#FBEFD8] px-3 py-6 text-center text-[#E0992A] transition hover:brightness-95 disabled:opacity-60"
                 >
                   <Icon className="h-7 w-7" aria-hidden />
                   <span className="text-xs font-extrabold leading-tight tracking-wide">
@@ -776,7 +850,7 @@ export default function Messages() {
           />
         </div>
         <div className="space-y-4">
-          <MessageDetail message={activeMessage} />
+          <MessageDetail message={activeMessage} currentOwnerId={ownerId} />
           {Number.isFinite(ownerId) && ownerId > 0 ? (
             <MessageBlocksPanel
               currentOwnerId={ownerId}
@@ -818,6 +892,15 @@ export default function Messages() {
             {composeTypeNotice ? (
               <p className="text-xs text-[#E0992A]">{composeTypeNotice}</p>
             ) : null}
+            {composeWorkflow ? (
+              <div className="rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-xs text-[#566784]">
+                <p className="font-semibold text-[#0F2C5C]">
+                  {toMessageTypeLabel(composeType)} workflow
+                </p>
+                <p className="mt-1">{composeWorkflow.description}</p>
+                <p className="mt-1 text-[#8694AC]">{composeWorkflow.delivery}</p>
+              </div>
+            ) : null}
             {isAccessGuestChannelType(composeType) && (
               <>
                 <p className="text-xs text-[#8694AC]">
@@ -858,22 +941,43 @@ export default function Messages() {
             )}
             {!isAccessGuestChannelType(composeType) && isPrivateMessageType(composeType) && (
               <>
+                <p className="text-xs text-[#8694AC]">
+                  Recipients are members whose current location is inside the same
+                  zone(s) as you. Zone is determined from your GPS, not account labels.
+                </p>
                 <select
                   value={composeReceiverId}
                   onChange={(e) => setComposeReceiverId(e.target.value)}
                   className="w-full rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] outline-none focus:border-[#2F80ED]"
                 >
                   <option value="">
-                    {ownersLoading ? "Loading owner IDs..." : "Pick receiver owner ID"}
+                    {inZoneLoading ? "Loading nearby members…" : "Pick a member in your zone"}
                   </option>
-                  {selectableReceivers.map((row) => {
+                  {inZoneMembers.map((row) => {
                     return (
-                      <option key={`owner-${row.id}`} value={String(row.id)}>
+                      <option key={`inzone-${row.id}`} value={String(row.id)}>
                         {row.id} - {row.name}
                       </option>
                     );
                   })}
                 </select>
+                {inZoneError ? (
+                  <p className="text-xs text-[#E0992A]">{inZoneError}</p>
+                ) : null}
+                {!inZoneLoading && !inZoneError && senderZoneIds.length === 0 ? (
+                  <p className="text-xs text-[#8694AC]">
+                    You are not inside any zone. Move into a zone or update your location
+                    on the map before sending a private message.
+                  </p>
+                ) : null}
+                {!inZoneLoading &&
+                !inZoneError &&
+                senderZoneIds.length > 0 &&
+                inZoneMembers.length === 0 ? (
+                  <p className="text-xs text-[#8694AC]">
+                    No other members are currently located in your zone(s).
+                  </p>
+                ) : null}
               </>
             )}
             <textarea
@@ -908,9 +1012,11 @@ export default function Messages() {
             )}
             {!isAccessGuestChannelType(composeType) && isPrivateMessageType(composeType) && (
               <p className="text-xs text-[#8694AC]">
-                {ownersLoading
-                  ? "Loading owner IDs from database..."
-                  : `Owner IDs in your zone (${composeZoneId ?? "none"}): ${selectableReceivers.length}`}
+                {inZoneLoading
+                  ? "Checking who is in your zone…"
+                  : senderZoneIds.length === 0
+                    ? "Not inside any zone — update your location first."
+                    : `Members in your zone (${inZoneMembers.length} available · ${senderZoneIds.length} zone(s))`}
               </p>
             )}
             <p className="text-xs text-[#8694AC]">

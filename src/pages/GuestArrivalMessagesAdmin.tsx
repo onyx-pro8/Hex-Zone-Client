@@ -285,22 +285,19 @@ export default function GuestArrivalMessagesAdmin() {
 
   if (zonesLoading && !userZoneStr && zoneOptions.length === 0) {
     return (
-      <section className="space-y-4 p-4">
+      <section className="space-y-4">
         <p className="text-sm text-[#8694AC]">Loading zones…</p>
       </section>
     );
   }
 
   return (
-    <section className="space-y-8">
-      <div>
+    <section className="space-y-6">
+      <div className="rounded-2xl border border-[#DCE6F2] bg-white p-6 shadow-sm">
         <span className="inline-flex items-center gap-2 rounded-full bg-[#EDF3FB] px-4 py-2 text-sm font-medium text-[#2F80ED]">
           <NotebookPen size={16} strokeWidth={2} /> Guest access
         </span>
-        <h1 className="mt-4 text-3xl font-semibold text-[#0F2C5C] sm:text-4xl">
-          Guest arrival messages
-        </h1>
-        <p className="mt-3 max-w-2xl text-lg leading-relaxed text-[#8694AC]">
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#566784]">
           Edit the short lines guests see after they request access (expected vs
           unexpected visits). Guest apps keep using the existing permission and
           poll responses; only this admin screen calls the settings API. Related:{" "}
@@ -309,30 +306,30 @@ export default function GuestArrivalMessagesAdmin() {
           </Link>
           .
         </p>
-      </div>
 
-      {zoneOptions.length > 1 ? (
-        <div className="max-w-md space-y-2">
-          <label
-            htmlFor="guest-arrival-zone"
-            className="block text-xs font-semibold uppercase tracking-[0.18em] text-[#8694AC]"
-          >
-            Zone
-          </label>
-          <select
-            id="guest-arrival-zone"
-            value={effectiveZone}
-            onChange={(e) => setPickedZone(e.target.value)}
-            className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
-          >
-            {zoneOptions.map((z) => (
-              <option key={z} value={z}>
-                {z}
-              </option>
-            ))}
-          </select>
-        </div>
-      ) : null}
+        {zoneOptions.length > 1 ? (
+          <div className="mt-5 max-w-md space-y-2">
+            <label
+              htmlFor="guest-arrival-zone"
+              className="block text-xs font-semibold uppercase tracking-[0.18em] text-[#8694AC]"
+            >
+              Zone
+            </label>
+            <select
+              id="guest-arrival-zone"
+              value={effectiveZone}
+              onChange={(e) => setPickedZone(e.target.value)}
+              className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
+            >
+              {zoneOptions.map((z) => (
+                <option key={z} value={z}>
+                  {z}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+      </div>
 
       {!effectiveZone ? (
         <p className="rounded-md border border-[#E0992A]/30 bg-[#FBEFD8] px-4 py-3 text-sm text-[#E0992A]">
@@ -345,7 +342,7 @@ export default function GuestArrivalMessagesAdmin() {
           or edit guest arrival message settings for a zone.
         </p>
       ) : (
-        <div className="rounded-lg border border-[#DCE6F2] bg-white overflow-hidden">
+        <div className="rounded-2xl border border-[#DCE6F2] bg-white overflow-hidden shadow-sm">
           <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#DCE6F2] px-4 py-3 sm:px-6">
             <span className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.2em] text-[#0F2C5C]">
               <NotebookPen className="h-4 w-4 text-[#2F80ED]" />

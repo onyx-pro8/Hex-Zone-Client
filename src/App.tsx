@@ -6,6 +6,7 @@ import Navbar from "./components/Navbar";
 import { Footer } from "./components/Footer";
 import { Sidebar } from "./components/layout/Sidebar";
 import { AppHeader } from "./components/layout/AppHeader";
+import { PageCard } from "./components/layout/PageCard";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import CreateAccount from "./pages/CreateAccount";
@@ -14,6 +15,7 @@ import Messages from "./pages/Messages";
 import Settings from "./pages/Settings";
 import Dashboard from "./pages/Dashboard";
 import Members from "./pages/Members";
+import EmergencyLog from "./pages/EmergencyLog";
 import ApiDocs from "./pages/ApiDocs";
 import QrInvite from "./pages/QrInvite";
 import JoinWithQr from "./pages/JoinWithQr";
@@ -28,11 +30,18 @@ import GuestDashboard from "./pages/guest/GuestDashboard";
 import GuestMessages from "./pages/guest/GuestMessages";
 import { AppStateProvider } from "./state/app/AppStateContext";
 import { useMessageFeatureBootstrap } from "./hooks/useMessageFeatureBootstrap";
+import { useLocationSync } from "./hooks/useLocationSync";
 import { AlarmNotificationsHost } from "./components/AlarmNotificationsHost";
 
 function MessageFeatureBootstrap() {
   const { token } = useAuth();
   useMessageFeatureBootstrap(token);
+  return null;
+}
+
+function LocationSync() {
+  const { token } = useAuth();
+  useLocationSync(token);
   return null;
 }
 
@@ -45,6 +54,7 @@ const MEMBER_SHELL_PATHS = new Set([
   "/dashboard",
   "/messages",
   "/members",
+  "/emergency-log",
   "/settings",
   "/devices",
   "/guest-passes",
@@ -114,6 +124,14 @@ function RoutesView() {
           }
         />
         <Route
+          path="/emergency-log"
+          element={
+            <ProtectedRoute>
+              <EmergencyLog />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/qr"
           element={
             <ProtectedRoute>
@@ -170,13 +188,27 @@ function Shell() {
   const useMemberShell = Boolean(token) && MEMBER_SHELL_PATHS.has(pathname);
 
   if (useMemberShell) {
+    const contentFullBleed = pathname === "/dashboard";
     return (
       <div className="flex min-h-screen bg-[#F3F7FD] text-[#0F2C5C]">
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col md:pl-64">
           <AppHeader />
-          <main className="min-w-0 flex-1 overflow-x-hidden">
-            <RoutesView />
+          <main
+            className={[
+              "min-w-0 flex-1 overflow-x-hidden",
+              contentFullBleed
+                ? ""
+                : "px-4 py-4 sm:px-6 sm:py-6 lg:px-8 lg:py-8",
+            ].join(" ")}
+          >
+            {contentFullBleed ? (
+              <RoutesView />
+            ) : (
+              <PageCard>
+                <RoutesView />
+              </PageCard>
+            )}
           </main>
         </div>
       </div>
@@ -210,6 +242,7 @@ export default function App() {
     <AuthProvider>
       <AppStateProvider>
         <MessageFeatureBootstrap />
+        <LocationSync />
         <AlarmNotificationsHost />
         <Shell />
       </AppStateProvider>

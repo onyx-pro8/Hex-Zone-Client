@@ -858,7 +858,7 @@ export default function ApiDocs() {
   };
 
   return (
-    <div className="layer-card flex min-h-[calc(100vh-8rem)] flex-col gap-0 overflow-hidden p-0">
+    <div className="layer-card flex h-[calc(100vh-8rem)] flex-col gap-0 overflow-hidden p-0">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#DCE6F2] bg-[#F3F7FD] px-5 py-4">
         <div className="flex flex-wrap items-center gap-6">
           <p className="text-sm font-semibold tracking-[0.2em] text-[#0F2C5C]">
@@ -885,8 +885,8 @@ export default function ApiDocs() {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <aside className="w-full shrink-0 border-b border-[#DCE6F2] bg-[#F7FAFE] lg:w-80 lg:border-b-0 lg:border-r">
-          <div className="sticky top-0 p-4">
+        <aside className="w-full shrink-0 overflow-y-auto border-b border-[#DCE6F2] bg-[#F7FAFE] lg:h-full lg:w-80 lg:border-b-0 lg:border-r">
+          <div className="p-4">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8694AC]">
               API endpoints
             </p>
@@ -896,7 +896,7 @@ export default function ApiDocs() {
                 {API_BASE.replace(/^https?:\/\//, "")}
               </code>
             </p>
-            <nav className="mt-4 space-y-1 overflow-y-auto p-1">
+            <nav className="mt-4 space-y-1 p-1">
               {ENDPOINTS.map((ep) => (
                 <button
                   key={ep.id}

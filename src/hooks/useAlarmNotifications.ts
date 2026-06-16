@@ -49,7 +49,7 @@ export function useAlarmNotifications(token: string | null) {
 
     showBrowserAlarmNotification(payload);
     try {
-      playAlarmSound();
+      playAlarmSound(propagation.type);
     } catch {
       /* ignore audio failures */
     }

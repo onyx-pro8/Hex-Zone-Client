@@ -41,22 +41,19 @@ export default function GuestAccessQr() {
 
   if (loading && !userZoneStr && zoneOptions.length === 0) {
     return (
-      <section className="space-y-4 p-4">
+      <section className="space-y-4">
         <p className="text-sm text-[#8694AC]">Loading zones…</p>
       </section>
     );
   }
 
   return (
-    <section className="space-y-8">
-      <div>
+    <section className="space-y-6">
+      <div className="rounded-2xl border border-[#DCE6F2] bg-white p-6 shadow-sm">
         <span className="inline-flex items-center gap-2 rounded-full bg-[#EDF3FB] px-4 py-2 text-sm font-medium text-[#2F80ED]">
-          <QrCode size={16} strokeWidth={2} /> Guest access
+          <QrCode size={16} strokeWidth={2} /> Guest access QR
         </span>
-        <h1 className="mt-4 text-3xl font-semibold text-[#0F2C5C] sm:text-4xl">
-          Guest access QR
-        </h1>
-        <p className="mt-3 max-w-2xl text-lg leading-relaxed text-[#8694AC]">
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#566784]">
           Administrators manage one reusable Guest QR per zone for{" "}
           <Link to="/access" className="text-[#2F80ED] hover:underline">
             /access?gt=…
@@ -75,30 +72,30 @@ export default function GuestAccessQr() {
           </Link>
           .
         </p>
-      </div>
 
-      {zoneOptions.length > 1 ? (
-        <div className="max-w-md space-y-2">
-          <label
-            htmlFor="guest-qr-zone"
-            className="block text-xs font-semibold uppercase tracking-[0.18em] text-[#8694AC]"
-          >
-            Zone
-          </label>
-          <select
-            id="guest-qr-zone"
-            value={effectiveZone}
-            onChange={(e) => setPickedZone(e.target.value)}
-            className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
-          >
-            {zoneOptions.map((z) => (
-              <option key={z} value={z}>
-                {z}
-              </option>
-            ))}
-          </select>
-        </div>
-      ) : null}
+        {zoneOptions.length > 1 ? (
+          <div className="mt-5 max-w-md space-y-2">
+            <label
+              htmlFor="guest-qr-zone"
+              className="block text-xs font-semibold uppercase tracking-[0.18em] text-[#8694AC]"
+            >
+              Zone
+            </label>
+            <select
+              id="guest-qr-zone"
+              value={effectiveZone}
+              onChange={(e) => setPickedZone(e.target.value)}
+              className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
+            >
+              {zoneOptions.map((z) => (
+                <option key={z} value={z}>
+                  {z}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+      </div>
 
       {!effectiveZone ? (
         <p className="rounded-md border border-[#E0992A]/30 bg-[#FBEFD8] px-4 py-3 text-sm text-[#E0992A]">
@@ -112,7 +109,7 @@ export default function GuestAccessQr() {
           issue a link or sign in with an admin account.
         </p>
       ) : (
-        <div className="rounded-[1.25rem] border border-[#DCE6F2] bg-white p-5 sm:p-6">
+        <div className="rounded-2xl border border-[#DCE6F2] bg-white p-6 shadow-sm">
           <GuestQrTokensAdmin zoneId={effectiveZone} />
         </div>
       )}

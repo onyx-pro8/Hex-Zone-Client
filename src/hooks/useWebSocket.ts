@@ -1,5 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { defaultRealtimeWsBase } from "../services/socket/messageSocket";
+import {
+  defaultRealtimeWsBase,
+  parseWellnessAckBroadcast,
+  WELLNESS_ACK_EVENT,
+} from "../services/socket/messageSocket";
 
 /**
  * Reusable WebSocket hook for React 18 + Strict Mode.
@@ -195,6 +199,12 @@ function connectSocket() {
     const payload = typeof event.data === "string" ? event.data : String(event.data);
     sharedManager.lastMessage = payload;
     emitSnapshot();
+    const ack = parseWellnessAckBroadcast(payload);
+    if (ack && typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent(WELLNESS_ACK_EVENT, { detail: ack }),
+      );
+    }
     log("log", `message #${connectionId}`, previewPayload(payload));
   };
 

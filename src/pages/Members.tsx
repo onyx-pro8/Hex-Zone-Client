@@ -73,48 +73,52 @@ export default function Members() {
   };
 
   return (
-    <section className="space-y-6 p-8">
-      <h1 className="text-2xl font-semibold text-[#0F2C5C] sm:text-3xl">
-        Members
-      </h1>
+    <section className="space-y-6">
       {loading && (
-        <p className="text-sm text-[#8694AC]">Loading members...</p>
+        <div className="rounded-2xl border border-[#DCE6F2] bg-white p-6 shadow-sm">
+          <p className="text-sm text-[#8694AC]">Loading members...</p>
+        </div>
       )}
       {error && (
         <p className="rounded-md border border-[#E23B4E]/30 bg-[#FCE7EA] px-3 py-2 text-sm text-[#E23B4E]">
           {error}
         </p>
       )}
-      {!isAdministrator && (
-        <div className="grid grid-cols-3 gap-3">
-          {members.map((member) => (
-            <article
-              key={member.id}
-              className="rounded-xl border border-[#DCE6F2] bg-white p-4 flex-1 shadow-sm"
-            >
-              <p className="font-medium text-[#0F2C5C]">{member.name}</p>
-              <p className="mt-1 text-xs text-[#8694AC]">
-                Member ID: <span className="font-mono">{member.id}</span>
-              </p>
-              {member.address && (
-                <p className="text-xs text-[#8694AC]">
-                  Address: {member.address}
+      {!isAdministrator && !loading && (
+        <div className="rounded-2xl border border-[#DCE6F2] bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-bold text-[#0F2C5C]">
+            Member directory
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {members.map((member) => (
+              <article
+                key={member.id}
+                className="rounded-xl border border-[#DCE6F2] bg-[#F7FAFE] p-4"
+              >
+                <p className="font-medium text-[#0F2C5C]">{member.name}</p>
+                <p className="mt-1 text-xs text-[#8694AC]">
+                  Member ID: <span className="font-mono">{member.id}</span>
                 </p>
-              )}
-              <p className="mt-1 text-xs text-[#8694AC]">
-                Primary zone: {member.zone_id ?? "Unknown"}
-              </p>
-            </article>
-          ))}
+                {member.address && (
+                  <p className="text-xs text-[#8694AC]">
+                    Address: {member.address}
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-[#8694AC]">
+                  Primary zone: {member.zone_id ?? "Unknown"}
+                </p>
+              </article>
+            ))}
+          </div>
         </div>
       )}
 
-      {isAdministrator && (
-        <div className="space-y-3">
-          <h2 className="text-xl font-semibold text-[#0F2C5C]">
+      {isAdministrator && !loading && (
+        <div className="rounded-2xl border border-[#DCE6F2] bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-bold text-[#0F2C5C]">
             Owners (administration)
           </h2>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {owners.map((owner) => {
               const name =
                 `${owner.first_name ?? ""} ${owner.last_name ?? ""}`.trim() ||
@@ -123,7 +127,7 @@ export default function Members() {
               return (
                 <article
                   key={owner.id}
-                  className="rounded-xl border border-[#DCE6F2] bg-white p-4 flex-1 shadow-sm"
+                  className="rounded-xl border border-[#DCE6F2] bg-[#F7FAFE] p-4"
                 >
                   <p className="font-medium text-[#0F2C5C]">{name}</p>
                   {owner.address && (
@@ -144,7 +148,7 @@ export default function Members() {
                     type="button"
                     onClick={() => void toggleOwnerActive(owner)}
                     disabled={updatingOwnerId === String(owner.id)}
-                    className="mt-3 rounded-md border border-[#DCE6F2] px-3 py-1.5 text-xs text-[#566784] transition hover:border-[#2F80ED]/50 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="mt-3 rounded-md border border-[#DCE6F2] bg-white px-3 py-1.5 text-xs text-[#566784] transition hover:border-[#2F80ED]/50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {updatingOwnerId === String(owner.id)
                       ? "Updating..."

@@ -375,8 +375,17 @@ function closeRingLatLng(ring: LatLng[]): LatLng[] {
   return [...ring, first];
 }
 
+function normalizeLatitude(lat: number): number {
+  if (lat < -90) return -90;
+  if (lat > 90) return 90;
+  return lat;
+}
+
 function ringLatLngToGeoJson(ring: LatLng[]): number[][] {
-  return closeRingLatLng(ring).map(([lat, lng]) => [lng, lat]);
+  return closeRingLatLng(ring).map(([lat, lng]) => [
+    normalizeLongitude(lng),
+    normalizeLatitude(lat),
+  ]);
 }
 
 function polygonsToGeoFenceMultiPolygon(

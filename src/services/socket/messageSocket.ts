@@ -116,6 +116,28 @@ export function parseInboxSocketRefetchSignal(raw: string): boolean {
   }
 }
 
+/** DOM event name used to fan out WELLNESS_ACK socket frames to mounted panels. */
+export const WELLNESS_ACK_EVENT = "hexzone:wellness-ack";
+
+/**
+ * Detect a WELLNESS_ACK realtime frame and extract its message id so wellness
+ * panels can reload their acknowledgement summary without polling.
+ */
+export function parseWellnessAckBroadcast(
+  raw: string,
+): { messageEventId: string } | null {
+  try {
+    const parsed = JSON.parse(raw) as { type?: unknown; data?: unknown };
+    if (parsed.type !== "WELLNESS_ACK") return null;
+    const data = parsed.data as Record<string, unknown> | undefined;
+    const id = data?.message_event_id;
+    if (typeof id === "string" && id) return { messageEventId: id };
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
 /** Parse message-feature envelope events and keep NEW_MESSAGE backward compatible. */
 export function parseMessageFeatureSocketEvent(
   raw: string,

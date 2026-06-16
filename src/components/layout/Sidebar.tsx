@@ -9,6 +9,7 @@ import {
   ScanLine,
   QrCode,
   Shield,
+  Siren,
   Settings as SettingsIcon,
   Terminal,
   LogOut,
@@ -27,9 +28,10 @@ const PRIMARY_ITEMS: NavItem[] = [
 ];
 
 const SECONDARY_ITEMS: NavItem[] = [
+  { path: "/emergency-log", title: "Emergency Log", icon: Siren },
   { path: "/devices", title: "Devices", icon: Shield },
   { path: "/guest-passes", title: "Guest Passes", icon: Ticket },
-  { path: "/guest-arrival-messages", title: "Guest arrival copy", icon: NotebookPen },
+  { path: "/guest-arrival-messages", title: "Guest Arrival Settings", icon: NotebookPen },
   { path: "/guest-access-qr", title: "Guest QR", icon: ScanLine },
   { path: "/qr", title: "QR invite", icon: QrCode },
   { path: "/api", title: "API", icon: Terminal },
@@ -57,6 +59,7 @@ export function Sidebar() {
     if (item.path === "/qr") return canInviteUserMember;
     if (item.path === "/guest-access-qr") return isAdministrator;
     if (item.path === "/guest-arrival-messages") return isAdministrator;
+    if (item.path === "/emergency-log") return isAdministrator;
     return true;
   });
 

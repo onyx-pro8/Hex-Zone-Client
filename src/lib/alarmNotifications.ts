@@ -142,18 +142,29 @@ function getAudioContext(): AudioContext | null {
   return cachedAudioCtx;
 }
 
-/** Short two-tone beep; safe to call repeatedly. */
-export function playAlarmSound(): void {
+/**
+ * Short alarm beep; safe to call repeatedly.
+ *
+ * NS_PANIC uses a distinct three-pulse, lower-pitch "warble" so it is audibly
+ * different from a regular PANIC/alarm two-tone chime (item: NS-PANIC distinct
+ * audio/visual).
+ */
+export function playAlarmSound(alarmType?: string | null): void {
   const ctx = getAudioContext();
   if (!ctx) return;
   if (ctx.state === "suspended") {
     void ctx.resume().catch(() => undefined);
   }
   const now = ctx.currentTime;
-  const tone = (frequency: number, start: number, duration: number) => {
+  const tone = (
+    frequency: number,
+    start: number,
+    duration: number,
+    type: OscillatorType = "sine",
+  ) => {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
-    osc.type = "sine";
+    osc.type = type;
     osc.frequency.value = frequency;
     gain.gain.setValueAtTime(0.0001, now + start);
     gain.gain.exponentialRampToValueAtTime(0.25, now + start + 0.03);
@@ -162,6 +173,15 @@ export function playAlarmSound(): void {
     osc.start(now + start);
     osc.stop(now + start + duration + 0.05);
   };
+
+  const normalized = String(alarmType ?? "").toUpperCase().replace(/-/g, "_");
+  if (normalized === "NS_PANIC") {
+    // Urgent low-frequency triple pulse (square wave) — distinct from PANIC.
+    tone(440, 0, 0.16, "square");
+    tone(440, 0.2, 0.16, "square");
+    tone(330, 0.4, 0.28, "square");
+    return;
+  }
   tone(880, 0, 0.18);
   tone(660, 0.22, 0.22);
 }

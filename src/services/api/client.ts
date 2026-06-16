@@ -5,6 +5,7 @@ export const API_BASE_URL =
 
 const TOKEN_KEY = "zoneweaver_token";
 const REMEMBER_KEY = "zoneweaver_remember";
+const LAST_EMAIL_KEY = "zoneweaver_last_email";
 
 export type ApiEnvelope<T> = {
   status: "success" | "error";
@@ -41,6 +42,24 @@ export function clearStoredToken(): void {
 
 export function getRememberMe(): boolean {
   return localStorage.getItem(REMEMBER_KEY) === "1";
+}
+
+export function persistLastEmail(email: string): void {
+  const trimmed = email.trim();
+  if (!trimmed) return;
+  try {
+    localStorage.setItem(LAST_EMAIL_KEY, trimmed);
+  } catch {
+    /* ignore persistence failure */
+  }
+}
+
+export function getLastEmail(): string {
+  try {
+    return localStorage.getItem(LAST_EMAIL_KEY) ?? "";
+  } catch {
+    return "";
+  }
 }
 
 const apiClient: AxiosInstance = axios.create({

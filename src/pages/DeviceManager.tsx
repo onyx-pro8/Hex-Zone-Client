@@ -800,29 +800,17 @@ export default function DeviceManager() {
           : `Enhanced+ has no device cap. Zones use H3 Geospatial Indexing (resolution = ${H3_RESOLUTION}).`;
 
   return (
-    <div className="space-y-6 pb-8">
-      <section className="p-8">
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-[#0F2C5C] sm:text-4xl">
-              Account &amp; Device Manager
-            </h1>
-            <p className="mt-2 text-[#8694AC]">
-              Account type:{" "}
-              <span className="font-semibold" style={{ color: ACCENT }}>
-                {accountLabel}
-              </span>
-            </p>
-          </div>
-          {/* <button
-            type="button"
-            onClick={openAddModal}
-            className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md px-5 py-3 text-sm font-bold text-white transition hover:brightness-110"
-            style={{ backgroundColor: ACCENT }}
-          >
-            <Plus size={18} strokeWidth={2.5} /> Add device
-          </button> */}
-        </div>
+    <div className="space-y-6">
+      <section className="rounded-2xl border border-[#DCE6F2] bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-bold text-[#0F2C5C]">
+          Account &amp; Device Manager
+        </h2>
+        <p className="mt-1 text-sm text-[#8694AC]">
+          Account type:{" "}
+          <span className="font-semibold" style={{ color: ACCENT }}>
+            {accountLabel}
+          </span>
+        </p>
       </section>
 
       <section className="layer-card border-[#E0992A]/40 bg-white">
