@@ -230,7 +230,7 @@ export async function listInZoneMembers(position?: MessageFeaturePosition) {
       params: position
         ? { latitude: position.latitude, longitude: position.longitude }
         : undefined,
-    },
+    }
   );
 }
 
