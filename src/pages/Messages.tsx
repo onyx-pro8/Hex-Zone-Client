@@ -49,6 +49,10 @@ import {
   type QuickMessageType,
 } from "../lib/appSettings";
 import { messageBroadcastLabel } from "../lib/messageBroadcast";
+import {
+  resolveMessagePropagationPosition,
+  type ResolvedMessagePosition,
+} from "../lib/messagePosition";
 import type { GuestRequestRow } from "../lib/guestRealtime";
 import type { Message } from "../services/api/messages";
 
@@ -230,36 +234,10 @@ export default function Messages() {
     setInZoneError(null);
 
     const load = async () => {
-      const profileCenter = user?.mapCenter ?? user?.map_center ?? null;
-      let position: { latitude: number; longitude: number } | undefined;
-
-      if (
-        profileCenter &&
-        Number.isFinite(profileCenter.latitude) &&
-        Number.isFinite(profileCenter.longitude)
-      ) {
-        position = {
-          latitude: profileCenter.latitude,
-          longitude: profileCenter.longitude,
-        };
-      } else if (
-        typeof navigator !== "undefined" &&
-        "geolocation" in navigator
-      ) {
-        position = await new Promise<
-          { latitude: number; longitude: number } | undefined
-        >((resolve) => {
-          navigator.geolocation.getCurrentPosition(
-            (pos) =>
-              resolve({
-                latitude: pos.coords.latitude,
-                longitude: pos.coords.longitude,
-              }),
-            () => resolve(undefined),
-            { enableHighAccuracy: true, timeout: 8000, maximumAge: 60_000 },
-          );
-        });
-      }
+      const resolved = await resolveMessagePropagationPosition(
+        user?.mapCenter ?? user?.map_center ?? null,
+      );
+      const position = "error" in resolved ? undefined : resolved.position;
 
       const result = await listInZoneMembers(position);
       if (!active) return;
@@ -371,6 +349,12 @@ export default function Messages() {
     );
   }, []);
 
+  const profileMapCenter = user?.mapCenter ?? user?.map_center ?? null;
+
+  const resolveSenderPosition = useCallback(async (): Promise<
+    ResolvedMessagePosition | { error: string }
+  > => resolveMessagePropagationPosition(profileMapCenter), [profileMapCenter]);
+
   const sendQuickAlert = useCallback(
     async (type: QuickMessageType) => {
       if (quickBusy) return;
@@ -382,27 +366,24 @@ export default function Messages() {
         setComposeText("");
         return;
       }
-      const position = user?.mapCenter ?? user?.map_center ?? null;
-      if (
-        !position ||
-        !Number.isFinite(position.latitude) ||
-        !Number.isFinite(position.longitude)
-      ) {
-        setQuickStatus(
-          "Set your location on the map before sending quick alerts.",
-        );
+      const resolved = await resolveSenderPosition();
+      if ("error" in resolved) {
+        setQuickStatus(resolved.error);
         return;
       }
+      const { position } = resolved;
       setQuickBusy(type);
       setQuickStatus(`Sending ${toMessageTypeLabel(type as MessageType)}…`);
       const propagateResult = await propagateMessageFeatureMessage({
         type: type as MessageFeatureType,
         hid: resolveGuestBrowserDeviceId(),
-        msg: { description: presetText, broadcast_name: selfBroadcastName },
-        position: {
+        msg: {
+          description: presetText,
+          broadcast_name: selfBroadcastName,
           latitude: position.latitude,
           longitude: position.longitude,
         },
+        position,
       });
       setQuickBusy(null);
       if (propagateResult.error) {
@@ -424,8 +405,7 @@ export default function Messages() {
     [
       quickBusy,
       settings.quickMessages,
-      user?.mapCenter,
-      user?.map_center,
+      resolveSenderPosition,
       selfBroadcastName,
       ownerId,
       composeZoneId,
@@ -470,29 +450,23 @@ export default function Messages() {
     setComposeStatus("Sending...");
 
     if (usesGeoPropagationMessageType(composeType)) {
-      const position =
-        user?.mapCenter ??
-        user?.map_center ??
-        null;
-      if (
-        !position ||
-        !Number.isFinite(position.latitude) ||
-        !Number.isFinite(position.longitude)
-      ) {
-        setComposeStatus(
-          "Set your location on the map (or update member location) before sending alarms.",
-        );
+      const resolved = await resolveSenderPosition();
+      if ("error" in resolved) {
+        setComposeStatus(resolved.error);
         return;
       }
+      const { position } = resolved;
       const featureType = composeType as MessageFeatureType;
       const propagateResult = await propagateMessageFeatureMessage({
         type: featureType,
         hid: resolveGuestBrowserDeviceId(),
-        msg: { description: composeText.trim(), broadcast_name: selfBroadcastName },
-        position: {
+        msg: {
+          description: composeText.trim(),
+          broadcast_name: selfBroadcastName,
           latitude: position.latitude,
           longitude: position.longitude,
         },
+        position,
         ...(isPrivateMessageType(composeType)
           ? { receiver_owner_id: parsedReceiverId }
           : {}),
@@ -519,10 +493,19 @@ export default function Messages() {
       return;
     }
 
+    const resolved = await resolveSenderPosition();
+    if ("error" in resolved) {
+      setComposeStatus(resolved.error);
+      return;
+    }
+    const { position } = resolved;
+
     const result = await sendMessage({
       message: composeText.trim(),
       type: composeType,
       broadcast_name: selfBroadcastName,
+      latitude: position.latitude,
+      longitude: position.longitude,
       ...(composeZoneId ? { zone_id: composeZoneId } : {}),
       ...(accessGuest && composeReceiverId.trim()
         ? { guest_id: composeReceiverId.trim() }

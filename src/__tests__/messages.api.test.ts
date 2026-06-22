@@ -95,6 +95,8 @@ describe("messages api adapter", () => {
       zone_id: "ZONE-1",
       receiver_id: 456,
       message: "hello",
+      latitude: 47.62,
+      longitude: -122.35,
     });
 
     expect(requestMock).toHaveBeenCalledWith(
@@ -106,9 +108,35 @@ describe("messages api adapter", () => {
           visibility: "private",
           receiver_id: 456,
           zone_id: "ZONE-1",
+          latitude: 47.62,
+          longitude: -122.35,
+          msg: {
+            latitude: 47.62,
+            longitude: -122.35,
+          },
         }),
       }),
     );
+  });
+
+  it("normalizes sender coordinates from geo-propagation metadata", () => {
+    const normalized = normalizeMessage({
+      id: "m-geo",
+      zone_id: "ZONE-1",
+      sender_id: 9,
+      receiver_id: null,
+      message_type: "PANIC",
+      message: "help",
+      created_at: "2026-04-26T00:00:00Z",
+      raw_payload: {
+        position: { latitude: 34.05, longitude: -118.24 },
+      },
+    });
+
+    expect(normalized).toMatchObject({
+      latitude: 34.05,
+      longitude: -118.24,
+    });
   });
 
   it("sends guest_id for access channel and omits receiver_id", async () => {

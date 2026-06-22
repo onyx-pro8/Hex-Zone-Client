@@ -36,6 +36,9 @@ export type Message = {
   visibility: MessageVisibility;
   message: string;
   created_at: string;
+  /** Sender coordinates when provided by the server or geo-propagation metadata. */
+  latitude?: number | null;
+  longitude?: number | null;
   raw_payload: Record<string, unknown> | null;
   /** Present when the row is guest-originated Access traffic (mirrored CHAT/PERMISSION) without numeric sender. */
   guest_sender_id?: string;
@@ -64,6 +67,9 @@ export type SendMessagePayload = {
   guest_id?: string;
   /** Sender's broadcast name, embedded so receivers can show a friendly identity. */
   broadcast_name?: string;
+  /** Sender coordinates at send time. */
+  latitude?: number;
+  longitude?: number;
 };
 
 function toLegacyTypeFromVisibility(visibility: unknown): MessageType | null {
@@ -239,6 +245,47 @@ function coerceMessageBodyText(row: Record<string, unknown>): string {
   return "";
 }
 
+function readCoordinate(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim().length > 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
+function extractMessagePosition(
+  ...sources: Array<Record<string, unknown> | null | undefined>
+): { latitude: number; longitude: number } | null {
+  for (const source of sources) {
+    if (!source) continue;
+    const lat = readCoordinate(source.latitude ?? source.lat);
+    const lng = readCoordinate(source.longitude ?? source.lng ?? source.lon);
+    if (lat != null && lng != null) {
+      return { latitude: lat, longitude: lng };
+    }
+    const position = source.position;
+    if (position && typeof position === "object" && !Array.isArray(position)) {
+      const nested = position as Record<string, unknown>;
+      const nestedLat = readCoordinate(nested.latitude ?? nested.lat);
+      const nestedLng = readCoordinate(nested.longitude ?? nested.lng ?? nested.lon);
+      if (nestedLat != null && nestedLng != null) {
+        return { latitude: nestedLat, longitude: nestedLng };
+      }
+    }
+    const origin = source.origin;
+    if (origin && typeof origin === "object" && !Array.isArray(origin)) {
+      const nested = origin as Record<string, unknown>;
+      const nestedLat = readCoordinate(nested.latitude ?? nested.lat);
+      const nestedLng = readCoordinate(nested.longitude ?? nested.lng ?? nested.lon);
+      if (nestedLat != null && nestedLng != null) {
+        return { latitude: nestedLat, longitude: nestedLng };
+      }
+    }
+  }
+  return null;
+}
+
 function permissionBodyFallback(meta: Record<string, unknown> | null): string {
   if (!meta || Object.keys(meta).length === 0) return "(Permission traffic)";
   const status =
@@ -382,6 +429,7 @@ export function normalizeMessage(raw: unknown): Message | null {
     rowStructuredPayload,
     type,
   );
+  const coordinates = extractMessagePosition(row, msgRecord, rowStructuredPayload, raw_payload);
   return {
     id: String(id),
     zone_id: zoneId,
@@ -393,6 +441,9 @@ export function normalizeMessage(raw: unknown): Message | null {
     visibility: scope,
     message: textValue,
     created_at: createdAt,
+    ...(coordinates
+      ? { latitude: coordinates.latitude, longitude: coordinates.longitude }
+      : {}),
     raw_payload,
     ...(useGuestLogicalSender && guestSenderIdRaw
       ? { guest_sender_id: guestSenderIdRaw }
@@ -485,14 +536,24 @@ export function formatMessageSenderLabel(message: Message): string {
 export async function sendMessage(payload: SendMessagePayload) {
   const gid = payload.guest_id?.trim();
   const broadcastName = payload.broadcast_name?.trim();
+  const hasCoordinates =
+    Number.isFinite(payload.latitude) && Number.isFinite(payload.longitude);
+  const msgExtras: Record<string, unknown> = {
+    ...(broadcastName ? { broadcast_name: broadcastName } : {}),
+    ...(hasCoordinates
+      ? { latitude: payload.latitude, longitude: payload.longitude }
+      : {}),
+  };
   const data: Record<string, unknown> = {
     message: payload.message,
     message_type: payload.type,
     visibility: getMessageScopeForType(payload.type),
     ...(payload.zone_id ? { zone_id: payload.zone_id } : {}),
-    ...(broadcastName
-      ? { broadcast_name: broadcastName, msg: { broadcast_name: broadcastName } }
+    ...(hasCoordinates
+      ? { latitude: payload.latitude, longitude: payload.longitude }
       : {}),
+    ...(Object.keys(msgExtras).length > 0 ? { msg: msgExtras } : {}),
+    ...(broadcastName ? { broadcast_name: broadcastName } : {}),
   };
   if (gid) {
     data.guest_id = gid;

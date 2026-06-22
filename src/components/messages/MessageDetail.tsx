@@ -85,6 +85,16 @@ export function MessageDetail({
             <span className="text-[#8694AC]">
               {new Date(message.created_at).toLocaleString()}
             </span>
+            {message.latitude != null && message.longitude != null ? (
+              <a
+                className="rounded-full bg-[#EDF3FB] px-2 py-1 text-[#2F80ED] hover:underline"
+                href={`https://www.google.com/maps?q=${message.latitude},${message.longitude}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                {message.latitude.toFixed(4)}, {message.longitude.toFixed(4)}
+              </a>
+            ) : null}
           </div>
           <div>
             <p className="text-base font-extrabold text-[#0F2C5C]">
