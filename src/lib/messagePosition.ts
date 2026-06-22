@@ -16,6 +16,16 @@ export type ResolvedMessagePosition = {
 /** Max time to wait for a fresh GPS fix before falling back. */
 const SEND_GPS_TIMEOUT_MS = 7000;
 
+/** Best-effort: keep server-side presence current for geo message delivery. */
+export async function publishMemberLocation(position: MessagePosition): Promise<void> {
+  try {
+    const { updateLocation } = await import("../services/api/members");
+    await updateLocation(position);
+  } catch {
+    /* non-blocking */
+  }
+}
+
 function normalizeMapCenter(
   value:
     | { latitude?: unknown; longitude?: unknown }
@@ -48,7 +58,7 @@ async function tryReadGps(): Promise<MessagePosition | null> {
           longitude: pos.coords.longitude,
         }),
       () => resolve(null),
-      { enableHighAccuracy: true, timeout: SEND_GPS_TIMEOUT_MS, maximumAge: 60_000 },
+      { enableHighAccuracy: true, timeout: SEND_GPS_TIMEOUT_MS, maximumAge: 30_000 },
     );
   });
 }
@@ -64,10 +74,16 @@ export async function resolveMessagePropagationPosition(
   profileMapCenter?: MessagePosition | null,
 ): Promise<ResolvedMessagePosition | { error: string }> {
   const gps = await tryReadGps();
-  if (gps) return { position: gps, source: "gps" };
+  if (gps) {
+    void publishMemberLocation(gps);
+    return { position: gps, source: "gps" };
+  }
 
   const fromProfile = normalizeMapCenter(profileMapCenter ?? null);
-  if (fromProfile) return { position: fromProfile, source: "profile" };
+  if (fromProfile) {
+    void publishMemberLocation(fromProfile);
+    return { position: fromProfile, source: "profile" };
+  }
 
   return { error: MESSAGE_POSITION_REQUIRED };
 }

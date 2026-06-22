@@ -37,8 +37,8 @@ export const MESSAGE_WORKFLOW: Record<
   PANIC: {
     priority: "MAX",
     description:
-      "Emergency distress alert. Zone-wide broadcast with maximum priority; block filters are bypassed.",
-    delivery: "Instant push + WebSocket to all zone members.",
+      "Emergency distress alert. Broadcast to members physically inside the same zone geometry as your location.",
+    delivery: "Instant push + WebSocket to matched zone members.",
     requiresAdmin: false,
     requiresRecipient: false,
     requiresLocation: true,
@@ -59,7 +59,7 @@ export const MESSAGE_WORKFLOW: Record<
   PRIVATE: {
     priority: "MEDIUM",
     description:
-      "Direct message to one member in your zone. Only the selected recipient receives it.",
+      "Direct message to one member inside the same zone geometry as your current location.",
     delivery: "WebSocket when online; push when offline.",
     requiresAdmin: false,
     requiresRecipient: true,

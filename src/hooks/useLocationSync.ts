@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { updateLocation } from "../services/api/members";
 
-const SYNC_INTERVAL_MS = 60_000;
+/** How often we push GPS to the server for in-zone recipient matching. */
+const SYNC_INTERVAL_MS = 30_000;
 
 /**
  * Periodically publishes the browser's GPS position to the server
@@ -33,7 +34,7 @@ export function useLocationSync(token: string | null) {
         () => {
           /* permission denied / unavailable — ignore and retry next tick */
         },
-        { enableHighAccuracy: true, timeout: 10_000, maximumAge: 60_000 },
+        { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 },
       );
     };
 
