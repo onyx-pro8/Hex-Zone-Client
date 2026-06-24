@@ -59,7 +59,7 @@ export const MESSAGE_WORKFLOW: Record<
   PRIVATE: {
     priority: "MEDIUM",
     description:
-      "Direct message to one member inside the same zone geometry as your current location.",
+      "Direct message to one account member while you are inside a zone. Search by name or email.",
     delivery: "WebSocket when online; push when offline.",
     requiresAdmin: false,
     requiresRecipient: true,

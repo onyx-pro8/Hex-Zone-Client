@@ -39,6 +39,8 @@ export type Message = {
   /** Sender coordinates when provided by the server or geo-propagation metadata. */
   latitude?: number | null;
   longitude?: number | null;
+  /** Geo-propagated broadcast: owner ids that received the message. */
+  delivered_owner_ids?: number[] | null;
   raw_payload: Record<string, unknown> | null;
   /** Present when the row is guest-originated Access traffic (mirrored CHAT/PERMISSION) without numeric sender. */
   guest_sender_id?: string;
@@ -430,6 +432,12 @@ export function normalizeMessage(raw: unknown): Message | null {
     type,
   );
   const coordinates = extractMessagePosition(row, msgRecord, rowStructuredPayload, raw_payload);
+  const rawDelivered = row.delivered_owner_ids;
+  const delivered_owner_ids = Array.isArray(rawDelivered)
+    ? rawDelivered
+        .map((v) => Number(v))
+        .filter((id) => Number.isFinite(id) && id > 0)
+    : null;
   return {
     id: String(id),
     zone_id: zoneId,
@@ -443,6 +451,9 @@ export function normalizeMessage(raw: unknown): Message | null {
     created_at: createdAt,
     ...(coordinates
       ? { latitude: coordinates.latitude, longitude: coordinates.longitude }
+      : {}),
+    ...(delivered_owner_ids && delivered_owner_ids.length > 0
+      ? { delivered_owner_ids }
       : {}),
     raw_payload,
     ...(useGuestLogicalSender && guestSenderIdRaw

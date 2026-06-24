@@ -6,13 +6,9 @@ const SYNC_INTERVAL_MS = 30_000;
 
 /**
  * Periodically publishes the browser's GPS position to the server
- * (`POST /members/location`) so this user can be matched as an in-zone
- * recipient for geo messages (PA / PANIC / WELLNESS / PRIVATE, etc.).
- *
- * Zone-based delivery resolves recipients from each owner's stored
- * `owners.latitude/longitude`; without this sync a user physically inside a
- * zone is never found and silently receives nothing. No-op when there is no
- * auth token or the browser has no Geolocation support.
+ * (`POST /members/location`) so dynamic zones and other geo workflows have
+ * a current position. Optional for receiving zone-based alerts once routing
+ * uses acceptable-zone geometry rather than recipient presence.
  */
 export function useLocationSync(token: string | null) {
   useEffect(() => {

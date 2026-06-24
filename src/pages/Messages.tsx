@@ -17,7 +17,8 @@ import { sendMessage, type MessageVisibility } from "../services/api/messages";
 import {
   propagateMessageFeatureMessage,
   listInZoneMembers,
-  type InZoneMember,
+  searchPrivateMessageRecipients,
+  type PrivateSearchMember,
   type MessageFeatureType,
 } from "../services/api/messageFeature";
 import { dispatchGeoPropagationInbox } from "../lib/inboxRealtime";
@@ -104,10 +105,12 @@ export default function Messages() {
   const [owners, setOwners] = useState<OwnerListItem[]>([]);
   const [ownersLoading, setOwnersLoading] = useState(false);
   const [members, setMembers] = useState<Member[]>([]);
-  const [inZoneMembers, setInZoneMembers] = useState<InZoneMember[]>([]);
-  const [inZoneLoading, setInZoneLoading] = useState(false);
-  const [inZoneError, setInZoneError] = useState<string | null>(null);
+  const [privateSearchQuery, setPrivateSearchQuery] = useState("");
+  const [privateSearchResults, setPrivateSearchResults] = useState<PrivateSearchMember[]>([]);
+  const [privateSearchLoading, setPrivateSearchLoading] = useState(false);
+  const [privateSearchError, setPrivateSearchError] = useState<string | null>(null);
   const [senderZoneIds, setSenderZoneIds] = useState<string[]>([]);
+  const [senderZoneCheckLoading, setSenderZoneCheckLoading] = useState(false);
   const [guestRows, setGuestRows] = useState<GuestRequestRow[]>([]);
   const [guestsLoading, setGuestsLoading] = useState(false);
   const [guestListError, setGuestListError] = useState<string | null>(null);
@@ -217,21 +220,21 @@ export default function Messages() {
 
   useEffect(() => {
     setComposeReceiverId("");
+    setPrivateSearchQuery("");
+    setPrivateSearchResults([]);
   }, [composeType]);
 
-  /** PRIVATE recipients: everyone whose live location is inside the same
-   *  zone(s) as the sender — cross-account, matching server delivery rules. */
+  /** PRIVATE: verify sender is inside a zone before allowing recipient search. */
   useEffect(() => {
     if (!isPrivateMessageType(composeType)) {
-      setInZoneMembers([]);
-      setInZoneError(null);
+      setPrivateSearchError(null);
       setSenderZoneIds([]);
       return;
     }
 
     let active = true;
-    setInZoneLoading(true);
-    setInZoneError(null);
+    setSenderZoneCheckLoading(true);
+    setPrivateSearchError(null);
 
     const load = async () => {
       const resolved = await resolveMessagePropagationPosition(
@@ -241,14 +244,12 @@ export default function Messages() {
 
       const result = await listInZoneMembers(position);
       if (!active) return;
-      setInZoneLoading(false);
+      setSenderZoneCheckLoading(false);
       if (result.error) {
-        setInZoneError(result.error);
-        setInZoneMembers([]);
+        setPrivateSearchError(result.error);
         setSenderZoneIds([]);
         return;
       }
-      setInZoneMembers(result.data?.members ?? []);
       setSenderZoneIds(result.data?.zone_ids ?? []);
     };
 
@@ -257,6 +258,45 @@ export default function Messages() {
       active = false;
     };
   }, [composeType, user?.mapCenter, user?.map_center]);
+
+  /** PRIVATE recipient search (debounced, single input). */
+  useEffect(() => {
+    if (!isPrivateMessageType(composeType)) return;
+    const q = privateSearchQuery.trim();
+    if (q.length < 2) {
+      setPrivateSearchResults([]);
+      setPrivateSearchLoading(false);
+      return;
+    }
+
+    let active = true;
+    setPrivateSearchLoading(true);
+    setPrivateSearchError(null);
+
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        const resolved = await resolveMessagePropagationPosition(
+          user?.mapCenter ?? user?.map_center ?? null,
+        );
+        const position = "error" in resolved ? undefined : resolved.position;
+        const result = await searchPrivateMessageRecipients(q, position);
+        if (!active) return;
+        setPrivateSearchLoading(false);
+        if (result.error) {
+          setPrivateSearchError(result.error);
+          setPrivateSearchResults([]);
+          return;
+        }
+        setSenderZoneIds(result.data?.zone_ids ?? []);
+        setPrivateSearchResults(result.data?.members ?? []);
+      })();
+    }, 300);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [composeType, privateSearchQuery, user?.mapCenter, user?.map_center]);
 
   /** Defaults (all zones / all scope / category / type) intentionally include CHAT: meta is Access + private from MESSAGE_TYPE_META. */
   const filteredMessages = useMemo(() => {
@@ -833,7 +873,11 @@ export default function Messages() {
           />
         </div>
         <div className="space-y-4">
-          <MessageDetail message={activeMessage} currentOwnerId={ownerId} />
+          <MessageDetail
+            message={activeMessage}
+            currentOwnerId={ownerId}
+            ownerNameById={ownerNameById}
+          />
           {Number.isFinite(ownerId) && ownerId > 0 ? (
             <MessageBlocksPanel
               currentOwnerId={ownerId}
@@ -925,40 +969,66 @@ export default function Messages() {
             {!isAccessGuestChannelType(composeType) && isPrivateMessageType(composeType) && (
               <>
                 <p className="text-xs text-[#8694AC]">
-                  Recipients are members whose current location is inside the same
-                  zone(s) as you. Zone is determined from your GPS, not account labels.
+                  You must be inside a zone to send a private message. Search for a
+                  member by name or email.
                 </p>
-                <select
-                  value={composeReceiverId}
-                  onChange={(e) => setComposeReceiverId(e.target.value)}
+                <input
+                  type="search"
+                  value={privateSearchQuery}
+                  onChange={(e) => {
+                    setPrivateSearchQuery(e.target.value);
+                    setComposeReceiverId("");
+                  }}
+                  placeholder="Search member by name or email"
                   className="w-full rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] outline-none focus:border-[#2F80ED]"
-                >
-                  <option value="">
-                    {inZoneLoading ? "Loading nearby members…" : "Pick a member in your zone"}
-                  </option>
-                  {inZoneMembers.map((row) => {
-                    return (
-                      <option key={`inzone-${row.id}`} value={String(row.id)}>
-                        {row.id} - {row.name}
-                      </option>
-                    );
-                  })}
-                </select>
-                {inZoneError ? (
-                  <p className="text-xs text-[#E0992A]">{inZoneError}</p>
+                />
+                {privateSearchLoading ? (
+                  <p className="text-xs text-[#8694AC]">Searching…</p>
                 ) : null}
-                {!inZoneLoading && !inZoneError && senderZoneIds.length === 0 ? (
+                {privateSearchError ? (
+                  <p className="text-xs text-[#E0992A]">{privateSearchError}</p>
+                ) : null}
+                {!senderZoneCheckLoading && !privateSearchError && senderZoneIds.length === 0 ? (
                   <p className="text-xs text-[#8694AC]">
                     You are not inside any zone. Move into a zone or update your location
-                    on the map before sending a private message.
+                    before sending a private message.
                   </p>
                 ) : null}
-                {!inZoneLoading &&
-                !inZoneError &&
+                {privateSearchResults.length > 0 ? (
+                  <ul className="max-h-40 overflow-y-auto rounded-lg border border-[#DCE6F2] bg-[#F7FAFE]">
+                    {privateSearchResults.map((row) => (
+                      <li key={`search-${row.id}`}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setComposeReceiverId(String(row.id));
+                            setPrivateSearchQuery(row.display_name);
+                          }}
+                          className={`w-full px-3 py-2 text-left text-sm hover:bg-[#EDF3FB] ${
+                            composeReceiverId === String(row.id)
+                              ? "bg-[#EDF3FB] font-semibold text-[#2F80ED]"
+                              : "text-[#0F2C5C]"
+                          }`}
+                        >
+                          <span>{row.display_name}</span>
+                          <span className="ml-2 text-xs text-[#8694AC]">
+                            {row.subtitle || row.email}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {privateSearchQuery.trim().length >= 2 &&
+                !privateSearchLoading &&
                 senderZoneIds.length > 0 &&
-                inZoneMembers.length === 0 ? (
-                  <p className="text-xs text-[#8694AC]">
-                    No other members are currently located in your zone(s).
+                privateSearchResults.length === 0 ? (
+                  <p className="text-xs text-[#8694AC]">No members matched your search.</p>
+                ) : null}
+                {composeReceiverId ? (
+                  <p className="text-xs text-[#566784]">
+                    Selected recipient id:{" "}
+                    <span className="font-mono">{composeReceiverId}</span>
                   </p>
                 ) : null}
               </>
@@ -995,11 +1065,11 @@ export default function Messages() {
             )}
             {!isAccessGuestChannelType(composeType) && isPrivateMessageType(composeType) && (
               <p className="text-xs text-[#8694AC]">
-                {inZoneLoading
-                  ? "Checking who is in your zone…"
+                {senderZoneCheckLoading
+                  ? "Checking your zone…"
                   : senderZoneIds.length === 0
                     ? "Not inside any zone — update your location first."
-                    : `Members in your zone (${inZoneMembers.length} available · ${senderZoneIds.length} zone(s))`}
+                    : `Inside zone(s): ${senderZoneIds.join(", ")}`}
               </p>
             )}
             <p className="text-xs text-[#8694AC]">

@@ -25,9 +25,11 @@ function resolvePrivateCounterpart(
 export function MessageDetail({
   message,
   currentOwnerId,
+  ownerNameById,
 }: {
   message: Message | null;
   currentOwnerId?: number | null;
+  ownerNameById?: Map<number, string>;
 }) {
   const [threadOtherId, setThreadOtherId] = useState<number | null>(null);
   return (
@@ -105,6 +107,21 @@ export function MessageDetail({
               {message.message}
             </p>
           </div>
+          {message.delivered_owner_ids && message.delivered_owner_ids.length > 0 ? (
+            <div className="rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#8694AC]">
+                Delivered to
+              </p>
+              <ul className="mt-1 space-y-1 text-sm text-[#566784]">
+                {message.delivered_owner_ids.map((oid) => (
+                  <li key={`delivered-${oid}`}>
+                    {ownerNameById?.get(oid) ?? `Member ${oid}`}
+                    <span className="ml-1 font-mono text-xs text-[#8694AC]">({oid})</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           {message.type === "WELLNESS_CHECK" && currentOwnerId ? (
             <WellnessAckPanel
               messageEventId={message.id}
