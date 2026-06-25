@@ -1,11 +1,13 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Bell, LayoutDashboard, Mail, Users, Settings as SettingsIcon } from "lucide-react";
+import { LayoutDashboard, Mail, Users, Settings as SettingsIcon } from "lucide-react";
 import { Logo } from "./Logo";
 import { useAuth } from "../../hooks/useAuth";
+import { AlertBellButton } from "./AlertBellButton";
 
 const TITLES: Record<string, string> = {
   "/dashboard": "Overview",
   "/messages": "Messages",
+  "/alerts": "Incoming alarms",
   "/members": "Members",
   "/emergency-log": "Emergency Log",
   "/settings": "Settings",
@@ -47,9 +49,7 @@ export function AppHeader() {
           <span className="hidden text-sm text-[#566784] sm:inline">
             {user?.name ?? "Member"}
           </span>
-          <span className="grid h-9 w-9 place-items-center rounded-full border border-[#DCE6F2] bg-[#EDF3FB]">
-            <Bell className="h-4 w-4 text-[#2F80ED]" />
-          </span>
+          <AlertBellButton />
         </div>
       </div>
       <nav className="flex gap-2 overflow-x-auto border-t border-[#DCE6F2] px-4 py-2 md:hidden">

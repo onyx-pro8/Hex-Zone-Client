@@ -254,26 +254,41 @@ export async function searchPrivateMessageRecipients(
   query: string,
   position?: MessageFeaturePosition,
 ) {
-  const q = query.trim();
-  if (q.length < 2) {
-    return {
-      data: { zone_ids: [] as string[], members: [] as PrivateSearchMember[] },
-      error: null as string | null,
-      loading: false,
-    };
-  }
   return requestMessageFeature<PrivateSearchMembersResponse>(
     "GET",
     "/message-feature/members/search",
     {
       params: {
-        q,
+        q: query.trim(),
         ...(position
           ? { latitude: position.latitude, longitude: position.longitude }
           : {}),
       },
     },
   );
+}
+
+export async function markAlarmRead(messageEventId: string) {
+  return requestMessageFeature<{
+    message_event_id: string;
+    owner_id: number;
+    read_by_owner_ids: number[];
+    is_read_by_viewer: boolean;
+    created_at: string;
+  }>(
+    "POST",
+    `/message-feature/messages/${encodeURIComponent(messageEventId)}/alarm-read`,
+  );
+}
+
+export async function markAlarmsRead(messageIds: string[]) {
+  return requestMessageFeature<{
+    marked_message_ids: string[];
+    skipped_message_ids: string[];
+    marked_count: number;
+  }>("POST", "/message-feature/alarms/mark-read", {
+    data: { message_ids: messageIds },
+  });
 }
 
 export async function listWellnessAcknowledgements(messageEventId: string) {

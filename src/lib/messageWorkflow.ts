@@ -37,7 +37,7 @@ export const MESSAGE_WORKFLOW: Record<
   PANIC: {
     priority: "MAX",
     description:
-      "Emergency distress alert. Broadcast to members physically inside the same zone geometry as your location.",
+      "Emergency distress alert. Broadcast to the zone owner and account members reachable from your location.",
     delivery: "Instant push + WebSocket to matched zone members.",
     requiresAdmin: false,
     requiresRecipient: false,
@@ -59,8 +59,8 @@ export const MESSAGE_WORKFLOW: Record<
   PRIVATE: {
     priority: "MEDIUM",
     description:
-      "Direct message to one account member while you are inside a zone. Search by name or email.",
-    delivery: "WebSocket when online; push when offline.",
+      "Same location-based send flow as PANIC or PA, but you search and pick exactly one member to receive it.",
+    delivery: "Geo propagation to the selected recipient only (WebSocket + push).",
     requiresAdmin: false,
     requiresRecipient: true,
     requiresLocation: true,
@@ -69,7 +69,8 @@ export const MESSAGE_WORKFLOW: Record<
   },
   PA: {
     priority: "MEDIUM",
-    description: "Public announcement broadcast to all members in your zone(s).",
+    description:
+      "Public announcement broadcast to the zone owner and account members reachable from your location.",
     delivery: "WebSocket + optional push.",
     requiresAdmin: false,
     requiresRecipient: false,

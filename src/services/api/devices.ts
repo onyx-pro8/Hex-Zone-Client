@@ -23,6 +23,10 @@ export type DeviceRecord = {
   status?: boolean;
   is_online?: boolean;
   owner_id?: number | string;
+  h3_cell_id?: string;
+  last_seen?: string;
+  created_at?: string;
+  updated_at?: string;
   owner?: {
     id: number | string;
     email?: string;
@@ -108,5 +112,12 @@ export async function sendDeviceHeartbeat(deviceId: number | string) {
   return request<{ success?: boolean }>({
     method: "POST",
     url: `/devices/${deviceId}/heartbeat`,
+  });
+}
+
+export async function deleteDevice(deviceId: number | string) {
+  return request<{ success?: boolean }>({
+    method: "DELETE",
+    url: `/devices/${deviceId}`,
   });
 }

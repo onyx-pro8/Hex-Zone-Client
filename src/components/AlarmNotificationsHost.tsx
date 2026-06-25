@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, BellRing, X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useAlarmNotifications } from "../hooks/useAlarmNotifications";
 import {
@@ -21,6 +22,7 @@ const PERMISSION_BANNER_DISMISSED_KEY = "hexzone-alarm-permission-banner-dismiss
  */
 export function AlarmNotificationsHost() {
   const { token } = useAuth();
+  const navigate = useNavigate();
   const { activeAlarms, dismissAlarm } = useAlarmNotifications(token);
   const [permission, setPermission] = useState<ReturnType<typeof notificationPermission>>(() =>
     notificationPermission(),
@@ -100,13 +102,19 @@ export function AlarmNotificationsHost() {
         return (
           <div
             key={alarm.id}
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate("/alerts")}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") navigate("/alerts");
+            }}
             className={[
-              "pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-2xl border px-4 py-3 text-sm shadow-2xl backdrop-blur",
+              "pointer-events-auto flex w-full max-w-md cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 text-sm shadow-2xl backdrop-blur",
               isNsPanic
                 ? "border-[#B5179E]/50 bg-[#F6E1F2] text-[#6A1060] ring-2 ring-[#B5179E]/40"
                 : "border-[#E23B4E]/40 bg-[#FCE7EA] text-[#7A1622]",
             ].join(" ")}
-            role="alert"
+            aria-live="assertive"
           >
             <AlertTriangle
               className={[
@@ -137,7 +145,10 @@ export function AlarmNotificationsHost() {
                   ? "text-[#B5179E] hover:text-[#6A1060]"
                   : "text-[#E23B4E] hover:text-[#7A1622]"
               }
-              onClick={() => dismissAlarm(alarm.id)}
+              onClick={(e) => {
+                e.stopPropagation();
+                dismissAlarm(alarm.id);
+              }}
             >
               <X className="h-4 w-4" />
             </button>

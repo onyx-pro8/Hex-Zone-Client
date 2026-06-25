@@ -7,13 +7,9 @@ import {
   type ReactNode,
 } from "react";
 import {
-  createDevice,
   getProfile,
-  getDevices,
   getRememberMe,
   getRemoteAppSettings,
-  request,
-  sendDeviceHeartbeat,
   getStoredToken,
   login as authLogin,
   logout as authLogout,
@@ -23,6 +19,11 @@ import {
   type RegisterPayload,
 } from "../../services/api";
 import { updateAppSettings, type AppSettings } from "../../lib/appSettings";
+import {
+  describeDeviceSyncFailure,
+  setCurrentDeviceOffline,
+  syncCurrentDevice,
+} from "../../lib/deviceSync";
 
 type LegacyRegisterPayload = {
   email: string;
@@ -53,131 +54,6 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-const DEVICE_HID_KEY = "zoneweaver_device_hid";
-const DEVICE_LIMIT_ERROR_BY_ACCOUNT: Record<AccountType, string> = {
-  PRIVATE: "Private accounts can only register 1 device.",
-  EXCLUSIVE: "Exclusive accounts can only sign in from their registered device.",
-  PRIVATE_PLUS: "Private+ accounts can register up to 10 devices.",
-  ENHANCED: "Enhanced accounts can only sign in from one registered device.",
-  ENHANCED_PLUS: "",
-};
-
-function getAccountDeviceLimit(accountType: AccountType): number {
-  if (accountType === "PRIVATE") return 1;
-  if (accountType === "PRIVATE_PLUS") return 10;
-  if (accountType === "EXCLUSIVE" || accountType === "ENHANCED") return 1;
-  return Number.POSITIVE_INFINITY;
-}
-
-function normalizeAccountType(
-  primary?: AccountType,
-  legacy?: string | null,
-): AccountType {
-  if (primary) return primary;
-  const normalizedLegacy = String(legacy ?? "").toUpperCase();
-  if (normalizedLegacy === "PRIVATE_PLUS") return "PRIVATE_PLUS";
-  if (normalizedLegacy === "EXCLUSIVE") return "EXCLUSIVE";
-  if (normalizedLegacy === "ENHANCED") return "ENHANCED";
-  if (normalizedLegacy === "ENHANCED_PLUS") return "ENHANCED_PLUS";
-  return "PRIVATE";
-}
-
-function randomHidSuffix(len = 8): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let out = "";
-  for (let i = 0; i < len; i += 1) {
-    out += chars[Math.floor(Math.random() * chars.length)] ?? "X";
-  }
-  return out;
-}
-
-function getOrCreateDeviceHid(): string {
-  const existing = localStorage.getItem(DEVICE_HID_KEY);
-  if (existing) return existing;
-  const next = `WEB-${randomHidSuffix()}`;
-  localStorage.setItem(DEVICE_HID_KEY, next);
-  return next;
-}
-
-async function upsertCurrentDevice(user: AuthUser | null) {
-  if (!user) return;
-  const hid = getOrCreateDeviceHid();
-  const displayName = user.name?.trim() || user.email?.trim() || "Web Device";
-  const normalizedAccountType = normalizeAccountType(
-    user.accountType,
-    user.account_type,
-  );
-  const currentUserId = String(user.id ?? user.accountOwnerId ?? "").trim();
-  const payload = {
-    hid,
-    name: `${displayName} (Web)`,
-    enable_notification: true,
-    propagate_enabled: true,
-  };
-
-  const devices = await getDevices();
-  const list = devices.data ?? [];
-  const existing = list.find((d) => String(d.hid).toUpperCase() === hid);
-
-  if (existing?.id != null) {
-    await request({
-      method: "PATCH",
-      url: `/devices/${existing.id}`,
-      data: { is_online: true },
-    });
-    await sendDeviceHeartbeat(existing.id);
-    return;
-  }
-
-  if (currentUserId) {
-    const ownerDeviceCount = list.filter(
-      (d) => String((d as { owner_id?: unknown }).owner_id ?? "") === currentUserId,
-    ).length;
-    const deviceLimit = getAccountDeviceLimit(normalizedAccountType);
-    if (ownerDeviceCount >= deviceLimit) {
-      throw new Error(
-        DEVICE_LIMIT_ERROR_BY_ACCOUNT[normalizedAccountType] ||
-          "This account has reached its device limit.",
-      );
-    }
-  }
-
-  const created = await createDevice(payload);
-  if (
-    created.error &&
-    (/max devices|device limit|403|forbidden/i.test(created.error) ||
-      /limit/i.test(created.error))
-  ) {
-    throw new Error(
-      created.error.includes("max devices")
-        ? created.error
-        : DEVICE_LIMIT_ERROR_BY_ACCOUNT[normalizedAccountType] ||
-            "This account has reached its device limit.",
-    );
-  }
-  if (created.data?.id != null) {
-    await request({
-      method: "PATCH",
-      url: `/devices/${created.data.id}`,
-      data: { is_online: true },
-    });
-    await sendDeviceHeartbeat(created.data.id);
-  }
-}
-
-async function setCurrentDeviceOffline() {
-  const hid = localStorage.getItem(DEVICE_HID_KEY);
-  if (!hid) return;
-  const devices = await getDevices();
-  const list = devices.data ?? [];
-  const existing = list.find((d) => String(d.hid).toUpperCase() === hid);
-  if (!existing?.id) return;
-  await request({
-    method: "PATCH",
-    url: `/devices/${existing.id}`,
-    data: { is_online: false },
-  });
-}
 
 function parseJwtExp(token: string): number | null {
   try {
@@ -377,17 +253,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!token || !user) return;
-    void upsertCurrentDevice(user).catch((err: unknown) => {
-      if (
-        err instanceof Error &&
-        Object.values(DEVICE_LIMIT_ERROR_BY_ACCOUNT)
-          .filter(Boolean)
-          .includes(err.message)
-      ) {
+    void syncCurrentDevice(user).then((result) => {
+      if (result.status === "account-in-use" || result.status === "error") {
         void performLogout(false);
-        return;
       }
-      // Device sync should never block auth UX for non-policy failures.
     });
   }, [token, user]);
 
@@ -418,13 +287,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     if (result.data.user?.id) {
       const normalized = normalizeUser(result.data.user);
-      await upsertCurrentDevice(normalized);
+      const sync = await syncCurrentDevice(normalized);
+      if (sync.status === "account-in-use" || sync.status === "error") {
+        throw new Error(describeDeviceSyncFailure(sync));
+      }
       setUser(normalized);
     } else {
       const me = await fetchCurrentUser();
       if (!me.data) throw new Error(me.error ?? "Could not load profile");
       const normalized = normalizeUser(me.data);
-      await upsertCurrentDevice(normalized);
+      const sync = await syncCurrentDevice(normalized);
+      if (sync.status === "account-in-use" || sync.status === "error") {
+        throw new Error(describeDeviceSyncFailure(sync));
+      }
       setUser(normalized);
     }
     setToken(result.data.token);

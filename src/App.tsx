@@ -16,6 +16,7 @@ import Settings from "./pages/Settings";
 import Dashboard from "./pages/Dashboard";
 import Members from "./pages/Members";
 import EmergencyLog from "./pages/EmergencyLog";
+import Alerts from "./pages/Alerts";
 import ApiDocs from "./pages/ApiDocs";
 import QrInvite from "./pages/QrInvite";
 import JoinWithQr from "./pages/JoinWithQr";
@@ -53,6 +54,7 @@ function ProtectedRoute({ children }: { children: JSX.Element }) {
 const MEMBER_SHELL_PATHS = new Set([
   "/dashboard",
   "/messages",
+  "/alerts",
   "/members",
   "/emergency-log",
   "/settings",
@@ -104,6 +106,14 @@ function RoutesView() {
           element={
             <ProtectedRoute>
               <Messages />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/alerts"
+          element={
+            <ProtectedRoute>
+              <Alerts />
             </ProtectedRoute>
           }
         />

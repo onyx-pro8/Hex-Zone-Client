@@ -74,9 +74,14 @@ export function useAlarmNotifications(token: string | null) {
     setActiveAlarms((prev) => prev.filter((alarm) => alarm.id !== id));
   };
 
+  const dismissAllAlarms = () => {
+    setActiveAlarms([]);
+  };
+
   return {
     activeAlarms,
     dismissAlarm,
+    dismissAllAlarms,
     notificationPermission: notificationPermission(),
   };
 }

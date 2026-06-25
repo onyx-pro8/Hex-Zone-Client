@@ -16,7 +16,6 @@ import { useMessageFeed } from "../hooks/useMessageFeed";
 import { sendMessage, type MessageVisibility } from "../services/api/messages";
 import {
   propagateMessageFeatureMessage,
-  listInZoneMembers,
   searchPrivateMessageRecipients,
   type PrivateSearchMember,
   type MessageFeatureType,
@@ -224,11 +223,12 @@ export default function Messages() {
     setPrivateSearchResults([]);
   }, [composeType]);
 
-  /** PRIVATE: verify sender is inside a zone before allowing recipient search. */
+  /** PRIVATE: zone gate + recipient search (same position workflow as PANIC). */
   useEffect(() => {
     if (!isPrivateMessageType(composeType)) {
       setPrivateSearchError(null);
       setSenderZoneIds([]);
+      setPrivateSearchResults([]);
       return;
     }
 
@@ -236,61 +236,34 @@ export default function Messages() {
     setSenderZoneCheckLoading(true);
     setPrivateSearchError(null);
 
-    const load = async () => {
-      const resolved = await resolveMessagePropagationPosition(
-        user?.mapCenter ?? user?.map_center ?? null,
-      );
-      const position = "error" in resolved ? undefined : resolved.position;
-
-      const result = await listInZoneMembers(position);
-      if (!active) return;
-      setSenderZoneCheckLoading(false);
-      if (result.error) {
-        setPrivateSearchError(result.error);
-        setSenderZoneIds([]);
-        return;
-      }
-      setSenderZoneIds(result.data?.zone_ids ?? []);
-    };
-
-    void load();
-    return () => {
-      active = false;
-    };
-  }, [composeType, user?.mapCenter, user?.map_center]);
-
-  /** PRIVATE recipient search (debounced, single input). */
-  useEffect(() => {
-    if (!isPrivateMessageType(composeType)) return;
-    const q = privateSearchQuery.trim();
-    if (q.length < 2) {
-      setPrivateSearchResults([]);
-      setPrivateSearchLoading(false);
-      return;
-    }
-
-    let active = true;
-    setPrivateSearchLoading(true);
-    setPrivateSearchError(null);
-
+    const debounceMs = privateSearchQuery.trim().length >= 2 ? 300 : 0;
     const timer = window.setTimeout(() => {
       void (async () => {
         const resolved = await resolveMessagePropagationPosition(
           user?.mapCenter ?? user?.map_center ?? null,
         );
         const position = "error" in resolved ? undefined : resolved.position;
-        const result = await searchPrivateMessageRecipients(q, position);
+        const result = await searchPrivateMessageRecipients(
+          privateSearchQuery,
+          position,
+        );
         if (!active) return;
+        setSenderZoneCheckLoading(false);
         setPrivateSearchLoading(false);
         if (result.error) {
           setPrivateSearchError(result.error);
           setPrivateSearchResults([]);
+          setSenderZoneIds([]);
           return;
         }
         setSenderZoneIds(result.data?.zone_ids ?? []);
         setPrivateSearchResults(result.data?.members ?? []);
       })();
-    }, 300);
+    }, debounceMs);
+
+    if (privateSearchQuery.trim().length >= 2) {
+      setPrivateSearchLoading(true);
+    }
 
     return () => {
       active = false;
@@ -301,6 +274,7 @@ export default function Messages() {
   /** Defaults (all zones / all scope / category / type) intentionally include CHAT: meta is Access + private from MESSAGE_TYPE_META. */
   const filteredMessages = useMemo(() => {
     return messages.filter((message) => {
+      if (message.category === "Alarm") return false;
       if (zoneFilter !== "all" && message.zone_id !== zoneFilter) return false;
       if (scopeFilter !== "all" && message.scope !== scopeFilter) {
         return false;
@@ -398,6 +372,12 @@ export default function Messages() {
   const sendQuickAlert = useCallback(
     async (type: QuickMessageType) => {
       if (quickBusy) return;
+      if (isPrivateMessageType(type as MessageType)) {
+        setComposeType(type as MessageType);
+        setComposeText((settings.quickMessages[type] ?? "").trim());
+        setQuickStatus("");
+        return;
+      }
       if (!confirmEmergencySend(type as MessageType)) return;
       const presetText = (settings.quickMessages[type] ?? "").trim();
       if (!presetText) {
@@ -969,8 +949,9 @@ export default function Messages() {
             {!isAccessGuestChannelType(composeType) && isPrivateMessageType(composeType) && (
               <>
                 <p className="text-xs text-[#8694AC]">
-                  You must be inside a zone to send a private message. Search for a
-                  member by name or email.
+                  Same send flow as PANIC or PA (location propagation), but only
+                  the member you select below receives this message. Search by
+                  name or email.
                 </p>
                 <input
                   type="search"
@@ -992,6 +973,12 @@ export default function Messages() {
                   <p className="text-xs text-[#8694AC]">
                     You are not inside any zone. Move into a zone or update your location
                     before sending a private message.
+                  </p>
+                ) : null}
+                {senderZoneIds.length > 0 ? (
+                  <p className="text-xs text-[#8694AC]">
+                    Search admin and members reachable in this zone (same as PANIC). You
+                    cannot select yourself.
                   </p>
                 ) : null}
                 {privateSearchResults.length > 0 ? (

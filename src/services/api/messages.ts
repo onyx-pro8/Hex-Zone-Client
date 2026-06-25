@@ -51,6 +51,9 @@ export type Message = {
   guest_id?: string | null;
   /** When `type === "PERMISSION"`, optional visibility hint from the backend. */
   permission_visibility?: string | null;
+  /** Alarm read receipts from the server (UUID alarm rows only). */
+  read_by_owner_ids?: number[] | null;
+  is_read_by_viewer?: boolean | null;
 };
 
 export type ListMessagesParams = {
@@ -438,6 +441,14 @@ export function normalizeMessage(raw: unknown): Message | null {
         .map((v) => Number(v))
         .filter((id) => Number.isFinite(id) && id > 0)
     : null;
+  const rawReadBy = row.read_by_owner_ids;
+  const read_by_owner_ids = Array.isArray(rawReadBy)
+    ? rawReadBy
+        .map((v) => Number(v))
+        .filter((id) => Number.isFinite(id) && id > 0)
+    : null;
+  const is_read_by_viewer =
+    typeof row.is_read_by_viewer === "boolean" ? row.is_read_by_viewer : undefined;
   return {
     id: String(id),
     zone_id: zoneId,
@@ -463,6 +474,8 @@ export function normalizeMessage(raw: unknown): Message | null {
     ...(permissionVisibility !== undefined
       ? { permission_visibility: permissionVisibility }
       : {}),
+    ...(Array.isArray(rawReadBy) ? { read_by_owner_ids: read_by_owner_ids ?? [] } : {}),
+    ...(is_read_by_viewer !== undefined ? { is_read_by_viewer } : {}),
   };
 }
 
