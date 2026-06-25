@@ -1,7 +1,7 @@
 import axios, { type AxiosInstance, type AxiosRequestConfig } from "axios";
 
 export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "https://zone-weaver-server-7ksef.ondigitalocean.app/";
+  import.meta.env.VITE_API_BASE_URL || "https://safe-zone-patrol-server.onrender.com";
 
 const TOKEN_KEY = "zoneweaver_token";
 const REMEMBER_KEY = "zoneweaver_remember";

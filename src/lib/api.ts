@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const baseURL =
-  import.meta.env.VITE_API_BASE_URL || "https://zone-weaver-server-7ksef.ondigitalocean.app/";
+  import.meta.env.VITE_API_BASE_URL || "https://safe-zone-patrol-server.onrender.com";
 
 const api = axios.create({
   baseURL,
