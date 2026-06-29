@@ -112,8 +112,8 @@ export default function Settings() {
           <SettingsIcon className="h-4 w-4" /> Hardware configuration
         </span>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#566784]">
-          Configure your broadcast identity, address, shared-notification
-          integration, and the pre-programmed quick-alert messages.
+          Configure your broadcast identity, address, smart-home integration,
+          and the pre-programmed quick-alert messages.
         </p>
         {loading ? (
           <p className="mt-3 inline-flex items-center gap-2 text-sm text-[#8694AC]">
@@ -201,11 +201,13 @@ export default function Settings() {
 
         <div className="rounded-2xl border border-[#DCE6F2] bg-white p-5 shadow-sm">
           <div className="mb-1 flex items-center gap-2 text-lg font-bold text-[#0F2C5C]">
-            <Megaphone className="h-5 w-5 text-[#2F80ED]" /> Shared-Notification Settings
+            <Megaphone className="h-5 w-5 text-[#2F80ED]" /> Smart-home integration
           </div>
           <p className="mb-4 text-sm text-[#566784]">
-            Settings used to communicate with sharednotification.com. These are
-            managed automatically and cannot be edited here.
+            Configure how your smart-home device receives zone alerts from Hex
+            Zone. Use the API key and zone id on the device. Set a webhook URL
+            for push delivery, or leave it blank and rely on periodical polling
+            instead.
           </p>
           <div className="space-y-3">
             <Field
@@ -215,11 +217,14 @@ export default function Settings() {
               placeholder="123456789-ABCD01"
               disabled
             />
+            <p className="-mt-1 text-xs text-[#8694AC]">
+              Smart-home device id registered in Device Manager.
+            </p>
             <Field
-              label="Network Identification"
+              label="Network Identification (Zone ID)"
               value={draft.sharedNotification.networkId}
               onChange={() => {}}
-              placeholder="Fred Young Drive"
+              placeholder="ZONE-ABC123"
               disabled
             />
             <Field
@@ -229,20 +234,57 @@ export default function Settings() {
               placeholder="66c5b8a0-e30c-…"
               disabled
             />
+            <p className="-mt-1 text-xs text-[#8694AC]">
+              Authenticates the smart-home device when talking to the server.
+            </p>
             <Field
               label="Webhook"
               value={draft.sharedNotification.webhook}
-              onChange={() => {}}
-              placeholder="/alertname"
-              disabled
+              onChange={(v) =>
+                update({
+                  sharedNotification: { ...draft.sharedNotification, webhook: v },
+                })
+              }
+              placeholder="https://your-device.local/alert"
             />
+            <p className="-mt-1 text-xs text-[#8694AC]">
+              Optional callback URL on the device to accept pushed notifications.
+            </p>
             <Field
               label="Periodical Check (sec)"
               value={draft.sharedNotification.periodicalCheckSec}
-              onChange={() => {}}
+              onChange={(v) =>
+                update({
+                  sharedNotification: {
+                    ...draft.sharedNotification,
+                    periodicalCheckSec: v,
+                  },
+                })
+              }
               placeholder="86400"
-              disabled
             />
+            <p className="-mt-1 text-xs text-[#8694AC]">
+              How often the device polls the server when no webhook is set.
+            </p>
+          </div>
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => void onSave()}
+              disabled={loading || saving}
+              className="inline-flex items-center gap-2 rounded-lg bg-[#2F80ED] px-5 py-2 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" /> Saving…
+                </>
+              ) : (
+                "Update smart-home settings"
+              )}
+            </button>
+            {saved ? (
+              <span className="text-sm text-[#2FA24A]">Saved.</span>
+            ) : null}
           </div>
         </div>
       </div>

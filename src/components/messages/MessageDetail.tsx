@@ -7,7 +7,7 @@ import {
   isPermissionDirectVisibility,
   isPermissionZonePendingBroadcastVisibility,
 } from "../../lib/permissionVisibility";
-import { getMessageWorkflow, priorityBadgeClass } from "../../lib/messageWorkflow";
+import { getMessageWorkflow, isUnknownMessageType, priorityBadgeClass } from "../../lib/messageWorkflow";
 import { WellnessAckPanel } from "./WellnessAckPanel";
 import { PrivateThreadModal } from "./PrivateThreadModal";
 
@@ -45,7 +45,7 @@ export function MessageDetail({
             if (!workflow) return null;
             return (
               <span
-                className={`inline-flex rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${priorityBadgeClass(workflow.priority)}`}
+                className={`inline-flex rounded-full px-2 py-1 font-bold uppercase tracking-wide ${priorityBadgeClass(workflow.priority)}`}
               >
                 Priority {workflow.priority}
               </span>
@@ -55,9 +55,20 @@ export function MessageDetail({
             <span className="rounded-full bg-[#EDF3FB] px-2 py-1 text-[#566784]">
               Zone {message.zone_id}
             </span>
-            <span className="rounded-full bg-[#EDF3FB] px-2 py-1 font-semibold text-[#2F80ED]">
+            <span
+              className={`rounded-full px-2 py-1 font-semibold ${
+                isUnknownMessageType(message.type)
+                  ? "bg-[#C62828] text-sm font-extrabold text-white"
+                  : "bg-[#EDF3FB] text-[#2F80ED]"
+              }`}
+            >
               {toMessageTypeLabel(message.type)}
             </span>
+            {message.topic_label ? (
+              <span className="rounded-full bg-[#FBEFD8] px-2 py-1 font-semibold text-[#E0992A]">
+                {message.topic_label}
+              </span>
+            ) : null}
             {message.type === "PERMISSION" &&
             isPermissionZonePendingBroadcastVisibility(message.permission_visibility) ? (
               <span
@@ -99,13 +110,36 @@ export function MessageDetail({
             ) : null}
           </div>
           <div>
-            <p className="text-base font-extrabold text-[#0F2C5C]">
-              {readMessageBroadcastName(message) ??
+            <p
+              className={`font-extrabold ${
+                isUnknownMessageType(message.type)
+                  ? "text-xl text-[#B71C1C]"
+                  : message.subject
+                    ? "text-lg text-[#0F2C5C]"
+                    : "text-base text-[#0F2C5C]"
+              }`}
+            >
+              {message.subject ||
+                readMessageBroadcastName(message) ||
                 `Member ${formatMessageSenderLabel(message)}`}
             </p>
-            <p className="mt-1 text-sm leading-relaxed text-[#566784]">
-              {message.message}
-            </p>
+            {message.subject ? (
+              <p className="mt-1 text-sm font-semibold text-[#566784]">
+                {readMessageBroadcastName(message) ??
+                  `Member ${formatMessageSenderLabel(message)}`}
+              </p>
+            ) : null}
+            {message.message && message.message !== message.subject ? (
+              <p
+                className={`mt-1 leading-relaxed ${
+                  isUnknownMessageType(message.type)
+                    ? "text-base font-semibold text-[#7A1622]"
+                    : "text-sm text-[#566784]"
+                }`}
+              >
+                {message.message}
+              </p>
+            ) : null}
           </div>
           {message.delivered_owner_ids && message.delivered_owner_ids.length > 0 ? (
             <div className="rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2">

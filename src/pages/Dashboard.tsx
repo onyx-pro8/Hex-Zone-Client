@@ -19,6 +19,7 @@ import HexMapperMap, {
 import { AddressAutocompleteInput } from "../components/AddressAutocompleteInput";
 import { GuestRequestsDashboardSection } from "../components/dashboard/GuestRequestsDashboardSection";
 import { GuestAccessQrSection } from "../components/dashboard/GuestAccessQrSection";
+import { RecentServicesDashboardSection } from "../components/dashboard/RecentServicesDashboardSection";
 import { useAuth } from "../hooks/useAuth";
 import {
   useZones,
@@ -3454,6 +3455,10 @@ export default function Dashboard() {
         </div>
         <span className="text-sm text-[#566784]">{userLabel}</span>
       </header>
+
+      {zoneId.trim() !== "" ? (
+        <RecentServicesDashboardSection zoneId={zoneId.trim()} />
+      ) : null}
 
       {user?.role === "administrator" && zoneId.trim() !== "" ? (
         <GuestRequestsDashboardSection zoneId={zoneId.trim()} />

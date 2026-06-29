@@ -25,6 +25,11 @@ import {
 } from "../lib/deviceManagerStorage";
 import { useAuth } from "../hooks/useAuth";
 import { AddressAutocompleteInput } from "../components/AddressAutocompleteInput";
+import {
+  deriveDeviceOnline,
+  removeDevice,
+  signOutDevice,
+} from "../lib/deviceSync";
 import { AlertTriangle, CircleDot, Plus, Smartphone, X } from "lucide-react";
 
 const ACCENT = "#2F80ED";
@@ -78,10 +83,8 @@ function deriveUiStatus(device: Device): UiStatus {
   if (raw === "error") return "error";
   if (raw === "offline") return "offline";
   if (raw === "online") return "online";
-  if (device.is_online === false) return "offline";
-  if (device.is_online === true) return "online";
-  if (device.active === false) return "offline";
-  return "online";
+  if (deriveDeviceOnline(device)) return "online";
+  return "offline";
 }
 
 function formatLastSeen(device: Device): string {
@@ -258,6 +261,7 @@ export default function DeviceManager() {
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [heartbeatBusy, setHeartbeatBusy] = useState(false);
+  const [deviceActionBusy, setDeviceActionBusy] = useState(false);
   const [form, setForm] = useState<DeviceFormState>({
     name: "",
     address: "",
@@ -531,6 +535,61 @@ export default function DeviceManager() {
     }
   };
 
+  const onSignOutDevice = async () => {
+    if (!drawerDevice || isLocalOnlyDevice(drawerDevice)) return;
+    setDeviceActionBusy(true);
+    setSettingsError(null);
+    try {
+      await signOutDevice(drawerDevice.id);
+      await loadDevices();
+      const fresh = await fetchDevice(drawerDevice.id);
+      setDrawerDevice((d) =>
+        d && d.id === drawerDevice.id ? { ...d, ...fresh } : d,
+      );
+    } catch (e: unknown) {
+      const msg =
+        e && typeof e === "object" && "response" in e
+          ? String(
+              (e as { response?: { data?: { detail?: string } } }).response
+                ?.data?.detail,
+            )
+          : "Could not sign out device.";
+      setSettingsError(msg || "Could not sign out device.");
+    } finally {
+      setDeviceActionBusy(false);
+    }
+  };
+
+  const onRemoveDevice = async () => {
+    if (!drawerDevice || isLocalOnlyDevice(drawerDevice)) return;
+    const label = drawerDevice.name || drawerDevice.hid;
+    if (
+      !window.confirm(
+        `Remove "${label}" from this account? The user can sign in on that device again later.`,
+      )
+    ) {
+      return;
+    }
+    setDeviceActionBusy(true);
+    setSettingsError(null);
+    try {
+      await removeDevice(drawerDevice.id);
+      closeDrawer();
+      await loadDevices();
+    } catch (e: unknown) {
+      const msg =
+        e && typeof e === "object" && "response" in e
+          ? String(
+              (e as { response?: { data?: { detail?: string } } }).response
+                ?.data?.detail,
+            )
+          : "Could not remove device.";
+      setSettingsError(msg || "Could not remove device.");
+    } finally {
+      setDeviceActionBusy(false);
+    }
+  };
+
   const openAddModal = () => {
     setAddError(null);
     setModalOpen(true);
@@ -775,6 +834,10 @@ export default function DeviceManager() {
   const drawerUiStatus: UiStatus | null = drawerDevice
     ? deriveUiStatus(drawerDevice)
     : null;
+  const drawerIsThisBrowser =
+    drawerDevice != null &&
+    currentWebHid.length > 0 &&
+    String(drawerDevice.hid).toUpperCase() === currentWebHid;
 
   const accountLabel =
     user?.accountType === "PRIVATE_PLUS" ||
@@ -1499,6 +1562,28 @@ export default function DeviceManager() {
                   {heartbeatBusy ? "Sending heartbeat…" : "Send heartbeat"}
                 </button>
               )}
+              {!isLocalOnlyDevice(drawerDevice) && !drawerIsThisBrowser ? (
+                <div className="mt-3 flex gap-2">
+                  {drawerUiStatus === "online" ? (
+                    <button
+                      type="button"
+                      disabled={deviceActionBusy || settingsLoading}
+                      onClick={() => void onSignOutDevice()}
+                      className="flex-1 rounded-md border border-[#E4ECF7] py-2.5 text-sm font-semibold text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {deviceActionBusy ? "Working…" : "Sign out device"}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    disabled={deviceActionBusy || settingsLoading}
+                    onClick={() => void onRemoveDevice()}
+                    className="flex-1 rounded-md border border-[#E23B4E]/30 py-2.5 text-sm font-semibold text-[#E23B4E] transition hover:border-[#E23B4E]/60 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {deviceActionBusy ? "Working…" : "Remove device"}
+                  </button>
+                </div>
+              ) : null}
               <button
                 type="button"
                 disabled={settingsSaving || settingsLoading}

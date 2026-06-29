@@ -1,6 +1,7 @@
 import { Lock, MessageCircle } from "lucide-react";
 import { formatMessageSenderLabel, type Message } from "../../services/api/messages";
 import { toMessageTypeLabel } from "../../lib/messageTypes";
+import { isUnknownMessageType } from "../../lib/messageWorkflow";
 import {
   isPermissionDirectVisibility,
   isPermissionZonePendingBroadcastVisibility,
@@ -40,6 +41,7 @@ export function MessageList({
     <ul className="space-y-3">
       {messages.map((message) => {
         const active = activeId === message.id;
+        const isUnknown = isUnknownMessageType(message.type);
         const zoneBroadcast =
           message.type === "PERMISSION" &&
           isPermissionZonePendingBroadcastVisibility(message.permission_visibility);
@@ -52,10 +54,14 @@ export function MessageList({
               onClick={() => onSelect(message.id)}
               className={`w-full rounded-xl border px-4 py-3 text-left transition ${
                 active
-                  ? "border-[#2F80ED] bg-[#EDF3FB]"
-                  : zoneBroadcast
-                    ? "border-[#E0992A]/50 bg-[#FBEFD8]/60 hover:border-[#E0992A]"
-                    : "border-[#DCE6F2] bg-white hover:border-[#C2D2E6]"
+                  ? isUnknown
+                    ? "border-[#B71C1C] bg-[#FFEBEE]"
+                    : "border-[#2F80ED] bg-[#EDF3FB]"
+                  : isUnknown
+                    ? "border-[#B71C1C] bg-[#FFEBEE] hover:brightness-95"
+                    : zoneBroadcast
+                      ? "border-[#E0992A]/50 bg-[#FBEFD8]/60 hover:border-[#E0992A]"
+                      : "border-[#DCE6F2] bg-white hover:border-[#C2D2E6]"
               }`}
             >
               <div className="flex items-start gap-3">
@@ -68,10 +74,19 @@ export function MessageList({
                       Zone {message.zone_id}
                     </span>
                     <span
-                      className={`rounded-full px-2 py-0.5 font-semibold ${toneForCategory(message.category)}`}
+                      className={`rounded-full px-2 py-0.5 font-semibold ${
+                        isUnknown
+                          ? "bg-[#C62828] text-sm font-extrabold text-white"
+                          : toneForCategory(message.category)
+                      }`}
                     >
                       {toMessageTypeLabel(message.type)}
                     </span>
+                    {message.topic_label ? (
+                      <span className="rounded-full bg-[#FBEFD8] px-2 py-0.5 font-semibold text-[#E0992A]">
+                        {message.topic_label}
+                      </span>
+                    ) : null}
                     {zoneBroadcast ? (
                       <span
                         className="rounded-full bg-[#FBEFD8] px-2 py-0.5 font-medium text-[#E0992A]"
@@ -104,14 +119,38 @@ export function MessageList({
                       {new Date(message.created_at).toLocaleString()}
                     </span>
                   </div>
-                  <p className="mt-2 text-sm font-bold text-[#0F2C5C]">
-                    {getBroadcastName
-                      ? getBroadcastName(message)
-                      : `from ${formatMessageSenderLabel(message)}`}
+                  <p
+                    className={`mt-2 font-bold ${
+                      isUnknown
+                        ? "text-lg text-[#B71C1C]"
+                        : message.subject
+                          ? "text-base text-[#0F2C5C]"
+                          : "text-sm text-[#0F2C5C]"
+                    }`}
+                  >
+                    {message.subject ||
+                      (getBroadcastName
+                        ? getBroadcastName(message)
+                        : `from ${formatMessageSenderLabel(message)}`)}
                   </p>
-                  <p className="mt-1 line-clamp-2 text-sm text-[#566784]">
-                    {message.message}
-                  </p>
+                  {message.subject ? (
+                    <p className="mt-1 text-xs font-semibold text-[#566784]">
+                      {getBroadcastName
+                        ? getBroadcastName(message)
+                        : `from ${formatMessageSenderLabel(message)}`}
+                    </p>
+                  ) : null}
+                  {message.message && message.message !== message.subject ? (
+                    <p
+                      className={`mt-1 line-clamp-3 ${
+                        isUnknown
+                          ? "text-base font-semibold text-[#7A1622]"
+                          : "text-sm text-[#566784]"
+                      }`}
+                    >
+                      {message.message}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             </button>

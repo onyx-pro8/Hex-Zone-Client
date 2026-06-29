@@ -9,6 +9,10 @@ import {
   type MessageType,
 } from "../../lib/messageTypes";
 import {
+  extractServicePaFields,
+  formatTopicPath,
+} from "../../lib/servicePaTopics";
+import {
   isPermissionZonePendingBroadcastVisibility,
   normalizePermissionVisibilityToken,
 } from "../../lib/permissionVisibility";
@@ -54,6 +58,14 @@ export type Message = {
   /** Alarm read receipts from the server (UUID alarm rows only). */
   read_by_owner_ids?: number[] | null;
   is_read_by_viewer?: boolean | null;
+  /** PA / SERVICE listing headline. */
+  subject?: string | null;
+  /** PA / SERVICE Kijiji-style category id. */
+  topic?: string | null;
+  /** SERVICE Products subcategory id. */
+  subtopic?: string | null;
+  /** Human-readable topic path for display. */
+  topic_label?: string | null;
 };
 
 export type ListMessagesParams = {
@@ -238,13 +250,24 @@ export function sortInboxGeneralMessages(list: Message[]): Message[] {
   );
 }
 
-function coerceMessageBodyText(row: Record<string, unknown>): string {
+function coerceMessageBodyText(
+  row: Record<string, unknown>,
+  msgRecord: Record<string, unknown> | null,
+): string {
+  const servicePa = extractServicePaFields(msgRecord ?? row);
+  if (servicePa.description) return servicePa.description;
+
   const text = row.message;
-  if (typeof text === "string") return text;
+  if (typeof text === "string") {
+    if (servicePa.subject && text.trim() === servicePa.subject) {
+      return "";
+    }
+    return text;
+  }
   const msg = row.msg;
   if (msg && typeof msg === "object" && !Array.isArray(msg)) {
     const nested = msg as Record<string, unknown>;
-    const t = nested.text ?? nested.body ?? nested.message;
+    const t = nested.description ?? nested.text ?? nested.body ?? nested.message;
     if (typeof t === "string") return t;
   }
   return "";
@@ -357,7 +380,34 @@ export function normalizeMessage(raw: unknown): Message | null {
 
   const guestSenderIdRaw = extractGuestSenderId(row, msgRecord, rowStructuredPayload);
 
-  let textValue = coerceMessageBodyText(row).trim();
+  let textValue = coerceMessageBodyText(row, msgRecord).trim();
+  const metadataMsg =
+    rowStructuredPayload &&
+    rowStructuredPayload.msg != null &&
+    typeof rowStructuredPayload.msg === "object" &&
+    !Array.isArray(rowStructuredPayload.msg)
+      ? (rowStructuredPayload.msg as Record<string, unknown>)
+      : null;
+  const servicePaFields = extractServicePaFields(
+    msgRecord ?? metadataMsg ?? rowStructuredPayload ?? row,
+  );
+  const topLevelSubject =
+    typeof row.subject === "string" && row.subject.trim() ? row.subject.trim() : null;
+  const topLevelTopic =
+    typeof row.topic === "string" && row.topic.trim() ? row.topic.trim() : null;
+  const topLevelSubtopic =
+    typeof row.subtopic === "string" && row.subtopic.trim() ? row.subtopic.trim() : null;
+  const resolvedSubject = topLevelSubject ?? servicePaFields.subject;
+  const resolvedTopic = topLevelTopic ?? servicePaFields.topic;
+  const resolvedSubtopic = topLevelSubtopic ?? servicePaFields.subtopic;
+  if (
+    textValue.length === 0 &&
+    resolvedSubject &&
+    typeof row.message === "string" &&
+    row.message.trim() === resolvedSubject
+  ) {
+    textValue = servicePaFields.description?.trim() ?? "";
+  }
 
   const allowSyntheticBody = type === "PERMISSION" || type === "CHAT";
   if (textValue.length === 0 && allowSyntheticBody && msgRecord) {
@@ -373,6 +423,13 @@ export function normalizeMessage(raw: unknown): Message | null {
   /** CHAT envelopes sometimes carry only structured metadata */
   if (textValue.length === 0 && type === "CHAT") {
     textValue = "(Chat)";
+  }
+  if (
+    textValue.length === 0 &&
+    (type === "PA" || type === "SERVICE") &&
+    servicePaFields.description
+  ) {
+    textValue = servicePaFields.description.trim();
   }
 
   // The server now sends the sender's display name (owners.broadcast_name, else
@@ -476,6 +533,14 @@ export function normalizeMessage(raw: unknown): Message | null {
       : {}),
     ...(Array.isArray(rawReadBy) ? { read_by_owner_ids: read_by_owner_ids ?? [] } : {}),
     ...(is_read_by_viewer !== undefined ? { is_read_by_viewer } : {}),
+    ...(resolvedSubject ? { subject: resolvedSubject } : {}),
+    ...(resolvedTopic ? { topic: resolvedTopic } : {}),
+    ...(resolvedSubtopic ? { subtopic: resolvedSubtopic } : {}),
+    ...(resolvedTopic
+      ? {
+          topic_label: formatTopicPath(resolvedTopic, resolvedSubtopic),
+        }
+      : {}),
   };
 }
 
@@ -495,6 +560,10 @@ export function messageFromGeoPropagation(
     propagation.metadata && typeof propagation.metadata === "object"
       ? (propagation.metadata as Record<string, unknown>)
       : null;
+  const metadataMsg =
+    meta && meta.msg != null && typeof meta.msg === "object" && !Array.isArray(meta.msg)
+      ? (meta.msg as Record<string, unknown>)
+      : null;
   const senderFromMeta = meta?.sender_id ?? meta?.senderId;
   const senderId =
     typeof propagation.sender_id === "number"
@@ -509,7 +578,10 @@ export function messageFromGeoPropagation(
   const visibility: MessageVisibility =
     scopeRaw === "private" ? "private" : "public";
   const type = toMessageType(propagation.type) ?? "UNKNOWN";
+  const bodyFromMeta = metadataMsg ?? null;
+  const servicePa = extractServicePaFields(bodyFromMeta);
   const text =
+    servicePa.description?.trim() ||
     (typeof propagation.text === "string" && propagation.text.trim()) ||
     String(propagation.type ?? "ALARM");
   const createdAt = propagation.created_at;
@@ -528,6 +600,10 @@ export function messageFromGeoPropagation(
     visibility,
     message: text,
     created_at: createdAt,
+    msg: bodyFromMeta,
+    ...(servicePa.subject ? { subject: servicePa.subject } : {}),
+    ...(servicePa.topic ? { topic: servicePa.topic } : {}),
+    ...(servicePa.subtopic ? { subtopic: servicePa.subtopic } : {}),
     raw_payload: propagation.metadata ?? null,
   });
 }

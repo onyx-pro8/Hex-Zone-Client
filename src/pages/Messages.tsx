@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   BellRing,
   HeartPulse,
@@ -12,6 +13,7 @@ import {
 import { MessageList } from "../components/messages/MessageList";
 import { MessageDetail } from "../components/messages/MessageDetail";
 import { MessageBlocksPanel } from "../components/messages/MessageBlocksPanel";
+import { ServicePaComposeFieldsPanel } from "../components/messages/ServicePaComposeFields";
 import { useMessageFeed } from "../hooks/useMessageFeed";
 import { sendMessage, type MessageVisibility } from "../services/api/messages";
 import {
@@ -32,6 +34,7 @@ import {
   groupMessageTypesForUI,
   isAccessGuestChannelType,
   isPrivateMessageType,
+  toMessageType,
   toMessageTypeLabel,
   usesGeoPropagationMessageType,
   type MessageCategory,
@@ -40,6 +43,7 @@ import {
 import {
   getMessageWorkflow,
   isEmergencyMessageType,
+  isUnknownMessageType,
   requiresAdminToSendType,
 } from "../lib/messageWorkflow";
 import { listGuestRequestsForZone } from "../services/api/accessPermissions";
@@ -49,6 +53,12 @@ import {
   type QuickMessageType,
 } from "../lib/appSettings";
 import { messageBroadcastLabel } from "../lib/messageBroadcast";
+import {
+  buildServicePaMsgPayload,
+  isServicePaMessageType,
+  validateServicePaCompose,
+  type ServicePaComposeFields,
+} from "../lib/servicePaTopics";
 import {
   resolveMessagePropagationPosition,
   type ResolvedMessagePosition,
@@ -79,6 +89,7 @@ const MESSAGING_ACTIONS: QuickAction[] = [
 
 export default function Messages() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const isAdministrator =
     String(user?.role ?? "").toLowerCase() === "administrator";
   const settings = useAppSettings();
@@ -98,6 +109,8 @@ export default function Messages() {
   const [composeType, setComposeType] = useState<MessageType>("SERVICE");
   const [composeReceiverId, setComposeReceiverId] = useState("");
   const [composeText, setComposeText] = useState("");
+  const [composeServicePaFields, setComposeServicePaFields] =
+    useState<ServicePaComposeFields>({ subject: "", topic: "", subtopic: "" });
   const [composeStatus, setComposeStatus] = useState("");
   const [dbZoneIds, setDbZoneIds] = useState<string[]>([]);
   const [zonesLoading, setZonesLoading] = useState(false);
@@ -157,6 +170,17 @@ export default function Messages() {
     return userZoneId ? [String(userZoneId)] : [];
   }, [dbZoneIds, userZoneId]);
   const { messages, zones, loading, error, refreshInbox } = useMessageFeed(messageZoneIds);
+
+  useEffect(() => {
+    const typeParam = searchParams.get("type")?.trim() ?? "";
+    const messageParam = searchParams.get("message")?.trim() ?? "";
+    if (typeParam) {
+      const resolved = toMessageType(typeParam);
+      if (resolved) setTypeFilter(resolved);
+    }
+    if (messageParam) setActiveMessageId(messageParam);
+  }, [searchParams]);
+
   const allZoneIds = useMemo(
     () => Array.from(new Set([...dbZoneIds, ...zones])),
     [dbZoneIds, zones],
@@ -447,7 +471,16 @@ export default function Messages() {
       return;
     }
     if (!confirmEmergencySend(composeType)) return;
-    if (!composeText.trim()) return;
+    const servicePaValidation = validateServicePaCompose(
+      composeType,
+      composeServicePaFields,
+      composeText,
+    );
+    if (servicePaValidation) {
+      setComposeStatus(servicePaValidation);
+      return;
+    }
+    if (!composeText.trim() && !isServicePaMessageType(composeType)) return;
     const accessGuest = isAccessGuestChannelType(composeType);
     if (accessGuest) {
       if (!composeReceiverId.trim()) {
@@ -480,12 +513,18 @@ export default function Messages() {
       const propagateResult = await propagateMessageFeatureMessage({
         type: featureType,
         hid: resolveGuestBrowserDeviceId(),
-        msg: {
-          description: composeText.trim(),
-          broadcast_name: selfBroadcastName,
-          latitude: position.latitude,
-          longitude: position.longitude,
-        },
+        msg: isServicePaMessageType(composeType)
+          ? buildServicePaMsgPayload(composeServicePaFields, composeText.trim(), {
+              broadcast_name: selfBroadcastName,
+              latitude: position.latitude,
+              longitude: position.longitude,
+            })
+          : {
+              description: composeText.trim(),
+              broadcast_name: selfBroadcastName,
+              latitude: position.latitude,
+              longitude: position.longitude,
+            },
         position,
         ...(isPrivateMessageType(composeType)
           ? { receiver_owner_id: parsedReceiverId }
@@ -508,6 +547,7 @@ export default function Messages() {
       }
       setComposeStatus("Sent.");
       setComposeText("");
+      setComposeServicePaFields({ subject: "", topic: "", subtopic: "" });
       if (isPrivateMessageType(composeType)) setComposeReceiverId("");
       void refreshInbox();
       return;
@@ -591,6 +631,7 @@ export default function Messages() {
 
   const selectMessagingType = (type: QuickMessageType) => {
     setComposeType(type as MessageType);
+    setComposeServicePaFields({ subject: "", topic: "", subtopic: "" });
     const preset = (settings.quickMessages[type] ?? "").trim();
     if (preset) setComposeText(preset);
     setQuickStatus("");
@@ -607,6 +648,7 @@ export default function Messages() {
           <div className="grid grid-cols-2 gap-3">
             {ALARM_ACTIONS.map((action) => {
               const Icon = action.icon;
+              const isUnknown = isUnknownMessageType(action.type as MessageType);
               const urgent = isEmergencyMessageType(action.type as MessageType);
               const nsPanic = action.type === "NS_PANIC";
               return (
@@ -618,9 +660,11 @@ export default function Messages() {
                   className={`flex flex-col items-center justify-center gap-2 rounded-xl border px-3 py-6 transition disabled:opacity-60 ${
                     nsPanic
                       ? "border-[#B5179E] bg-[#B5179E] text-white shadow-md hover:brightness-110"
-                      : urgent
-                        ? "border-[#E23B4E] bg-[#E23B4E] text-white shadow-md hover:brightness-110"
-                        : "border-[#F3C2CA] bg-[#FCE7EA] text-[#E23B4E] hover:brightness-95"
+                      : isUnknown
+                        ? "border-[#B71C1C] bg-[#C62828] text-white shadow-md hover:brightness-110"
+                        : urgent
+                          ? "border-[#E23B4E] bg-[#E23B4E] text-white shadow-md hover:brightness-110"
+                          : "border-[#F3C2CA] bg-[#FCE7EA] text-[#E23B4E] hover:brightness-95"
                   }`}
                 >
                   <Icon className="h-7 w-7" aria-hidden />
@@ -874,6 +918,7 @@ export default function Messages() {
               onChange={(e) => {
                 setComposeTypeNotice(null);
                 setComposeType(e.target.value as MessageType);
+                setComposeServicePaFields({ subject: "", topic: "", subtopic: "" });
               }}
               className="w-full rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] outline-none focus:border-[#2F80ED]"
             >
@@ -1020,11 +1065,20 @@ export default function Messages() {
                 ) : null}
               </>
             )}
+            <ServicePaComposeFieldsPanel
+              type={composeType}
+              fields={composeServicePaFields}
+              onChange={setComposeServicePaFields}
+            />
             <textarea
               rows={4}
               value={composeText}
               onChange={(e) => setComposeText(e.target.value)}
-              placeholder="Type your message..."
+              placeholder={
+                isServicePaMessageType(composeType)
+                  ? "Message body..."
+                  : "Type your message..."
+              }
               className="w-full rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] outline-none focus:border-[#2F80ED]"
             />
             <button

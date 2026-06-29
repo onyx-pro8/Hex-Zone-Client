@@ -97,8 +97,9 @@ export function AlarmNotificationsHost() {
       ) : null}
 
       {activeAlarms.map((alarm) => {
-        const isNsPanic =
-          String(alarm.type).toUpperCase().replace(/-/g, "_") === "NS_PANIC";
+        const normalizedType = String(alarm.type).toUpperCase().replace(/-/g, "_");
+        const isUnknown = normalizedType === "UNKNOWN";
+        const isNsPanic = normalizedType === "NS_PANIC";
         return (
           <div
             key={alarm.id}
@@ -109,31 +110,51 @@ export function AlarmNotificationsHost() {
               if (e.key === "Enter" || e.key === " ") navigate("/alerts");
             }}
             className={[
-              "pointer-events-auto flex w-full max-w-md cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 text-sm shadow-2xl backdrop-blur",
-              isNsPanic
-                ? "border-[#B5179E]/50 bg-[#F6E1F2] text-[#6A1060] ring-2 ring-[#B5179E]/40"
-                : "border-[#E23B4E]/40 bg-[#FCE7EA] text-[#7A1622]",
+              "pointer-events-auto flex w-full max-w-md cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur",
+              isUnknown
+                ? "border-[#B71C1C] bg-[#C62828] text-white ring-2 ring-[#B71C1C]/50"
+                : isNsPanic
+                  ? "border-[#B5179E]/50 bg-[#F6E1F2] text-sm text-[#6A1060] ring-2 ring-[#B5179E]/40"
+                  : "border-[#E23B4E]/40 bg-[#FCE7EA] text-sm text-[#7A1622]",
             ].join(" ")}
             aria-live="assertive"
           >
             <AlertTriangle
               className={[
                 "mt-0.5 h-5 w-5 shrink-0",
-                isNsPanic ? "text-[#B5179E]" : "text-[#E23B4E]",
+                isUnknown ? "text-white" : isNsPanic ? "text-[#B5179E]" : "text-[#E23B4E]",
               ].join(" ")}
             />
             <div className="flex-1 leading-snug">
               <div className="flex items-center justify-between gap-2">
-                <p className="font-semibold uppercase tracking-wide">
+                <p
+                  className={`font-semibold uppercase tracking-wide ${
+                    isUnknown ? "text-base font-black" : ""
+                  }`}
+                >
                   {isNsPanic ? `🔕 ${alarm.title}` : alarm.title}
                 </p>
                 <span
-                  className={`text-xs ${isNsPanic ? "text-[#9A2A8C]" : "text-[#B23A48]"}`}
+                  className={`text-xs ${
+                    isUnknown
+                      ? "text-white/85"
+                      : isNsPanic
+                        ? "text-[#9A2A8C]"
+                        : "text-[#B23A48]"
+                  }`}
                 >
                   {new Date(alarm.createdAt).toLocaleTimeString()}
                 </span>
               </div>
-              <p className={isNsPanic ? "text-[#6A1060]/90" : "text-[#7A1622]/90"}>
+              <p
+                className={
+                  isUnknown
+                    ? "text-base font-semibold text-white/95"
+                    : isNsPanic
+                      ? "text-[#6A1060]/90"
+                      : "text-[#7A1622]/90"
+                }
+              >
                 {alarm.body}
               </p>
             </div>
@@ -141,9 +162,11 @@ export function AlarmNotificationsHost() {
               type="button"
               aria-label="Dismiss alarm"
               className={
-                isNsPanic
-                  ? "text-[#B5179E] hover:text-[#6A1060]"
-                  : "text-[#E23B4E] hover:text-[#7A1622]"
+                isUnknown
+                  ? "text-white hover:text-white/80"
+                  : isNsPanic
+                    ? "text-[#B5179E] hover:text-[#6A1060]"
+                    : "text-[#E23B4E] hover:text-[#7A1622]"
               }
               onClick={(e) => {
                 e.stopPropagation();

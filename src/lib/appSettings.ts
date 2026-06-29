@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from "react";
 
 /**
- * Local-first configuration for the broadcast identity, address, shared
- * notification integration, and the pre-programmed quick-alert messages.
+ * Local-first configuration for the broadcast identity, address, smart-home
+ * integration, and the pre-programmed quick-alert messages.
  *
  * These fields are not part of the remote API contract yet, so they are
  * mirrored in localStorage for fast paint. `broadcastName` is stored on the
@@ -72,7 +72,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
     hid: "",
     networkId: "",
     apiKey: "",
-    webhook: "/alertname",
+    webhook: "",
     periodicalCheckSec: "86400",
   },
   quickMessages: {

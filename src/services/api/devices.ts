@@ -121,3 +121,11 @@ export async function deleteDevice(deviceId: number | string) {
     url: `/devices/${deviceId}`,
   });
 }
+
+export async function claimDeviceSession(hid?: string) {
+  return request<{ released: number }>({
+    method: "POST",
+    url: "/devices/claim-session",
+    data: hid ? { hid } : {},
+  });
+}

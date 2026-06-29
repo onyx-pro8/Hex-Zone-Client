@@ -3,7 +3,7 @@ import type { AppSettings } from "../../lib/appSettings";
 
 /**
  * Remote persistence for the owner's application settings (broadcast identity,
- * structured home address, shared-notification integration, quick-alert
+ * structured home address, smart-home integration, quick-alert
  * messages). The backend returns the same camelCase shape as {@link AppSettings},
  * with `quickMessages` possibly partial — callers should merge with local
  * defaults via `mergeSettings`/`updateAppSettings`.

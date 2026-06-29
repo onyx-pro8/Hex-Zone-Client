@@ -21,9 +21,12 @@ import {
 import { updateAppSettings, type AppSettings } from "../../lib/appSettings";
 import {
   describeDeviceSyncFailure,
+  DEVICE_SIGNED_OUT_ELSEWHERE_MESSAGE,
+  isLocalDeviceSessionActive,
   setCurrentDeviceOffline,
   syncCurrentDevice,
 } from "../../lib/deviceSync";
+import { DeviceSessionConflictError } from "../../lib/deviceSync";
 
 type LegacyRegisterPayload = {
   email: string;
@@ -47,7 +50,7 @@ type AuthContextValue = {
   login: (
     email: string,
     password: string,
-    options?: { rememberMe?: boolean },
+    options?: { rememberMe?: boolean; forceDeviceTakeover?: boolean },
   ) => Promise<void>;
   register: (payload: RegisterPayload | LegacyRegisterPayload) => Promise<void>;
   logout: () => Promise<void>;
@@ -260,6 +263,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, [token, user]);
 
+  // Sign out this browser when another device takes over the account session.
+  useEffect(() => {
+    if (!token || !user?.id) return;
+    const ownerId = String(user.id);
+    let cancelled = false;
+
+    const checkRemoteSignOut = async () => {
+      const active = await isLocalDeviceSessionActive(ownerId);
+      if (cancelled || active) return;
+      window.alert(DEVICE_SIGNED_OUT_ELSEWHERE_MESSAGE);
+      await performLogout(false);
+    };
+
+    const interval = window.setInterval(() => {
+      void checkRemoteSignOut();
+    }, 30_000);
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void checkRemoteSignOut();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [token, user]);
+
   useEffect(() => {
     if (!token) return;
     const exp = parseJwtExp(token);
@@ -278,17 +314,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (
     email: string,
     password: string,
-    options?: { rememberMe?: boolean },
+    options?: { rememberMe?: boolean; forceDeviceTakeover?: boolean },
   ) => {
     const rememberMe = options?.rememberMe ?? getRememberMe();
     const result = await authLogin({ email, password }, rememberMe);
     if (!result.data) {
       throw new Error(result.error ?? "Login failed");
     }
+    const syncOptions = { forceTakeover: options?.forceDeviceTakeover };
     if (result.data.user?.id) {
       const normalized = normalizeUser(result.data.user);
-      const sync = await syncCurrentDevice(normalized);
-      if (sync.status === "account-in-use" || sync.status === "error") {
+      const sync = await syncCurrentDevice(normalized, syncOptions);
+      if (sync.status === "account-in-use") {
+        throw new DeviceSessionConflictError();
+      }
+      if (sync.status === "error") {
         throw new Error(describeDeviceSyncFailure(sync));
       }
       setUser(normalized);
@@ -296,8 +336,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const me = await fetchCurrentUser();
       if (!me.data) throw new Error(me.error ?? "Could not load profile");
       const normalized = normalizeUser(me.data);
-      const sync = await syncCurrentDevice(normalized);
-      if (sync.status === "account-in-use" || sync.status === "error") {
+      const sync = await syncCurrentDevice(normalized, syncOptions);
+      if (sync.status === "account-in-use") {
+        throw new DeviceSessionConflictError();
+      }
+      if (sync.status === "error") {
         throw new Error(describeDeviceSyncFailure(sync));
       }
       setUser(normalized);
@@ -308,7 +351,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const safeLogin = async (
     email: string,
     password: string,
-    options?: { rememberMe?: boolean },
+    options?: { rememberMe?: boolean; forceDeviceTakeover?: boolean },
   ) => {
     try {
       await login(email, password, options);

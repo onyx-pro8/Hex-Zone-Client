@@ -1,6 +1,6 @@
 import type { MessageType } from "./messageTypes";
 
-export type MessagePriority = "MAX" | "HIGH" | "MEDIUM" | "LOW";
+export type MessagePriority = "CRITICAL" | "MAX" | "HIGH" | "MEDIUM" | "LOW";
 
 export type MessageWorkflowMeta = {
   priority: MessagePriority;
@@ -17,6 +17,7 @@ export const MESSAGE_WORKFLOW: Record<
   | "SENSOR"
   | "PANIC"
   | "NS_PANIC"
+  | "UNKNOWN"
   | "PRIVATE"
   | "PA"
   | "SERVICE"
@@ -55,6 +56,17 @@ export const MESSAGE_WORKFLOW: Record<
     requiresLocation: true,
     responseTracking: false,
     confirmBeforeSend: true,
+  },
+  UNKNOWN: {
+    priority: "CRITICAL",
+    description:
+      "Highest-priority alarm. Nearest-neighbour fan-out with maximum visual urgency.",
+    delivery: "Instant push + WebSocket; displayed above all other alarm types.",
+    requiresAdmin: false,
+    requiresRecipient: false,
+    requiresLocation: true,
+    responseTracking: false,
+    confirmBeforeSend: false,
   },
   PRIVATE: {
     priority: "MEDIUM",
@@ -113,12 +125,18 @@ export function isEmergencyMessageType(type: MessageType): boolean {
   return type === "PANIC" || type === "NS_PANIC";
 }
 
+export function isUnknownMessageType(type: MessageType): boolean {
+  return type === "UNKNOWN";
+}
+
 export function requiresAdminToSendType(type: MessageType): boolean {
   return getMessageWorkflow(type)?.requiresAdmin ?? false;
 }
 
 export function priorityBadgeClass(priority: MessagePriority): string {
   switch (priority) {
+    case "CRITICAL":
+      return "bg-[#C62828] text-white text-sm font-extrabold";
     case "MAX":
       return "bg-[#E23B4E] text-white";
     case "HIGH":
