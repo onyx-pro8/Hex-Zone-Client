@@ -1,0 +1,14 @@
+# Render blueprint for the Zone Weaver web client (Vite SPA).
+# In the dashboard, set the service type to "Web Service" (not Static Site)
+# if you use this file, or switch to Static Site and publish ./dist instead.
+services:
+  - type: web
+    name: hex-zone-client
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "20"

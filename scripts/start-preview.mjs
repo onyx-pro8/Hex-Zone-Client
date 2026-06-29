@@ -1,11 +1,26 @@
-import { spawnSync } from 'node:child_process';
+import { preview } from 'vite';
 
-const port = process.env.PORT || '4173';
+const port = Number(process.env.PORT) || 4173;
 
-const result = spawnSync(
-  process.platform === 'win32' ? 'npx.cmd' : 'npx',
-  ['vite', 'preview', '--host', '0.0.0.0', '--port', port],
-  { stdio: 'inherit', shell: true }
-);
+try {
+  const server = await preview({
+    preview: {
+      port,
+      host: '0.0.0.0',
+      strictPort: true,
+      allowedHosts: true,
+    },
+    logLevel: 'info',
+  });
 
-process.exit(result.status ?? 1);
+  server.printUrls();
+
+  const onShutdown = () => {
+    server.httpServer?.close(() => process.exit(0));
+  };
+  process.on('SIGTERM', onShutdown);
+  process.on('SIGINT', onShutdown);
+} catch (err) {
+  console.error('[start] Failed to start preview server:', err);
+  process.exit(1);
+}
