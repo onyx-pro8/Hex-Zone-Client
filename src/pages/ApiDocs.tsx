@@ -368,7 +368,7 @@ const ENDPOINTS: EndpointSpec[] = [
     method: "POST",
     path: "/utils/qr/generate",
     group: "core",
-    description: "Generate QR invite token (private accounts only).",
+    description: "Generate member-invite QR token (Private, Private+, Exclusive, Enhanced+ administrators).",
     bodyJson: true,
     params: [{ name: "body", in: "body", required: true, placeholder: "JSON body" }],
   },

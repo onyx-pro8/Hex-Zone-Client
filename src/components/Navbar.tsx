@@ -8,6 +8,7 @@ import {
 } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { canAdministratorInviteUserMember } from "../lib/accountLimits";
 import {
   MapPin,
   Shield,
@@ -86,17 +87,13 @@ export default function Navbar() {
   const guestToken = getGuestAccessToken();
   const guestSessionActive = Boolean(guestToken);
   const isLoggedIn = Boolean(token);
-  const normalizedAccountType = String(
-    user?.accountType ?? user?.account_type ?? "",
-  ).toUpperCase();
   const isAdministrator =
     String(user?.role ?? "").toLowerCase() === "administrator";
-  // Member-invite QR is available to Private (multi-user) and Exclusive
-  // (admin + 1 invited user) account administrators.
-  const canInviteUserMember =
-    isAdministrator &&
-    (normalizedAccountType === "PRIVATE" ||
-      normalizedAccountType === "EXCLUSIVE");
+  const canInviteUserMember = canAdministratorInviteUserMember({
+    role: user?.role,
+    accountType: user?.accountType,
+    legacyAccountType: user?.account_type,
+  });
 
   const visibleAppRoutes = useMemo(
     () =>

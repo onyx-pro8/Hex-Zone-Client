@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Logo } from "./Logo";
 import { useAuth } from "../../hooks/useAuth";
+import { canAdministratorInviteUserMember } from "../../lib/accountLimits";
 
 type NavItem = { path: string; title: string; icon: LucideIcon };
 
@@ -48,12 +49,11 @@ export function Sidebar() {
   const { user, logout } = useAuth();
   const isAdministrator =
     String(user?.role ?? "").toLowerCase() === "administrator";
-  const normalizedAccountType = String(
-    user?.accountType ?? user?.account_type ?? "",
-  ).toUpperCase();
-  const canInviteUserMember =
-    isAdministrator &&
-    (normalizedAccountType === "PRIVATE" || normalizedAccountType === "EXCLUSIVE");
+  const canInviteUserMember = canAdministratorInviteUserMember({
+    role: user?.role,
+    accountType: user?.accountType,
+    legacyAccountType: user?.account_type,
+  });
 
   const secondary = SECONDARY_ITEMS.filter((item) => {
     if (item.path === "/qr") return canInviteUserMember;

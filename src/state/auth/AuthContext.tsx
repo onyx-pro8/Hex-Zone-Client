@@ -19,6 +19,7 @@ import {
   type RegisterPayload,
 } from "../../services/api";
 import { updateAppSettings, type AppSettings } from "../../lib/appSettings";
+import { normalizeAccountType } from "../../lib/accountLimits";
 import {
   describeDeviceSyncFailure,
   DEVICE_SIGNED_OUT_ELSEWHERE_MESSAGE,
@@ -133,18 +134,10 @@ function normalizeUser(raw: AuthUser | null): AuthUser | null {
   const zoneId =
     raw.zoneId ?? (raw.zone_id != null ? String(raw.zone_id) : undefined);
   const mapCenter = normalizeMapCenter(raw.mapCenter ?? raw.map_center ?? null);
-  const accountTypeRaw =
-    raw.accountType ?? String(raw.account_type ?? "").toUpperCase();
-  const normalizedAccountType: AccountType =
-    accountTypeRaw === "PRIVATE_PLUS"
-      ? "PRIVATE_PLUS"
-      : accountTypeRaw === "EXCLUSIVE"
-        ? "EXCLUSIVE"
-        : accountTypeRaw === "ENHANCED"
-          ? "ENHANCED"
-          : accountTypeRaw === "ENHANCED_PLUS"
-            ? "ENHANCED_PLUS"
-            : "PRIVATE";
+  const normalizedAccountType: AccountType = normalizeAccountType(
+    raw.accountType,
+    raw.account_type,
+  );
   const role =
     raw.role ??
     (String(raw.registrationType ?? raw.registration_type ?? "").toUpperCase() ===

@@ -3,6 +3,11 @@ import QRCode from "react-qr-code";
 import { Copy, Hexagon, QrCode, RefreshCw } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { generateQrRegistrationToken, parseApiErrorBody } from "../lib/api";
+import {
+  canAdministratorInviteUserMember,
+  MEMBER_INVITE_UNAVAILABLE_HINT,
+  normalizeAccountType,
+} from "../lib/accountLimits";
 
 export default function QrInvite() {
   const { user } = useAuth();
@@ -11,17 +16,16 @@ export default function QrInvite() {
   const [loadingToken, setLoadingToken] = useState(false);
   const [tokenError, setTokenError] = useState("");
   const userZoneId = String(user?.zone_id ?? user?.zoneId ?? "");
-  const normalizedAccountType = String(
-    user?.accountType ?? user?.account_type ?? "",
-  ).toUpperCase();
-  const isAdministrator =
-    String(user?.role ?? "").toLowerCase() === "administrator";
-  // Private accounts: many invitable users. Exclusive accounts: exactly 1.
-  const canInviteUserMember =
-    isAdministrator &&
-    (normalizedAccountType === "PRIVATE" ||
-      normalizedAccountType === "EXCLUSIVE");
-  const isExclusiveAccount = normalizedAccountType === "EXCLUSIVE";
+  const accountType = normalizeAccountType(
+    user?.accountType,
+    user?.account_type,
+  );
+  const canInviteUserMember = canAdministratorInviteUserMember({
+    role: user?.role,
+    accountType: user?.accountType,
+    legacyAccountType: user?.account_type,
+  });
+  const isExclusiveAccount = accountType === "EXCLUSIVE";
 
   const joinUrl = useMemo(() => {
     if (!joinToken) return "";
@@ -62,12 +66,11 @@ export default function QrInvite() {
         setTokenError(`${statusLabel}: ${serverDetail}`);
       } else if (status === 403) {
         setTokenError(
-          `${statusLabel}: access denied. Sign out, sign in again as the Exclusive administrator, ` +
-            `then retry. If it persists, confirm Render deployed commit 5578a6a or later.`,
+          `${statusLabel}: access denied. Sign out, sign in again as an administrator on an invite-capable account tier, then retry.`,
         );
       } else if (status === 401) {
         setTokenError(
-          "HTTP 401: your session token is missing or expired. Sign out and sign in again as the Exclusive administrator.",
+          "HTTP 401: your session token is missing or expired. Sign out and sign in again.",
         );
       } else if (status === 0) {
         setTokenError(
@@ -113,7 +116,7 @@ export default function QrInvite() {
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#566784]">
           {isExclusiveAccount
             ? "Exclusive accounts can invite exactly 1 user. They scan this code, enter their details, and register under your account."
-            : "Generate a code that links to your zone. New teammates scan it, enter their details, and register on your private network."}
+            : "Generate a code that links to your zone. New teammates scan it, enter their details, and register on your account."}
         </p>
       </div>
 
@@ -132,8 +135,7 @@ export default function QrInvite() {
           )}
           {!canInviteUserMember && (
             <p className="mt-3 text-sm leading-relaxed text-[#E0992A]">
-              QR invites are available only to Private and Exclusive
-              administrators.
+              {MEMBER_INVITE_UNAVAILABLE_HINT}
             </p>
           )}
           {!!userZoneId && (
@@ -200,7 +202,7 @@ export default function QrInvite() {
                   ? isExclusiveAccount
                     ? "Generate a token to invite your single Exclusive user."
                     : "Generate a token to display your QR code invite."
-                  : "Only Private and Exclusive administrators can generate QR invite tokens."
+                  : MEMBER_INVITE_UNAVAILABLE_HINT
                 : "Your account needs a zone ID to generate a QR code."}
             </p>
           )}
