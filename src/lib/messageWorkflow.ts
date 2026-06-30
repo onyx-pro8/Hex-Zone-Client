@@ -93,9 +93,9 @@ export const MESSAGE_WORKFLOW: Record<
   SERVICE: {
     priority: "LOW",
     description:
-      "System or maintenance informational broadcast. Administrators only.",
+      "Zone service listing or maintenance informational broadcast.",
     delivery: "WebSocket; push optional.",
-    requiresAdmin: true,
+    requiresAdmin: false,
     requiresRecipient: false,
     requiresLocation: true,
     responseTracking: false,

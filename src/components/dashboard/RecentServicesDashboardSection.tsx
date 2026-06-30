@@ -55,7 +55,7 @@ export function RecentServicesDashboardSection({ zoneId }: Props) {
             </h2>
           </div>
           <p className="mt-1 max-w-2xl text-xs text-[#8694AC]">
-            Latest SERVICE broadcasts for this zone. Administrators publish these from Messages.
+            Latest SERVICE broadcasts for this zone. Members publish these from Messages.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -85,7 +85,7 @@ export function RecentServicesDashboardSection({ zoneId }: Props) {
       <div className="mx-auto mt-4 grid max-w-7xl gap-3 lg:grid-cols-2">
         {services.length === 0 && !loading ? (
           <p className="text-sm text-[#8694AC]">
-            No service messages yet. Administrators can publish one from Messages → SERVICES.
+            No service messages yet. Publish one from Messages → SERVICES.
           </p>
         ) : null}
         {visibleRows.map((row) => (

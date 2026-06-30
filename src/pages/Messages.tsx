@@ -44,7 +44,6 @@ import {
   getMessageWorkflow,
   isEmergencyMessageType,
   isUnknownMessageType,
-  requiresAdminToSendType,
 } from "../lib/messageWorkflow";
 import { listGuestRequestsForZone } from "../services/api/accessPermissions";
 import {
@@ -90,8 +89,6 @@ const MESSAGING_ACTIONS: QuickAction[] = [
 export default function Messages() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
-  const isAdministrator =
-    String(user?.role ?? "").toLowerCase() === "administrator";
   const settings = useAppSettings();
   const selfBroadcastName = resolveBroadcastName(user?.name);
   const userZoneId = user?.zoneId ?? user?.zone_id;
@@ -463,13 +460,6 @@ export default function Messages() {
       setComposeStatus("Message Type is required.");
       return;
     }
-    if (
-      requiresAdminToSendType(composeType) &&
-      !isAdministrator
-    ) {
-      setComposeStatus("Only administrators can send SERVICE messages.");
-      return;
-    }
     if (!confirmEmergencySend(composeType)) return;
     const servicePaValidation = validateServicePaCompose(
       composeType,
@@ -592,29 +582,12 @@ export default function Messages() {
       groupedTypeOptions
         .map((group) => ({
           ...group,
-          options: group.options.filter((option) => {
-            if (option.type === "PERMISSION") return false;
-            if (
-              requiresAdminToSendType(option.type) &&
-              !isAdministrator
-            ) {
-              return false;
-            }
-            return true;
-          }),
+          options: group.options.filter((option) => option.type !== "PERMISSION"),
         }))
         .filter((group) => group.options.length > 0),
-    [groupedTypeOptions, isAdministrator],
+    [groupedTypeOptions],
   );
-  const visibleMessagingActions = useMemo(
-    () =>
-      MESSAGING_ACTIONS.filter(
-        (action) =>
-          !requiresAdminToSendType(action.type as MessageType) ||
-          isAdministrator,
-      ),
-    [isAdministrator],
-  );
+  const visibleMessagingActions = MESSAGING_ACTIONS;
   const composeWorkflow = getMessageWorkflow(composeType);
 
   const [composeTypeNotice, setComposeTypeNotice] = useState<string | null>(null);
