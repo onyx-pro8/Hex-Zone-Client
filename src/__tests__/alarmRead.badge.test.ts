@@ -15,6 +15,7 @@ function alarm(id: string, read = false): Message {
     message: "Help",
     created_at: "2026-01-01T00:00:00.000Z",
     is_read_by_viewer: read,
+    raw_payload: null,
   };
 }
 
