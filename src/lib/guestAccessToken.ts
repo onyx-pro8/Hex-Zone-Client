@@ -12,6 +12,7 @@ export type GuestSessionMeta = {
   display_name: string;
   zone_ids: string[];
   allowed_message_types: string[];
+  network_geo_messaging?: boolean;
 };
 
 function readMeta(): GuestSessionMeta | null {

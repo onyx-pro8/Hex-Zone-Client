@@ -233,12 +233,14 @@ export async function login(payload: LoginPayload, rememberMe = true) {
     persistToken(legacyData.token, rememberMe);
     return { ...legacy, data: legacyData };
   }
-  const combinedError = (primary.error || legacy.error || "Login failed").trim();
+  const combinedError = (primary.error || legacy.error || "Login failed")
+    .trim()
+    .replace(/\s*Please sign in again\.?\s*$/i, "");
   const normalizedLoginError =
     combinedError.includes("403") ||
     /inactive|expired/i.test(combinedError)
       ? "Account is inactive or expired"
-      : combinedError;
+      : combinedError || "Invalid email or password";
   return {
     data: null,
     error: normalizedLoginError,

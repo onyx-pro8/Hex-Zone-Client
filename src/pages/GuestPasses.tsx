@@ -19,7 +19,7 @@ export default function GuestPasses() {
           Guest Passes
         </h1>
         <p className="text-sm text-[#566784]">
-          No zone ID found on your account. You need to be assigned to a zone to
+          No network ID found on your account. You need to be assigned to a zone to
           use guest passes.
         </p>
       </section>

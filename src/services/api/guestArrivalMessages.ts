@@ -326,7 +326,7 @@ export async function getGuestArrivalMessages(
     return {
       ok: false,
       status: 400,
-      message: "Missing zone id.",
+      message: "Missing network id.",
       validationErrors: null,
     };
   }
@@ -390,7 +390,7 @@ export async function updateGuestArrivalMessages(
     return {
       ok: false,
       status: 400,
-      message: "Missing zone id.",
+      message: "Missing network id.",
       validationErrors: null,
     };
   }

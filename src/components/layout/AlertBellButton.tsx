@@ -1,49 +1,31 @@
 import { useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell } from "lucide-react";
-import { useMessageFeed } from "../../hooks/useMessageFeed";
 import { useAlarmNotifications } from "../../hooks/useAlarmNotifications";
 import { useAuth } from "../../hooks/useAuth";
-import {
-  countUnreadAlarms,
-  isAlarmUnread,
-  unreadAlarmIds,
-} from "../../lib/alarmRead";
-import { markAlarmsRead } from "../../services/api/messageFeature";
+import { useAlarmInbox } from "../../state/alarm/AlarmInboxContext";
+import { countUniqueUnreadAlarmBadge } from "../../lib/alarmRead";
 
 export function AlertBellButton() {
   const navigate = useNavigate();
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const ownerId = user?.id;
-  const { messages, refreshInbox } = useMessageFeed([]);
-  const { activeAlarms, dismissAllAlarms } = useAlarmNotifications(token);
+  const { alarmMessages, markAlarmsSeen } = useAlarmInbox();
+  const { activeAlarms, dismissAllAlarms } = useAlarmNotifications();
 
-  const inboxUnread =
-    ownerId != null ? countUnreadAlarms(messages, ownerId) : 0;
-  const liveUnread =
-    ownerId != null
-      ? activeAlarms.filter((alarm) => {
-          const feedRow = messages.find((message) => message.id === alarm.id);
-          if (feedRow) return isAlarmUnread(feedRow, ownerId);
-          return true;
-        }).length
-      : activeAlarms.length;
-  const badgeCount = inboxUnread + liveUnread;
+  const badgeCount = countUniqueUnreadAlarmBadge(
+    alarmMessages,
+    activeAlarms,
+    ownerId,
+  );
 
   const handleOpen = useCallback(() => {
     void (async () => {
-      if (ownerId != null) {
-        const ids = new Set(unreadAlarmIds(messages, ownerId));
-        activeAlarms.forEach((alarm) => ids.add(alarm.id));
-        if (ids.size > 0) {
-          await markAlarmsRead([...ids]);
-          await refreshInbox();
-        }
-        dismissAllAlarms();
-      }
+      await markAlarmsSeen(activeAlarms.map((alarm) => alarm.id));
+      dismissAllAlarms();
       navigate("/alerts");
     })();
-  }, [activeAlarms, dismissAllAlarms, messages, navigate, ownerId, refreshInbox]);
+  }, [activeAlarms, dismissAllAlarms, markAlarmsSeen, navigate]);
 
   return (
     <button

@@ -52,5 +52,23 @@ export function canAdministratorInviteUserMember(params: {
   );
 }
 
+/** System administrator (Private tier) may edit the network ID in Settings. */
+export function isSystemAdministrator(params: {
+  accountType?: string | null;
+  legacyAccountType?: string | null;
+  role?: string | null;
+}): boolean {
+  if (String(params.role ?? "").toLowerCase() !== "administrator") return false;
+  return normalizeAccountType(params.accountType, params.legacyAccountType) === "PRIVATE";
+}
+
+/** System administrator (Private tier) may edit the network ID in Settings. */
+export function canEditNetworkId(params: {
+  accountType?: string | null;
+  legacyAccountType?: string | null;
+}): boolean {
+  return isSystemAdministrator({ ...params, role: "administrator" });
+}
+
 export const MEMBER_INVITE_UNAVAILABLE_HINT =
   "Member invite QR is available to administrators on Private, Private+, Exclusive, and Enhanced+ accounts. Enhanced accounts are solo and cannot invite members.";

@@ -15,6 +15,7 @@ import {
   parseMessageFeatureSocketEvent,
   parseMessageSocketPayload,
 } from "../services/socket/messageSocket";
+import { isAlarmUnread, withAlarmMarkedRead } from "../lib/alarmRead";
 import { useAuth } from "./useAuth";
 import { useAppState } from "../state/app/AppStateContext";
 import { useWebSocket } from "./useWebSocket";
@@ -44,6 +45,7 @@ export function useMessageFeed(zoneIds: string[]) {
   const refetchDebounceRef = useRef<number | undefined>(undefined);
   const blockRulesRef = useRef<MessageFeatureBlock[]>([]);
   const setGlobalMessagesRef = useRef(setGlobalMessages);
+  const locallyReadAlarmIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     blockRulesRef.current = blockRules;
@@ -53,28 +55,78 @@ export function useMessageFeed(zoneIds: string[]) {
     setGlobalMessagesRef.current = setGlobalMessages;
   }, [setGlobalMessages]);
 
-  const applyInboxBatch = useCallback((batch: Message[], blocks: MessageFeatureBlock[]) => {
-    const visible = filterMessagesForBlocks(batch, blocks);
-    if (visible.length > 0) {
-      setLocalMessages(sortByNewest(visible));
-    } else {
-      setLocalMessages([]);
-      setGlobalMessagesRef.current([]);
-    }
-  }, []);
+  const overlayLocalAlarmReads = useCallback(
+    (batch: Message[]) =>
+      batch.map((message) => {
+        if (
+          message.category === "Alarm" &&
+          locallyReadAlarmIdsRef.current.has(message.id) &&
+          Number.isFinite(ownerId) &&
+          ownerId > 0
+        ) {
+          return withAlarmMarkedRead(message, ownerId);
+        }
+        return message;
+      }),
+    [ownerId],
+  );
+
+  const applyInboxBatch = useCallback(
+    (batch: Message[], blocks: MessageFeatureBlock[]) => {
+      const visible = filterMessagesForBlocks(overlayLocalAlarmReads(batch), blocks);
+      if (visible.length > 0) {
+        setLocalMessages(sortByNewest(visible));
+      } else {
+        setLocalMessages([]);
+        setGlobalMessagesRef.current([]);
+      }
+    },
+    [overlayLocalAlarmReads],
+  );
 
   /** Insert one row immediately from WebSocket/API (no debounced GET). */
-  const prependInboxMessage = useCallback((incoming: Message) => {
-    const blocks = blockRulesRef.current;
-    setLocalMessages((prev) => {
-      const merged = sortByNewest([
-        incoming,
-        ...prev.filter((row) => row.id !== incoming.id),
-      ]);
-      return filterMessagesForBlocks(merged, blocks);
-    });
-    setError(null);
-  }, []);
+  const prependInboxMessage = useCallback(
+    (incoming: Message) => {
+      const blocks = blockRulesRef.current;
+      setLocalMessages((prev) => {
+        const existing = prev.find((row) => row.id === incoming.id);
+        let row = incoming;
+        if (
+          incoming.category === "Alarm" &&
+          Number.isFinite(ownerId) &&
+          ownerId > 0 &&
+          (locallyReadAlarmIdsRef.current.has(incoming.id) ||
+            (existing != null && !isAlarmUnread(existing, ownerId)))
+        ) {
+          row = withAlarmMarkedRead(incoming, ownerId);
+        }
+        const merged = sortByNewest([
+          row,
+          ...prev.filter((item) => item.id !== incoming.id),
+        ]);
+        return filterMessagesForBlocks(merged, blocks);
+      });
+      setError(null);
+    },
+    [ownerId],
+  );
+
+  const markAlarmsReadLocally = useCallback(
+    (messageIds: string[]) => {
+      if (!Number.isFinite(ownerId) || ownerId <= 0) return;
+      const idSet = new Set(messageIds.filter(Boolean));
+      if (idSet.size === 0) return;
+      idSet.forEach((id) => locallyReadAlarmIdsRef.current.add(id));
+      setLocalMessages((prev) =>
+        prev.map((message) =>
+          idSet.has(message.id) && message.category === "Alarm"
+            ? withAlarmMarkedRead(message, ownerId)
+            : message,
+        ),
+      );
+    },
+    [ownerId],
+  );
 
   const applyGeoPropagationToInbox = useCallback(
     (propagation: GeoPropagationInboxDetail["propagation"]) => {
@@ -248,5 +300,12 @@ export function useMessageFeed(zoneIds: string[]) {
     [messages],
   );
 
-  return { messages, zones, loading, error, refreshInbox: hydrateInbox };
+  return {
+    messages,
+    zones,
+    loading,
+    error,
+    refreshInbox: hydrateInbox,
+    markAlarmsReadLocally,
+  };
 }

@@ -210,14 +210,28 @@ export function persistGuestSessionAfterExchange(
   const zoneIds = data.guest.zone_ids?.length ? data.guest.zone_ids : [];
   const fb = fallbackZoneId.trim();
   const primaryZone = zoneIds.find((z) => z === fb) ?? (fb || zoneIds[0] || "");
+  const geoTypes = new Set([
+    "PANIC",
+    "NS_PANIC",
+    "NS-PANIC",
+    "UNKNOWN",
+    "PRIVATE",
+    "PA",
+    "SERVICE",
+  ]);
+  const allowed = data.guest.allowed_message_types?.length
+    ? data.guest.allowed_message_types
+    : ["CHAT"];
+  const network_geo_messaging = allowed.some((t) =>
+    geoTypes.has(String(t).trim().toUpperCase()),
+  );
   const meta: GuestSessionMeta = {
     guest_id: data.guest.guest_id,
     zone_id: primaryZone,
     display_name: data.guest.display_name,
     zone_ids: zoneIds.length ? zoneIds : primaryZone ? [primaryZone] : [],
-    allowed_message_types: data.guest.allowed_message_types?.length
-      ? data.guest.allowed_message_types
-      : ["PERMISSION", "CHAT"],
+    allowed_message_types: allowed,
+    ...(network_geo_messaging ? { network_geo_messaging: true } : {}),
   };
   persistGuestSessionMeta(meta);
 }

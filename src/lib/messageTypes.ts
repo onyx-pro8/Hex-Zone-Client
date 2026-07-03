@@ -41,7 +41,7 @@ export const MESSAGE_TYPE_META: Record<MessageType, MessageTypeMeta> = {
   SERVICE: { displayLabel: "SERVICE", category: "Alert", derivedScope: "public" },
   WELLNESS_CHECK: {
     displayLabel: "WELLNESS CHECK",
-    category: "Alert",
+    category: "Alarm",
     derivedScope: "public",
   },
   PERMISSION: {

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { QrCode } from "lucide-react";
-import { GuestQrTokensAdmin } from "../components/guestQr/GuestQrTokensAdmin";
+import { NetworkAccessQrAdmin } from "../components/guestQr/NetworkAccessQrAdmin";
 import { useAuth } from "../hooks/useAuth";
 import { useZones, type SavedZone } from "../hooks/useZones";
 
@@ -18,28 +18,30 @@ export default function GuestAccessQr() {
       user?.account_owner_id != null ? String(user.account_owner_id) : null,
   });
 
-  const userZoneStr = String(userZoneId ?? "").trim();
+  const networkId = String(userZoneId ?? "").trim();
 
   const [pickedZone, setPickedZone] = useState<string | null>(null);
 
   const zoneOptions = useMemo(() => {
     const list = (zones ?? []) as SavedZone[];
     const ids = new Set<string>();
+    if (networkId) ids.add(networkId);
     for (const z of list) {
       const id = String(z.zone_id ?? z.id ?? "").trim();
       if (id) ids.add(id);
     }
     return [...ids].sort();
-  }, [zones]);
+  }, [zones, networkId]);
 
-  const effectiveZone = useMemo(() => {
+  /** Network guest QR uses `owners.zone_id` — geometry zones are optional. */
+  const effectiveNetworkId = useMemo(() => {
     const p = pickedZone?.trim();
     if (p) return p;
-    if (userZoneStr && zoneOptions.includes(userZoneStr)) return userZoneStr;
+    if (networkId) return networkId;
     return zoneOptions[0] ?? "";
-  }, [pickedZone, userZoneStr, zoneOptions]);
+  }, [pickedZone, networkId, zoneOptions]);
 
-  if (loading && !userZoneStr && zoneOptions.length === 0) {
+  if (loading && !networkId && zoneOptions.length === 0) {
     return (
       <section className="space-y-4">
         <p className="text-sm text-[#8694AC]">Loading zones…</p>
@@ -54,21 +56,16 @@ export default function GuestAccessQr() {
           <QrCode size={16} strokeWidth={2} /> Guest access QR
         </span>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#566784]">
-          Administrators manage one reusable Guest QR per zone for{" "}
+          Administrators share one reusable <strong className="text-[#0F2C5C]">network guest QR</strong> for{" "}
           <Link to="/access" className="text-[#2F80ED] hover:underline">
-            /access?gt=…
-          </Link>{" "}
-          without sign-in. Rotate only when you need to invalidate the existing link.
-          Account-invite QR codes stay under{" "}
+            /access?nid=…
+          </Link>
+          . Guests request access at the network level; an administrator must approve before they can
+          sign in. After approval they can use{" "}
+          <strong className="text-[#0F2C5C]">access messages</strong> (CHAT) with your network; drawing
+          acceptable zones on the map is optional. Account member invites stay under{" "}
           <Link to="/qr" className="text-[#2F80ED] hover:underline">
             QR invite
-          </Link>
-          . To edit the short messages guests see when requesting access, open{" "}
-          <Link
-            to="/guest-arrival-messages"
-            className="text-[#2F80ED] hover:underline"
-          >
-            Guest arrival messages
           </Link>
           .
         </p>
@@ -79,11 +76,11 @@ export default function GuestAccessQr() {
               htmlFor="guest-qr-zone"
               className="block text-xs font-semibold uppercase tracking-[0.18em] text-[#8694AC]"
             >
-              Zone
+              Network
             </label>
             <select
               id="guest-qr-zone"
-              value={effectiveZone}
+              value={effectiveNetworkId}
               onChange={(e) => setPickedZone(e.target.value)}
               className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
             >
@@ -97,10 +94,10 @@ export default function GuestAccessQr() {
         ) : null}
       </div>
 
-      {!effectiveZone ? (
+      {!effectiveNetworkId ? (
         <p className="rounded-md border border-[#E0992A]/30 bg-[#FBEFD8] px-4 py-3 text-sm text-[#E0992A]">
-          No zone is available on this account. Set a zone on your profile or
-          open the dashboard to configure zones.
+          No network id on this account. Complete administrator signup or set your network id on your
+          profile before issuing a guest QR.
         </p>
       ) : !isAdministrator ? (
         <p className="rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-4 py-3 text-sm text-[#566784]">
@@ -110,7 +107,7 @@ export default function GuestAccessQr() {
         </p>
       ) : (
         <div className="rounded-2xl border border-[#DCE6F2] bg-white p-6 shadow-sm">
-          <GuestQrTokensAdmin zoneId={effectiveZone} />
+          <NetworkAccessQrAdmin zoneId={effectiveNetworkId} />
         </div>
       )}
     </section>

@@ -265,7 +265,7 @@ export function useZones(
   const saveZone = useCallback(
     async (payload: Record<string, unknown>) => {
       if (ownerZoneId == null || ownerZoneId === "") {
-        throw new Error("Missing owner zone id");
+        throw new Error("Missing owner network id");
       }
       const createResult = await request<SavedZone>({
         method: "POST",
@@ -284,7 +284,7 @@ export function useZones(
   const saveZoneWithRebalance = useCallback(
     async (payload: Record<string, unknown>) => {
       if (ownerZoneId == null || ownerZoneId === "") {
-        throw new Error("Missing owner zone id");
+        throw new Error("Missing owner network id");
       }
 
       const ownerZones = (await fetchAccountZones(ownerZoneId)).data;

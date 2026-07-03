@@ -76,7 +76,7 @@ const developerFeatures: {
   {
     title: "Scan to Join",
     description:
-      "QR codes contain zone IDs. New users scan, enter their details, and they're automatically linked to your private zone.",
+      "QR codes contain network IDs. New users scan, enter their details, and they're automatically linked to your private zone.",
     icon: QrCode,
     iconWrap: "border border-indigo-200 bg-indigo-50 text-indigo-600",
   },
@@ -220,7 +220,7 @@ export default function Landing() {
                 {
                   title: "Register",
                   description:
-                    "Enter your name, address, and account type. Generate a zone ID or join an existing one.",
+                    "Enter your name, address, and account type. Generate a network ID or join an existing one.",
                 },
                 {
                   title: "Weave Zones",

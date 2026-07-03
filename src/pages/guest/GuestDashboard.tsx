@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { MessageSquare, Loader2 } from "lucide-react";
+import { Loader2, MessageSquare } from "lucide-react";
 import { getGuestSessionMeta } from "../../lib/guestAccessToken";
-import { tryParseGuestDashboardMap } from "../../lib/guestDashboardMap";
+import { tryParseGuestDashboardMap, networkZonesFromGuestDashboard } from "../../lib/guestDashboardMap";
 import GuestZoneReadOnlyMap from "../../components/guest/GuestZoneReadOnlyMap";
 import { fetchGuestMe, fetchGuestZoneDashboard } from "../../services/api/guestMessages";
 import type { GuestMe } from "../../services/api/guestMessages";
@@ -120,6 +120,10 @@ export default function GuestDashboard() {
   const dash = asDashboardPayload(dashboard);
   const linkRows = dashboardLinks(dash?.links);
   const guestMapModel = useMemo(() => tryParseGuestDashboardMap(dashboard), [dashboard]);
+  const networkZones = useMemo(() => networkZonesFromGuestDashboard(dashboard), [dashboard]);
+  const zonesForDisplay = networkZones.length
+    ? networkZones.map((z) => z.name)
+    : zones;
   /** Map/hints tie to resolved zone + dashboard blob; `/me` can still be loading separately. */
   const dashboardGeoReady = primaryZone.trim().length > 0;
 
@@ -155,13 +159,22 @@ export default function GuestDashboard() {
             <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8694AC]">
               Zones
             </h2>
-            {zones.length ? (
-              <ul className="mt-2 space-y-1 font-mono text-sm text-[#2F80ED]">
-                {zones.map((z) => (
-                  <li key={z} className="break-all">
-                    {z}
-                  </li>
-                ))}
+            {zonesForDisplay.length ? (
+              <ul className="mt-2 space-y-1 text-sm text-[#566784]">
+                {networkZones.length
+                  ? networkZones.map((z) => (
+                      <li key={String(z.id)} className="break-all">
+                        <span className="font-medium text-[#0F2C5C]">{z.name}</span>
+                        {z.networkId ? (
+                          <span className="ml-2 font-mono text-xs text-[#8694AC]">{z.networkId}</span>
+                        ) : null}
+                      </li>
+                    ))
+                  : zonesForDisplay.map((z) => (
+                      <li key={z} className="break-all font-mono text-[#2F80ED]">
+                        {z}
+                      </li>
+                    ))}
               </ul>
             ) : (
               <p className="mt-2 text-sm text-[#8694AC]">

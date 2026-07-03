@@ -268,7 +268,7 @@ export async function fetchGuestPeers(zoneId: string): Promise<{
   status?: number;
 }> {
   const z = zoneId.trim();
-  if (!z) return { data: [], error: "Missing zone id." };
+  if (!z) return { data: [], error: "Missing network id." };
   const base = guestApiBasePath();
   guestApiDevLog("GET", `${base}/zones/${encodeURIComponent(z)}/peers`);
   try {
@@ -397,7 +397,7 @@ export async function fetchGuestZoneDashboard(zoneId: string): Promise<{
   notFound?: boolean;
 }> {
   const z = zoneId.trim();
-  if (!z) return { data: null, error: "Missing zone id." };
+  if (!z) return { data: null, error: "Missing network id." };
   const base = guestApiBasePath();
   guestApiDevLog("GET", `${base}/zones/${encodeURIComponent(z)}/dashboard`);
   try {

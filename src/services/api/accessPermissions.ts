@@ -573,6 +573,8 @@ export type AnonymousGuestPermissionBody = {
   guest_qr_token?: string;
   /** Plain zone check-in; omit when using `guest_qr_token` unless verifying zone match. */
   zone_id?: string;
+  /** Network id from `?nid=` (Safe Zone Patrol network access QR). */
+  network_id?: string;
   guest_name: string;
   event_id?: string;
   device_id?: string;
@@ -601,8 +603,9 @@ export async function submitAnonymousGuestPermission(
   const path = anonymousAccessPermissionPath();
   const hasToken = Boolean(body.guest_qr_token?.trim());
   const hasZone = Boolean(body.zone_id?.trim());
-  if (!hasToken && !hasZone) {
-    return { ok: false, message: "Missing zone or guest access token." };
+  const hasNetwork = Boolean(body.network_id?.trim());
+  if (!hasToken && !hasZone && !hasNetwork) {
+    return { ok: false, message: "Missing zone, network id, or guest access token." };
   }
   try {
     const res = await guestAxios.post<unknown>(path, body, {

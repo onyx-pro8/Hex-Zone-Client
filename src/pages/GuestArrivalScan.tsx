@@ -19,7 +19,7 @@ export default function GuestArrivalScan() {
     const zone = parseGuestArrivalZoneFromQrPayload(raw);
     const token = parseGuestArrivalTokenFromQrPayload(raw);
     if (!zone || !token) {
-      setMsg("Could not read zone id or token from QR. Paste the full arrival link or JSON payload.");
+      setMsg("Could not read network id or token from QR. Paste the full arrival link or JSON payload.");
       return;
     }
     const qs = new URLSearchParams({
@@ -83,7 +83,7 @@ export default function GuestArrivalScan() {
           <h1 className="text-2xl font-semibold text-[#0F2C5C]">Guest arrival scan</h1>
           <p className="text-sm text-[#8694AC]">
             Point your camera at the host&apos;s QR, or paste the link or payload you received.
-            We&apos;ll extract the zone id and take you to the guest form next.
+            We&apos;ll extract the network id and take you to the guest form next.
           </p>
         </header>
 

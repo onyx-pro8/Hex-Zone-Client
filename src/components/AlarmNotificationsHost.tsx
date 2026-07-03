@@ -3,6 +3,7 @@ import { AlertTriangle, BellRing, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useAlarmNotifications } from "../hooks/useAlarmNotifications";
+import { useAlarmInbox } from "../state/alarm/AlarmInboxContext";
 import {
   browserSupportsNotifications,
   notificationPermission,
@@ -23,7 +24,8 @@ const PERMISSION_BANNER_DISMISSED_KEY = "hexzone-alarm-permission-banner-dismiss
 export function AlarmNotificationsHost() {
   const { token } = useAuth();
   const navigate = useNavigate();
-  const { activeAlarms, dismissAlarm } = useAlarmNotifications(token);
+  const { markAlarmsSeen } = useAlarmInbox();
+  const { activeAlarms, dismissAlarm } = useAlarmNotifications();
   const [permission, setPermission] = useState<ReturnType<typeof notificationPermission>>(() =>
     notificationPermission(),
   );
@@ -105,9 +107,19 @@ export function AlarmNotificationsHost() {
             key={alarm.id}
             role="button"
             tabIndex={0}
-            onClick={() => navigate("/alerts")}
+            onClick={() => {
+              void markAlarmsSeen([alarm.id]).then(() => {
+                dismissAlarm(alarm.id);
+                navigate("/alerts");
+              });
+            }}
             onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") navigate("/alerts");
+              if (e.key === "Enter" || e.key === " ") {
+                void markAlarmsSeen([alarm.id]).then(() => {
+                  dismissAlarm(alarm.id);
+                  navigate("/alerts");
+                });
+              }
             }}
             className={[
               "pointer-events-auto flex w-full max-w-md cursor-pointer items-start gap-3 rounded-2xl border px-4 py-3 shadow-2xl backdrop-blur",

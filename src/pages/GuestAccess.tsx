@@ -127,10 +127,11 @@ export default function GuestAccess() {
   const [authExpiredNotice, setAuthExpiredNotice] = useState(false);
   const [searchParams] = useSearchParams();
   const zid = String(searchParams.get("zid") ?? "").trim();
+  const nid = String(searchParams.get("nid") ?? "").trim();
   const gt = String(searchParams.get("gt") ?? "").trim();
   const eidFromQuery = String(searchParams.get("eid") ?? "").trim();
   const sigFromQuery = String(searchParams.get("sig") ?? "").trim();
-  const hasInvite = Boolean(gt || zid);
+  const hasInvite = Boolean(gt || zid || nid);
 
   const [guestName, setGuestName] = useState("");
   const [eventId, setEventId] = useState(eidFromQuery);
@@ -367,8 +368,8 @@ export default function GuestAccess() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!gt && !zid) {
-      setFormError("This link is missing a guest token or zone id.");
+    if (!gt && !zid && !nid) {
+      setFormError("This link is missing a guest token or network id.");
       return;
     }
     const name = guestName.trim();
@@ -387,6 +388,7 @@ export default function GuestAccess() {
       guest_name: name,
       ...(gt ? { guest_qr_token: gt } : {}),
       ...(zid ? { zone_id: zid } : {}),
+      ...(nid ? { network_id: nid } : {}),
       ...(eventId.trim() ? { event_id: eventId.trim() } : {}),
       ...(effectiveDevice ? { device_id: effectiveDevice } : {}),
       ...(position
@@ -405,7 +407,7 @@ export default function GuestAccess() {
 
     if (result.status === "EXPECTED") {
       const expectedGuestId = result.guestId?.trim();
-      const expectedPollZone = (result.zoneId ?? zid).trim();
+      const expectedPollZone = (result.zoneId ?? zid ?? nid).trim();
       if (expectedGuestId && expectedPollZone) {
         clearStoredWait();
         setPhase({
@@ -433,7 +435,7 @@ export default function GuestAccess() {
       );
       return;
     }
-    const pollZoneId = (result.zoneId ?? zid).trim();
+    const pollZoneId = (result.zoneId ?? zid ?? nid).trim();
     writeStoredWait({
       gt,
       zid,
@@ -483,7 +485,7 @@ export default function GuestAccess() {
         <h1 className="text-xl font-semibold text-[#0F2C5C]">Invalid link</h1>
         <p className="text-sm text-[#8694AC]">
           Ask your host for a guest link that includes an invitation token (
-          <span className="font-mono text-[#566784]">gt</span>) or a zone id (
+          <span className="font-mono text-[#566784]">gt</span>) or a network id (
           <span className="font-mono text-[#566784]">zid</span>).
         </p>
       </section>

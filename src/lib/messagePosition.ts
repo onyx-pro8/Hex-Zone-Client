@@ -1,3 +1,6 @@
+import type { MessageType } from "./messageTypes";
+import { usesRegisteredAddressForType } from "./messageWorkflow";
+
 export type MessagePosition = {
   latitude: number;
   longitude: number;
@@ -5,6 +8,9 @@ export type MessagePosition = {
 
 export const MESSAGE_POSITION_REQUIRED =
   "No location available. Allow browser location access, or set your address on your account so we can use it as a fallback.";
+
+export const REGISTERED_ADDRESS_REQUIRED =
+  "No registered address on your account. Set your home address in account settings — SENSOR and WELLNESS CHECK use that location, not live GPS.";
 
 export type MessagePositionSource = "gps" | "profile";
 
@@ -86,4 +92,30 @@ export async function resolveMessagePropagationPosition(
   }
 
   return { error: MESSAGE_POSITION_REQUIRED };
+}
+
+/**
+ * Type-aware position resolution for geo propagation.
+ *
+ * - SENSOR / WELLNESS CHECK → registered address only (profile mapCenter).
+ * - PANIC, NS-PANIC, PRIVATE, PA, SERVICE, UNKNOWN → live GPS, then profile fallback.
+ */
+export async function resolveMessagePropagationPositionForType(
+  messageType: MessageType,
+  profileMapCenter?: MessagePosition | null,
+): Promise<ResolvedMessagePosition | { error: string }> {
+  if (usesRegisteredAddressForType(messageType)) {
+    const fromProfile = normalizeMapCenter(profileMapCenter ?? null);
+    if (fromProfile) {
+      void publishMemberLocation(fromProfile);
+      return { position: fromProfile, source: "profile" };
+    }
+    return { error: REGISTERED_ADDRESS_REQUIRED };
+  }
+
+  return resolveMessagePropagationPosition(profileMapCenter);
+}
+
+export function messagePositionSourceLabel(source: MessagePositionSource): string {
+  return source === "gps" ? "live GPS" : "registered address";
 }

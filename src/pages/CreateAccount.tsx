@@ -30,11 +30,6 @@ const accountOptions: {
   lines: [string, string];
 }[] = [
   {
-    value: "PRIVATE",
-    title: "Private",
-    lines: ["Many users, 1 device each", "Shared zone type"],
-  },
-  {
     value: "EXCLUSIVE",
     title: "Exclusive",
     lines: ["1 user, 1 device", "Any zone type"],
@@ -65,7 +60,7 @@ export default function CreateAccount() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [accountType, setAccountType] = useState<AccountType>("PRIVATE");
+  const [accountType, setAccountType] = useState<AccountType>("EXCLUSIVE");
   const [registrationType, setRegistrationType] =
     useState<RegistrationType>("ADMINISTRATOR");
   const [accountOwnerId, setAccountOwnerId] = useState("");
@@ -178,7 +173,7 @@ export default function CreateAccount() {
             className={`flex items-center gap-2 border-b px-6 py-3 text-xs ${accent} ${accentBorder} bg-[#EDF3FB]`}
           >
             <QrCode className="h-4 w-4 shrink-0" strokeWidth={2} />
-            <span>Have a QR code? Scan to auto-populate your Zone ID</span>
+            <span>Have a QR code? Scan to auto-populate your Network ID</span>
           </div>
 
           <div className="flex flex-1 flex-col overflow-y-auto px-6 py-8 sm:px-10">
@@ -400,7 +395,7 @@ export default function CreateAccount() {
               </div>
 
               <div className="rounded-md border border-[#DCE6F2] bg-white p-4">
-                <p className={labelClass}>Zone ID</p>
+                <p className={labelClass}>Network ID</p>
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"

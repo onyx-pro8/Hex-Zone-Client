@@ -33,6 +33,8 @@ import { AppStateProvider } from "./state/app/AppStateContext";
 import { useMessageFeatureBootstrap } from "./hooks/useMessageFeatureBootstrap";
 import { useLocationSync } from "./hooks/useLocationSync";
 import { AlarmNotificationsHost } from "./components/AlarmNotificationsHost";
+import { AlarmInboxProvider } from "./state/alarm/AlarmInboxContext";
+import { AlarmNotificationsProvider } from "./state/alarm/AlarmNotificationsContext";
 
 function MessageFeatureBootstrap() {
   const { token } = useAuth();
@@ -251,10 +253,14 @@ export default function App() {
   return (
     <AuthProvider>
       <AppStateProvider>
-        <MessageFeatureBootstrap />
-        <LocationSync />
-        <AlarmNotificationsHost />
-        <Shell />
+        <AlarmNotificationsProvider>
+          <AlarmInboxProvider>
+            <MessageFeatureBootstrap />
+            <LocationSync />
+            <AlarmNotificationsHost />
+            <Shell />
+          </AlarmInboxProvider>
+        </AlarmNotificationsProvider>
       </AppStateProvider>
     </AuthProvider>
   );

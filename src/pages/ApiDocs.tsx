@@ -865,13 +865,13 @@ export default function ApiDocs() {
             ZONE WEAVER
           </p>
           <div className="flex items-center gap-2 rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-1.5 text-xs text-[#566784]">
-            <span className="text-[#8694AC]">ZONE</span>
+            <span className="text-[#8694AC]">NETWORK</span>
             <span className="font-mono text-[#2F80ED]">{zoneLabel}</span>
             <button
               type="button"
               onClick={() => copyToClipboard(zoneLabel, "zone")}
               className="rounded p-0.5 text-[#8694AC] transition hover:bg-[#EDF3FB] hover:text-[#2F80ED]"
-              title="Copy zone id"
+              title="Copy network id"
             >
               {copied === "zone" ? (
                 <Check size={14} className="text-[#2FA24A]" />

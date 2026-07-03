@@ -21,6 +21,7 @@ import { GuestRequestsDashboardSection } from "../components/dashboard/GuestRequ
 import { GuestAccessQrSection } from "../components/dashboard/GuestAccessQrSection";
 import { RecentServicesDashboardSection } from "../components/dashboard/RecentServicesDashboardSection";
 import { useAuth } from "../hooks/useAuth";
+import { isSystemAdministrator } from "../lib/accountLimits";
 import {
   useZones,
   type SavedZone,
@@ -1345,6 +1346,15 @@ export default function Dashboard() {
     if (raw == null) return "";
     return String(raw);
   }, [user?.id]);
+  const systemAdmin = useMemo(
+    () =>
+      isSystemAdministrator({
+        accountType: user?.accountType,
+        legacyAccountType: user?.account_type,
+        role: user?.role,
+      }),
+    [user?.accountType, user?.account_type, user?.role],
+  );
   const zoneEntries = useMemo<ZoneEntry[]>(
     () =>
       [...zones]
@@ -1362,7 +1372,8 @@ export default function Dashboard() {
         const editable =
           typeof zone.can_edit === "boolean"
             ? zone.can_edit
-            : (creatorId != null && creatorId === currentUserId) ||
+            : systemAdmin ||
+              (creatorId != null && creatorId === currentUserId) ||
               (creatorId == null && ownerId != null && ownerId === currentUserId);
         return {
           zone,
@@ -1372,7 +1383,7 @@ export default function Dashboard() {
           editable,
         };
       }),
-    [zones, currentUserId],
+    [zones, currentUserId, systemAdmin],
   );
   const activeZoneEntry = useMemo(
     () => zoneEntries.find((entry) => entry.key === activeSavedZoneKey) ?? null,
@@ -2341,7 +2352,7 @@ export default function Dashboard() {
 
   const handleSave = async () => {
     if (!zoneId) {
-      setSaveStatus("Your account has no zone ID.");
+      setSaveStatus("Your account has no network ID.");
       return;
     }
     if (!isCreatingNewZone && !activeSavedZoneEditable) {
@@ -2697,12 +2708,12 @@ export default function Dashboard() {
 
   const copyZoneId = async () => {
     if (!zoneId) {
-      setSaveStatus("No zone ID available.");
+      setSaveStatus("No network ID available.");
       return;
     }
     try {
       await navigator.clipboard.writeText(zoneId);
-      setSaveStatus("Zone ID copied.");
+      setSaveStatus("Network ID copied.");
     } catch {
       setSaveStatus("Could not copy.");
     }
@@ -3448,7 +3459,7 @@ export default function Dashboard() {
             type="button"
             onClick={copyZoneId}
             className="rounded p-1 text-[#2F80ED] transition hover:bg-[#EDF3FB]"
-            aria-label="Copy zone ID"
+            aria-label="Copy network ID"
           >
             <Copy className="h-3.5 w-3.5" strokeWidth={2} />
           </button>
@@ -3474,7 +3485,7 @@ export default function Dashboard() {
         <aside className="flex w-full min-w-0 flex-col border-[#DCE6F2] lg:w-[400px] lg:max-w-[400px] lg:shrink-0 lg:border-r">
           <div className="max-h-[50vh] flex-1 space-y-4 overflow-y-auto p-4 sm:p-5 lg:max-h-none">
             <div>
-              <p className={labelClass}>Zone ID</p>
+              <p className={labelClass}>Network ID</p>
               <div className="flex gap-2">
                 <input
                   readOnly

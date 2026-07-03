@@ -169,7 +169,7 @@ export default function Login() {
 
             <QrCode className="h-4 w-4 shrink-0" strokeWidth={2} />
 
-            <span>Have a QR code? Scan to auto-populate your Zone ID</span>
+            <span>Have a QR code? Scan to auto-populate your Network ID</span>
 
           </div>
 

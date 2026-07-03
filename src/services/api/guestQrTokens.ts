@@ -6,6 +6,41 @@ import {
 import type { PrimaryGuestQrTokenResponse } from "./accessPermissions";
 import { apiClient, request } from "./client";
 
+export function guestNetworkQrPath(): string {
+  const raw = String(import.meta.env.VITE_GUEST_NETWORK_QR_PATH ?? "").trim();
+  return raw.length > 0 ? raw : "/api/access/qr-tokens/network";
+}
+
+export function guestNetworkQrRotatePath(): string {
+  const raw = String(import.meta.env.VITE_GUEST_NETWORK_QR_ROTATE_PATH ?? "").trim();
+  return raw.length > 0 ? raw : "/api/access/qr-tokens/network/rotate";
+}
+
+export async function fetchNetworkAccessQrToken(zoneId: string) {
+  const res = await request<unknown>({
+    method: "GET",
+    url: guestNetworkQrPath(),
+    params: { zone_id: zoneId.trim() },
+  });
+  return {
+    ...res,
+    data: normalizePrimaryQrToken(res.data),
+  };
+}
+
+export async function rotateNetworkAccessQrToken(zoneId: string) {
+  const res = await request<unknown>({
+    method: "POST",
+    url: guestNetworkQrRotatePath(),
+    params: { zone_id: zoneId.trim() },
+    data: {},
+  });
+  return {
+    ...res,
+    data: normalizePrimaryQrToken(res.data),
+  };
+}
+
 export function guestQrTokensBasePath(): string {
   const raw = String(import.meta.env.VITE_GUEST_QR_TOKENS_BASE_PATH ?? "").trim();
   return raw.length > 0 ? raw : "/api/access/qr-tokens";

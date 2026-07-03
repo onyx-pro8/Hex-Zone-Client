@@ -82,7 +82,7 @@ export function buildGuestArrivalQrUrl(
 ): string {
   const trimmedZoneId = zoneId.trim();
   if (!trimmedZoneId) {
-    throw new Error("Zone id is required to build guest arrival QR URL.");
+    throw new Error("Network id is required to build guest arrival QR URL.");
   }
   const url = new URL("/guest-arrival", baseOrigin);
   url.searchParams.set("to", trimmedZoneId);
@@ -152,7 +152,7 @@ export function buildGuestArrivalPermissionPayload(
   const timestamp = toOptionalString(input.timestamp);
   const scanNonce = toOptionalString(input.scanNonce);
   if (!hid) throw new Error("HID is required.");
-  if (!to) throw new Error("Scanned zone id (to) is required.");
+  if (!to) throw new Error("Scanned network id (to) is required.");
   if (!guestName) throw new Error("Guest name is required.");
 
   const eventId = toOptionalString(input.eventId);

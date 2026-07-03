@@ -2,10 +2,14 @@ import type { MessageType } from "./messageTypes";
 
 export type MessagePriority = "CRITICAL" | "MAX" | "HIGH" | "MEDIUM" | "LOW";
 
+/** How the client resolves coordinates before calling geo propagation. */
+export type MessageLocationSource = "registered_address" | "live_gps" | "proximity" | "network_qr";
+
 export type MessageWorkflowMeta = {
   priority: MessagePriority;
   description: string;
   delivery: string;
+  locationSource: MessageLocationSource;
   requiresAdmin: boolean;
   requiresRecipient: boolean;
   requiresLocation: boolean;
@@ -27,8 +31,9 @@ export const MESSAGE_WORKFLOW: Record<
   SENSOR: {
     priority: "MEDIUM",
     description:
-      "Telemetry alert from your location. Broadcast to all members in matching zone(s).",
+      "Telemetry alarm routed from your registered home address. In the admin primary zone, all invited members and the administrator receive it; in a member secondary zone, only that zone creator receives it.",
     delivery: "WebSocket + optional push when backgrounded.",
+    locationSource: "registered_address",
     requiresAdmin: false,
     requiresRecipient: false,
     requiresLocation: true,
@@ -38,8 +43,9 @@ export const MESSAGE_WORKFLOW: Record<
   PANIC: {
     priority: "MAX",
     description:
-      "Emergency distress alert. Broadcast to all owners who share the zone id at your location.",
-    delivery: "Instant push + WebSocket to matched zone members.",
+      "Emergency distress alarm using your current device location. Inside the admin primary zone, all invited members and the administrator are notified; outside the primary zone, no one receives it.",
+    delivery: "Instant push + WebSocket to matched network members.",
+    locationSource: "live_gps",
     requiresAdmin: false,
     requiresRecipient: false,
     requiresLocation: true,
@@ -49,8 +55,9 @@ export const MESSAGE_WORKFLOW: Record<
   NS_PANIC: {
     priority: "MAX",
     description:
-      "Non-silent emergency alert with distinct urgency. Same routing as PANIC.",
-    delivery: "Instant push + WebSocket to all zone members.",
+      "Non-silent emergency alarm with distinct urgency. Same primary-zone routing as PANIC using your current device location.",
+    delivery: "Instant push + WebSocket to matched network members.",
+    locationSource: "live_gps",
     requiresAdmin: false,
     requiresRecipient: false,
     requiresLocation: true,
@@ -60,8 +67,9 @@ export const MESSAGE_WORKFLOW: Record<
   UNKNOWN: {
     priority: "CRITICAL",
     description:
-      "Highest-priority alarm. Nearest-neighbour fan-out with maximum visual urgency.",
+      "Highest-priority alarm delivered to the nearest active users by GPS proximity (no zone or network filter).",
     delivery: "Instant push + WebSocket; displayed above all other alarm types.",
+    locationSource: "proximity",
     requiresAdmin: false,
     requiresRecipient: false,
     requiresLocation: true,
@@ -71,8 +79,9 @@ export const MESSAGE_WORKFLOW: Record<
   PRIVATE: {
     priority: "MEDIUM",
     description:
-      "Same location-based send flow as PANIC or PA, but you search and pick exactly one owner with the same zone id.",
+      "Direct alert to one selected member using your current device location. You must be inside an acceptable zone; routing follows primary vs secondary zone rules.",
     delivery: "Geo propagation to the selected recipient only (WebSocket + push).",
+    locationSource: "live_gps",
     requiresAdmin: false,
     requiresRecipient: true,
     requiresLocation: true,
@@ -82,8 +91,9 @@ export const MESSAGE_WORKFLOW: Record<
   PA: {
     priority: "MEDIUM",
     description:
-      "Public announcement broadcast to all owners who share the zone id at your location.",
+      "Public announcement using your current device location. Inside the admin primary zone, all invited members and the administrator receive it.",
     delivery: "WebSocket + optional push.",
+    locationSource: "live_gps",
     requiresAdmin: false,
     requiresRecipient: false,
     requiresLocation: true,
@@ -93,8 +103,9 @@ export const MESSAGE_WORKFLOW: Record<
   SERVICE: {
     priority: "LOW",
     description:
-      "Zone service listing or maintenance informational broadcast.",
+      "Service listing or maintenance alert using your current device location. Routing follows primary vs secondary zone rules for your network.",
     delivery: "WebSocket; push optional.",
+    locationSource: "live_gps",
     requiresAdmin: false,
     requiresRecipient: false,
     requiresLocation: true,
@@ -104,8 +115,9 @@ export const MESSAGE_WORKFLOW: Record<
   WELLNESS_CHECK: {
     priority: "HIGH",
     description:
-      "Safety check request to all zone members. Recipients can acknowledge they are OK.",
+      "Safety check alarm sent from your registered home address. Recipients can acknowledge they are OK. Routing follows primary vs secondary zone rules.",
     delivery: "WebSocket + push; acknowledgements tracked.",
+    locationSource: "registered_address",
     requiresAdmin: false,
     requiresRecipient: false,
     requiresLocation: true,
@@ -131,6 +143,16 @@ export function isUnknownMessageType(type: MessageType): boolean {
 
 export function requiresAdminToSendType(type: MessageType): boolean {
   return getMessageWorkflow(type)?.requiresAdmin ?? false;
+}
+
+export function usesRegisteredAddressForType(type: MessageType): boolean {
+  const workflow = getMessageWorkflow(type);
+  return workflow?.locationSource === "registered_address";
+}
+
+export function usesLiveGpsForType(type: MessageType): boolean {
+  const workflow = getMessageWorkflow(type);
+  return workflow?.locationSource === "live_gps" || workflow?.locationSource === "proximity";
 }
 
 export function priorityBadgeClass(priority: MessagePriority): string {

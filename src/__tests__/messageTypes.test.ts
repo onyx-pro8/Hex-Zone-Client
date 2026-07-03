@@ -31,7 +31,8 @@ describe("messageTypes model", () => {
     const grouped = groupMessageTypesForUI();
     expect(grouped.map((g) => g.category)).toEqual(["Alarm", "Alert", "Access"]);
     expect(grouped[0]?.options.map((option) => option.type)).toContain("NS_PANIC");
-    expect(grouped[1]?.options.map((option) => option.type)).toContain("WELLNESS_CHECK");
+    expect(grouped[0]?.options.map((option) => option.type)).toContain("WELLNESS_CHECK");
+    expect(grouped[1]?.options.map((option) => option.type)).toContain("PRIVATE");
     expect(grouped[2]?.options.map((option) => option.type)).toEqual(
       expect.arrayContaining(["PERMISSION", "CHAT"]),
     );

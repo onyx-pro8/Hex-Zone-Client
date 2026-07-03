@@ -161,7 +161,7 @@ export default function GuestMessages() {
       : "";
   const noHostsHint =
     zoneId.trim().length > 0
-      ? `No hosts available — backend GET ${guestApiBasePath()}/zones/${encodeURIComponent(zoneId.trim())}/peers must return zone staff.`
+      ? `No members available — backend GET ${guestApiBasePath()}/zones/${encodeURIComponent(zoneId.trim())}/peers must return network members.`
       : "";
 
   return (
@@ -169,12 +169,13 @@ export default function GuestMessages() {
       <header>
         <h1 className="text-2xl font-semibold text-[#0F2C5C]">Guest messages</h1>
         <p className="text-sm text-[#8694AC]">
-          Guests can send CHAT only. Permission events are automatic.
+          Guests can send CHAT only. Permission events are automatic. Messaging is network-level — pick any
+          member or administrator on this network.
         </p>
         <div className="mt-3 rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-xs text-[#8694AC]">
-          Access Zone flow (PERMISSION / CHAT): choose a zone, then pick a{" "}
-          <span className="font-medium text-[#566784]">host or administrator</span> (peer). Messages use that
-          account for threading. If the peer list stays empty after the backend ships{" "}
+          Access messaging uses your network id. Choose a zone (network), then pick a{" "}
+          <span className="font-medium text-[#566784]">member or administrator</span> to chat with. Location
+          and map zones do not limit who you can message. If the list stays empty after the backend ships{" "}
           <span className="font-mono text-[#8694AC]">{peersPathHint || "…/peers"}</span>, ask your backend team
           to return zone staff as documented in{" "}
           <code className="rounded bg-[#EDF3FB] px-1 text-[10px]">docs/BACKEND_ACCESS_ZONE_FULL_CONTRACT.md</code>{" "}
@@ -211,7 +212,7 @@ export default function GuestMessages() {
           ) : null}
           <div className="flex flex-wrap items-center justify-between gap-2">
             <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-[#8694AC]">
-              Hosts in this zone
+              Members in this network
             </label>
             <button
               type="button"

@@ -1,5 +1,8 @@
 import axios from "axios";
 import { apiClient } from "./client";
+import type { PrivateLocationStatus } from "../../lib/privateMessageLocation";
+
+export type { PrivateLocationStatus };
 
 export type MessageFeatureType =
   | "SENSOR"
@@ -234,6 +237,7 @@ export type PrivateSearchMember = {
 export type PrivateSearchMembersResponse = {
   zone_ids: string[];
   members: PrivateSearchMember[];
+  location_status?: PrivateLocationStatus;
 };
 
 /** Members currently located inside the caller's zone(s) (legacy list). */

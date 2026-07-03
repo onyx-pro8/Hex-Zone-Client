@@ -129,7 +129,7 @@ export default function QrInvite() {
 
           {!userZoneId && (
             <p className="text-sm leading-relaxed text-[#566784]">
-              No zone ID found on your account. Please update your profile
+              No network ID found on your account. Please update your profile
               first, then return here to share an invite.
             </p>
           )}
@@ -141,7 +141,7 @@ export default function QrInvite() {
           {!!userZoneId && (
             <div className="space-y-3">
               <p className="block text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8694AC]">
-                Your zone ID
+                Your network ID
               </p>
               <div className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm font-mono text-[#0F2C5C]">
                 {userZoneId}
@@ -203,7 +203,7 @@ export default function QrInvite() {
                     ? "Generate a token to invite your single Exclusive user."
                     : "Generate a token to display your QR code invite."
                   : MEMBER_INVITE_UNAVAILABLE_HINT
-                : "Your account needs a zone ID to generate a QR code."}
+                : "Your account needs a network ID to generate a QR code."}
             </p>
           )}
         </div>

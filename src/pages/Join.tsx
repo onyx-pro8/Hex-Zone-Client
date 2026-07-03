@@ -50,7 +50,7 @@ export default function Join() {
     setError("");
     const trimmedZone = zoneId.trim();
     if (!trimmedZone) {
-      setError("Enter the zone ID from your invite or scan the QR code again.");
+      setError("Enter the network ID from your invite or scan the QR code again.");
       return;
     }
 
@@ -69,7 +69,7 @@ export default function Join() {
       navigate("/login");
     } catch {
       setError(
-        "Could not complete registration. Check the zone ID and your details, then try again.",
+        "Could not complete registration. Check the network ID and your details, then try again.",
       );
     } finally {
       setLoading(false);
@@ -91,7 +91,7 @@ export default function Join() {
             className={`flex items-center gap-2 border-b px-6 py-3 text-xs ${accent} ${accentBorder} bg-[#EDF3FB]`}
           >
             <QrCode className="h-4 w-4 shrink-0" strokeWidth={2} />
-            <span>Joining a private zone — your zone ID is set from the invite</span>
+            <span>Joining a private zone — your network ID is set from the invite</span>
           </div>
 
           <div className="flex flex-1 flex-col overflow-y-auto px-6 py-8 sm:px-10">
@@ -105,7 +105,7 @@ export default function Join() {
             <form onSubmit={handleSubmit} className="mt-8 space-y-5">
               <div>
                 <label htmlFor="join-zone" className={labelClass}>
-                  Zone ID
+                  Network ID
                 </label>
                 <input
                   id="join-zone"

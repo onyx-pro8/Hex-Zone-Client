@@ -9,6 +9,7 @@ import {
 } from "../lib/appSettings";
 import { getRemoteAppSettings, updateRemoteAppSettings } from "../services/api";
 import { useAuth } from "../hooks/useAuth";
+import { canEditNetworkId } from "../lib/accountLimits";
 
 function Field({
   label,
@@ -59,6 +60,10 @@ function Field({
 export default function Settings() {
   const { user } = useAuth();
   const accountName = (user?.name ?? "").trim();
+  const networkIdEditable = canEditNetworkId({
+    accountType: user?.accountType,
+    legacyAccountType: user?.account_type,
+  });
   const settings = useAppSettings();
   const [draft, setDraft] = useState<AppSettings>(settings);
   const [loading, setLoading] = useState(true);
@@ -205,7 +210,7 @@ export default function Settings() {
           </div>
           <p className="mb-4 text-sm text-[#566784]">
             Configure how your smart-home device receives zone alerts from Hex
-            Zone. Use the API key and zone id on the device. Set a webhook URL
+            Zone. Use the API key and network id on the device. Set a webhook URL
             for push delivery, or leave it blank and rely on periodical polling
             instead.
           </p>
@@ -221,12 +226,25 @@ export default function Settings() {
               Smart-home device id registered in Device Manager.
             </p>
             <Field
-              label="Network Identification (Zone ID)"
+              label="Network ID"
               value={draft.sharedNotification.networkId}
-              onChange={() => {}}
+              onChange={(v) =>
+                update({
+                  sharedNotification: { ...draft.sharedNotification, networkId: v },
+                })
+              }
               placeholder="ZONE-ABC123"
-              disabled
+              disabled={!networkIdEditable}
             />
+            {!networkIdEditable ? (
+              <p className="-mt-1 text-xs text-[#8694AC]">
+                Network ID is assigned by your administrator and cannot be changed.
+              </p>
+            ) : (
+              <p className="-mt-1 text-xs text-[#8694AC]">
+                System administrators may personalize the network ID (e.g. DISTRICT 11).
+              </p>
+            )}
             <Field
               label="API Key"
               value={draft.sharedNotification.apiKey}

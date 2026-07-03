@@ -96,9 +96,65 @@ function readStringArr(raw: unknown): string[] {
   return raw.filter((x): x is string => typeof x === "string" && x.trim().length > 0).map((s) => s.trim());
 }
 
+function appendZoneRecordGeometry(zoneRaw: unknown, polygons: [number, number][][]) {
+  const z = asRecord(zoneRaw);
+  if (!z) return;
+  const bags = [z];
+  const geom = asRecord(z.geometry);
+  if (geom) bags.push(geom);
+  const config = asRecord(z.config);
+  if (config) bags.push(config);
+
+  const pick = (key: string): unknown => {
+    for (const b of bags) {
+      if (Object.prototype.hasOwnProperty.call(b, key)) return b[key];
+    }
+    return undefined;
+  };
+
+  for (const cell of readStringArr(pick("h3_cells"))) {
+    try {
+      const ringLngLat = h3ToPolygon(cell);
+      polygons.push(ringLngLat.map(([lng, lat]) => [lat, lng] as [number, number]));
+    } catch {
+      /* skip invalid cell */
+    }
+  }
+
+  const gj = pick("geo_fence_polygon") ?? pick("geojson");
+  if (gj) extractPolygonsFromGeoJson(gj, polygons);
+}
+
+export type GuestNetworkZoneSummary = {
+  id: number | string;
+  networkId: string;
+  name: string;
+};
+
+export function networkZonesFromGuestDashboard(dashboard: unknown): GuestNetworkZoneSummary[] {
+  const root = asRecord(dashboard);
+  if (!root || !Array.isArray(root.zones)) return [];
+  const out: GuestNetworkZoneSummary[] = [];
+  for (const raw of root.zones) {
+    const z = asRecord(raw);
+    if (!z) continue;
+    const networkId = String(z.zone_id ?? root.zone_id ?? "").trim();
+    const idRaw = z.id ?? z.zone_id;
+    const name = String(z.name ?? "").trim() || (networkId ? `Zone ${String(idRaw ?? "")}` : "");
+    if (idRaw == null && !networkId) continue;
+    out.push({
+      id: typeof idRaw === "number" || typeof idRaw === "string" ? idRaw : String(idRaw ?? networkId),
+      networkId,
+      name,
+    });
+  }
+  return out;
+}
+
 /**
  * Parses optional map geometry from GET /api/guest/zones/{id}/dashboard `data`.
- * Supports: geojson, polygon / geo_fence (lat,lng rings), map.h3_cells / h3_cells.
+ * Supports: geojson, polygon / geo_fence (lat,lng rings), map.h3_cells / h3_cells,
+ * and a read-only `zones[]` array (all acceptable zones in the network).
  */
 export function tryParseGuestDashboardMap(dashboard: unknown): GuestDashboardMapView | null {
   const root = asRecord(dashboard);
@@ -114,6 +170,10 @@ export function tryParseGuestDashboardMap(dashboard: unknown): GuestDashboardMap
   }
 
   const polygons: [number, number][][] = [];
+
+  if (Array.isArray(root.zones)) {
+    for (const zoneRow of root.zones) appendZoneRecordGeometry(zoneRow, polygons);
+  }
 
   const h3Candidates = [...readStringArr(pick("h3_cells")), ...readStringArr(pick("cells"))];
   for (const cell of h3Candidates) {

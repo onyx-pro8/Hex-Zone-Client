@@ -56,6 +56,7 @@ export function absoluteUrlFromPathWithQuery(
 /**
  * Deep link guests scan: `/access?zid=...&eid=...` (no login).
  * Prefer server-issued `gt` tokens when available.
+ * Network access: `/access?nid=...` or `/access?gt=...&nid=...`.
  */
 export function buildPublicGuestAccessUrl(
   origin: string,
@@ -63,7 +64,7 @@ export function buildPublicGuestAccessUrl(
 ): string {
   const z = String(params.zoneId ?? "").trim();
   if (!z) {
-    throw new Error("Zone id is required to build a guest access URL.");
+    throw new Error("Network id is required to build a guest access URL.");
   }
   const url = new URL("/access", origin.replace(/\/$/, ""));
   url.searchParams.set("zid", z);
@@ -72,4 +73,39 @@ export function buildPublicGuestAccessUrl(
   const sig = String(params.sig ?? "").trim();
   if (sig) url.searchParams.set("sig", sig);
   return url.href;
+}
+
+/** Static network-id QR: `/access?nid=NETWORK_ID`. */
+export function buildNetworkAccessUrl(origin: string, networkId: string): string {
+  const nid = String(networkId ?? "").trim();
+  if (!nid) throw new Error("Network id is required.");
+  const url = new URL("/access", origin.replace(/\/$/, ""));
+  url.searchParams.set("nid", nid);
+  return url.href;
+}
+
+/** Issued network access token: `/access?gt=…&nid=…`. */
+export function buildNetworkAccessUrlWithToken(
+  origin: string,
+  guestToken: string,
+  networkId: string,
+): string {
+  const t = String(guestToken ?? "").trim();
+  const nid = String(networkId ?? "").trim();
+  if (!t) throw new Error("Guest token is required.");
+  if (!nid) throw new Error("Network id is required.");
+  const url = new URL("/access", origin.replace(/\/$/, ""));
+  url.searchParams.set("gt", t);
+  url.searchParams.set("nid", nid);
+  return url.href;
+}
+
+export function parseNetworkIdFromAccessUrl(href: string): string | null {
+  try {
+    const u = new URL(href);
+    const nid = u.searchParams.get("nid") ?? u.searchParams.get("network_id");
+    return nid?.trim() || null;
+  } catch {
+    return null;
+  }
 }
