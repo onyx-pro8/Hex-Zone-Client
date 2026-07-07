@@ -25,14 +25,6 @@ export const QUICK_MESSAGE_TYPES = [
 
 export type QuickMessageType = (typeof QUICK_MESSAGE_TYPES)[number];
 
-export type AddressSettings = {
-  numberStreet: string;
-  streetName: string;
-  city: string;
-  stateProvince: string;
-  cityCode: string;
-};
-
 export type SharedNotificationSettings = {
   hid: string;
   networkId: string;
@@ -43,7 +35,8 @@ export type SharedNotificationSettings = {
 
 export type AppSettings = {
   broadcastName: string;
-  address: AddressSettings;
+  /** Single-line home address (same free-form format as the register form). */
+  address: string;
   sharedNotification: SharedNotificationSettings;
   quickMessages: Record<QuickMessageType, string>;
 };
@@ -61,13 +54,7 @@ export const QUICK_MESSAGE_LABELS: Record<QuickMessageType, string> = {
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   broadcastName: "",
-  address: {
-    numberStreet: "",
-    streetName: "",
-    city: "",
-    stateProvince: "",
-    cityCode: "",
-  },
+  address: "",
   sharedNotification: {
     hid: "",
     networkId: "",
@@ -88,6 +75,27 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   },
 };
 
+/**
+ * Coerce the stored address into a single free-form line. Accepts the current
+ * string shape and the legacy structured object (`{ numberStreet, streetName,
+ * city, stateProvince, cityCode }`) for backward compatibility.
+ */
+function coerceAddress(raw: unknown): string {
+  if (typeof raw === "string") return raw;
+  if (raw && typeof raw === "object") {
+    const a = raw as Record<string, unknown>;
+    const line1 = [a.numberStreet, a.streetName]
+      .map((v) => (typeof v === "string" ? v.trim() : ""))
+      .filter(Boolean)
+      .join(" ");
+    return [line1, a.city, a.stateProvince, a.cityCode]
+      .map((v) => (typeof v === "string" ? v.trim() : ""))
+      .filter(Boolean)
+      .join(", ");
+  }
+  return DEFAULT_APP_SETTINGS.address;
+}
+
 function mergeSettings(raw: unknown): AppSettings {
   if (!raw || typeof raw !== "object") return { ...DEFAULT_APP_SETTINGS };
   const row = raw as Partial<AppSettings>;
@@ -96,7 +104,7 @@ function mergeSettings(raw: unknown): AppSettings {
       typeof row.broadcastName === "string"
         ? row.broadcastName
         : DEFAULT_APP_SETTINGS.broadcastName,
-    address: { ...DEFAULT_APP_SETTINGS.address, ...(row.address ?? {}) },
+    address: coerceAddress(row.address),
     sharedNotification: {
       ...DEFAULT_APP_SETTINGS.sharedNotification,
       ...(row.sharedNotification ?? {}),

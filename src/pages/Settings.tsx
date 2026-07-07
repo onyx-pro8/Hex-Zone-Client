@@ -10,6 +10,12 @@ import {
 import { getRemoteAppSettings, updateRemoteAppSettings } from "../services/api";
 import { useAuth } from "../hooks/useAuth";
 import { canEditNetworkId } from "../lib/accountLimits";
+import { AddressAutocompleteInput } from "../components/AddressAutocompleteInput";
+
+const settingsLabelClass =
+  "mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[#566784]";
+const settingsInputClass =
+  "w-full rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C] outline-none transition focus:border-[#2F80ED]";
 
 function Field({
   label,
@@ -145,44 +151,19 @@ export default function Settings() {
               onChange={(v) => update({ broadcastName: v })}
               placeholder={accountName || "THE BLACK GUY"}
             />
-            <Field
-              label="Number / Street #"
-              value={draft.address.numberStreet}
-              onChange={(v) =>
-                update({ address: { ...draft.address, numberStreet: v } })
-              }
-              placeholder="169"
+            <AddressAutocompleteInput
+              id="settings-address"
+              label="Address"
+              value={draft.address}
+              onChange={(addr) => update({ address: addr })}
+              placeholder="169 Fred Young Drive, Toronto, Ontario, M3L 0A6"
+              labelClassName={settingsLabelClass}
+              inputClassName={settingsInputClass}
+              className="relative"
             />
-            <Field
-              label="Street Name"
-              value={draft.address.streetName}
-              onChange={(v) =>
-                update({ address: { ...draft.address, streetName: v } })
-              }
-              placeholder="Fred Young Drive"
-            />
-            <Field
-              label="City"
-              value={draft.address.city}
-              onChange={(v) => update({ address: { ...draft.address, city: v } })}
-              placeholder="Toronto"
-            />
-            <Field
-              label="State / Province / Parish"
-              value={draft.address.stateProvince}
-              onChange={(v) =>
-                update({ address: { ...draft.address, stateProvince: v } })
-              }
-              placeholder="Ontario"
-            />
-            <Field
-              label="City Code"
-              value={draft.address.cityCode}
-              onChange={(v) =>
-                update({ address: { ...draft.address, cityCode: v } })
-              }
-              placeholder="M3L 0A6"
-            />
+            <p className="-mt-1 text-xs text-[#8694AC]">
+              Start typing and pick a suggestion to set your home address.
+            </p>
           </div>
           <div className="mt-4 flex items-center gap-3">
             <button
