@@ -53,7 +53,7 @@ export function MessageDetail({
           })()}
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="rounded-full bg-[#EDF3FB] px-2 py-1 text-[#566784]">
-              Zone {message.zone_id}
+              {message.zone_id}
             </span>
             <span
               className={`rounded-full px-2 py-1 font-semibold ${

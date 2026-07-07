@@ -21,7 +21,7 @@ function toRadians(degrees: number) {
 export const AUTH_MAP_DEFAULT_CENTER: [number, number] = [40.7527, -73.9772];
 
 export function generateZoneId() {
-  return `ZN-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+  return `Network-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 }
 
 export function h3ToPolygon(cell: string): [number, number][] {

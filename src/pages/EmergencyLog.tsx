@@ -156,7 +156,7 @@ export default function EmergencyLog() {
                   ) : null}
                   {event.zoneId ? (
                     <span className="rounded-full bg-[#EDF3FB] px-2 py-1">
-                      Zone {event.zoneId}
+                      {event.zoneId}
                     </span>
                   ) : null}
                   <span className="rounded-full bg-[#EDF3FB] px-2 py-1">

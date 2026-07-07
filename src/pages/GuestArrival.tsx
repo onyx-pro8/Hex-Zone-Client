@@ -622,7 +622,7 @@ export default function GuestArrival() {
         </p>
         <h1 className="text-2xl font-semibold text-[#0F2C5C]">Guest info</h1>
         <p className="text-sm text-[#8694AC]">
-          Zone <span className="font-mono text-[#2F80ED]">{effectiveZoneId || "—"}</span>
+          <span className="font-mono text-[#2F80ED]">{effectiveZoneId || "—"}</span>
         </p>
         <div className="flex flex-wrap gap-2 text-xs">
           <Link

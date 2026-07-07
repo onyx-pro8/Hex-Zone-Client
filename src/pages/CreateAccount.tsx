@@ -428,7 +428,7 @@ export default function CreateAccount() {
                     onChange={(e) => {
                       if (useExistingZone) setExistingZoneId(e.target.value);
                     }}
-                    placeholder="ZN-XXXXXXXX"
+                    placeholder="Network-XXXXXXXX"
                     className={`min-w-0 flex-1 rounded-md border border-[#DCE6F2] px-3 py-2.5 font-mono text-sm focus:border-[#2F80ED]/60 focus:outline-none focus:ring-1 focus:ring-[#2F80ED]/25 ${
                       useExistingZone
                         ? `${panelBg} text-[#0F2C5C]`
@@ -500,7 +500,7 @@ export default function CreateAccount() {
                   "Creating account…"
                 ) : (
                   <>
-                    Create Account &amp; Define Zone
+                    Create Account
                     <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
                   </>
                 )}

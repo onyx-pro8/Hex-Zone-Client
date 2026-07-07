@@ -111,7 +111,7 @@ export default function Join() {
                   id="join-zone"
                   value={zoneId}
                   onChange={(e) => setZoneId(e.target.value)}
-                  placeholder="ZN-XXXXXXXX"
+                  placeholder="Network-XXXXXXXX"
                   required
                   className={`${inputClass} font-mono`}
                   autoComplete="off"

@@ -71,7 +71,7 @@ export function MessageList({
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2 text-xs">
                     <span className="rounded-full bg-[#EDF3FB] px-2 py-0.5 text-[#566784]">
-                      Zone {message.zone_id}
+                      {message.zone_id}
                     </span>
                     <span
                       className={`rounded-full px-2 py-0.5 font-semibold ${
