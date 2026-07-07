@@ -6,9 +6,9 @@ const SYNC_INTERVAL_MS = 30_000;
 
 /**
  * Periodically publishes the browser's GPS position to the server
- * (`POST /members/location`) so dynamic zones and other geo workflows have
- * a current position. Optional for receiving zone-based alerts once routing
- * uses acceptable-zone geometry rather than recipient presence.
+ * (`POST /members/location`) so dynamic zones and live geo workflows have
+ * a current position in `member_locations`. Home address coords on the owner
+ * profile are not updated by this sync.
  */
 export function useLocationSync(token: string | null) {
   useEffect(() => {

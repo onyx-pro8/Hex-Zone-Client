@@ -58,7 +58,7 @@ function Field({
 }
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const accountName = (user?.name ?? "").trim();
   const networkIdEditable = canEditNetworkId({
     accountType: user?.accountType,
@@ -107,6 +107,7 @@ export default function Settings() {
     const merged = updateAppSettings((res.data as Partial<AppSettings>) ?? draft);
     setDraft(merged);
     setSaved(true);
+    void refreshUser();
     setSaving(false);
   };
 

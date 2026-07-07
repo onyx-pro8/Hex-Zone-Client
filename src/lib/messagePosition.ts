@@ -74,7 +74,7 @@ async function tryReadGps(): Promise<MessagePosition | null> {
  *
  * Priority:
  *   1. Live browser GPS (short timeout so Send does not hang).
- *   2. Profile `mapCenter` saved on the account.
+ *   2. Profile `mapCenter` — geocoded registered home address from the account.
  */
 export async function resolveMessagePropagationPosition(
   profileMapCenter?: MessagePosition | null,
@@ -107,7 +107,6 @@ export async function resolveMessagePropagationPositionForType(
   if (usesRegisteredAddressForType(messageType)) {
     const fromProfile = normalizeMapCenter(profileMapCenter ?? null);
     if (fromProfile) {
-      void publishMemberLocation(fromProfile);
       return { position: fromProfile, source: "profile" };
     }
     return { error: REGISTERED_ADDRESS_REQUIRED };

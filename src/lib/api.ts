@@ -103,6 +103,13 @@ export interface OwnerUpdatePayload {
   first_name?: string | null;
   last_name?: string | null;
   active?: boolean | null;
+  account_type?:
+    | "private"
+    | "private_plus"
+    | "exclusive"
+    | "enhanced"
+    | "enhanced_plus"
+    | null;
 }
 
 export async function updateOwner(

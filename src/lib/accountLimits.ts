@@ -72,3 +72,56 @@ export function canEditNetworkId(params: {
 
 export const MEMBER_INVITE_UNAVAILABLE_HINT =
   "Member invite QR is available to administrators on Private, Private+, Exclusive, and Enhanced+ accounts. Enhanced accounts are solo and cannot invite members.";
+
+export function accountTypeLabel(type: NormalizedAccountType): string {
+  switch (type) {
+    case "PRIVATE_PLUS":
+      return "Private+";
+    case "ENHANCED_PLUS":
+      return "Enhanced+";
+    case "EXCLUSIVE":
+      return "Exclusive";
+    case "ENHANCED":
+      return "Enhanced";
+    default:
+      return "Private";
+  }
+}
+
+export const ADMIN_ASSIGNABLE_ACCOUNT_TYPES: {
+  value: NormalizedAccountType;
+  apiValue: string;
+  label: string;
+  description: string;
+}[] = [
+  {
+    value: "PRIVATE",
+    apiValue: "private",
+    label: "Private",
+    description: "System administrator — platform-wide access",
+  },
+  {
+    value: "PRIVATE_PLUS",
+    apiValue: "private_plus",
+    label: "Private+",
+    description: "Family account — up to 10 devices",
+  },
+  {
+    value: "EXCLUSIVE",
+    apiValue: "exclusive",
+    label: "Exclusive",
+    description: "Solo account with one invited member",
+  },
+  {
+    value: "ENHANCED",
+    apiValue: "enhanced",
+    label: "Enhanced",
+    description: "Solo account — one device",
+  },
+  {
+    value: "ENHANCED_PLUS",
+    apiValue: "enhanced_plus",
+    label: "Enhanced+",
+    description: "Unlimited devices and members",
+  },
+];
