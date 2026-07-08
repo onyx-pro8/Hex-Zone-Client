@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Home, Megaphone, BellRing, Loader2, Settings as SettingsIcon } from "lucide-react";
 import {
   QUICK_MESSAGE_LABELS,
@@ -11,6 +11,9 @@ import { getRemoteAppSettings, updateRemoteAppSettings } from "../services/api";
 import { useAuth } from "../hooks/useAuth";
 import { canEditNetworkId } from "../lib/accountLimits";
 import { AddressAutocompleteInput } from "../components/AddressAutocompleteInput";
+import AddressMapPreview from "../components/AddressMapPreview";
+import { addressToMockCoords, getHexGrid, type H3Cell } from "../lib/h3";
+import { searchPhotonAddresses } from "../lib/addressSearch";
 
 const settingsLabelClass =
   "mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[#566784]";
@@ -76,6 +79,10 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Real [lat, lng] for the map — from the owner's home, a picked suggestion, or geocoding the typed address. */
+  const [addressCoords, setAddressCoords] = useState<[number, number] | null>(
+    null,
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -94,6 +101,50 @@ export default function Settings() {
       mounted = false;
     };
   }, []);
+
+  // Seed the map from the owner's geocoded home address (from /me) on first load.
+  useEffect(() => {
+    if (addressCoords) return;
+    const c = user?.mapCenter;
+    if (c && Number.isFinite(c.latitude) && Number.isFinite(c.longitude)) {
+      setAddressCoords([c.latitude, c.longitude]);
+    }
+  }, [user?.mapCenter, addressCoords]);
+
+  // Keep the map in sync with the address text: debounce-geocode whatever is in
+  // the field so the preview follows manual edits, not just picked suggestions.
+  useEffect(() => {
+    const q = draft.address.trim();
+    if (q.length < 3) return;
+    const ac = new AbortController();
+    const timer = window.setTimeout(() => {
+      void searchPhotonAddresses(q, ac.signal)
+        .then((features) => {
+          const first = features[0];
+          if (!first) return;
+          const [lon, lat] = first.geometry.coordinates;
+          setAddressCoords([lat, lon]);
+        })
+        .catch((err: Error) => {
+          if (err.name !== "AbortError") {
+            /* keep the last known coords on geocode failure */
+          }
+        });
+    }, 500);
+    return () => {
+      window.clearTimeout(timer);
+      ac.abort();
+    };
+  }, [draft.address]);
+
+  const mapCenter = useMemo<[number, number]>(
+    () => addressCoords ?? addressToMockCoords(draft.address),
+    [addressCoords, draft.address],
+  );
+  const mapGrid = useMemo<H3Cell[]>(
+    () => getHexGrid(mapCenter, 9, 1),
+    [mapCenter],
+  );
 
   const update = (patch: Partial<AppSettings>) => {
     setSaved(false);
@@ -155,7 +206,10 @@ export default function Settings() {
               id="settings-address"
               label="Address"
               value={draft.address}
-              onChange={(addr) => update({ address: addr })}
+              onChange={(addr, coords) => {
+                update({ address: addr });
+                if (coords) setAddressCoords(coords);
+              }}
               placeholder="169 Fred Young Drive, Toronto, Ontario, M3L 0A6"
               labelClassName={settingsLabelClass}
               inputClassName={settingsInputClass}
@@ -164,6 +218,15 @@ export default function Settings() {
             <p className="-mt-1 text-xs text-[#8694AC]">
               Start typing and pick a suggestion to set your home address.
             </p>
+          </div>
+          <div className="mt-4">
+            <span className={settingsLabelClass}>Map preview</span>
+            <AddressMapPreview
+              center={mapCenter}
+              grid={mapGrid}
+              addressLabel={draft.address || undefined}
+              className="h-64 w-full"
+            />
           </div>
           <div className="mt-4 flex items-center gap-3">
             <button
