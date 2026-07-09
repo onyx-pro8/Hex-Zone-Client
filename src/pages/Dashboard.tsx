@@ -1392,7 +1392,7 @@ export default function Dashboard() {
   const canCreateZone = capabilities?.can_create_zone ?? true;
   const createBlockedReason =
     capabilities?.reason ??
-    (canCreateZone ? "" : "You have reached your allowed zone limit.");
+    (canCreateZone ? "" : "You have reached the zone limit for this account.");
   const canEditCurrentSelection =
     isCreatingNewZone || (!!activeZoneEntry && activeSavedZoneEditable);
   /** Validate / preview reference IDs (Type 2–3); does not require save permission. */

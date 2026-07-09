@@ -275,7 +275,7 @@ export default function Landing() {
                   "Many users allowed",
                   "1 device per user",
                   "Same zone type for all",
-                  "3 acceptable zones per user",
+                  "3 acceptable zones per account",
                   "QR code invites",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-3">
@@ -314,7 +314,7 @@ export default function Landing() {
                   "1 user only",
                   "1 device per user",
                   "Any zone type allowed",
-                  "3 acceptable zones",
+                  "3 acceptable zones per account",
                   "Full flexibility",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-3">

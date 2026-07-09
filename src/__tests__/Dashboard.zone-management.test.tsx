@@ -179,7 +179,7 @@ describe("Dashboard zone management", () => {
       zones: [],
       capabilities: {
         can_create_zone: false,
-        reason: "You have reached your allowed zone limit.",
+        reason: "You have reached the zone limit for this account.",
       },
       loading: false,
       error: null,
@@ -192,7 +192,7 @@ describe("Dashboard zone management", () => {
     const newZoneButton = screen.getByRole("button", { name: /\+ New zone/i });
     expect(newZoneButton).toBeDisabled();
     expect(
-      screen.getAllByText("You have reached your allowed zone limit.").length,
+      screen.getAllByText("You have reached the zone limit for this account.").length,
     ).toBeGreaterThan(0);
   });
 
