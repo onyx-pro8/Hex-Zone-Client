@@ -20,7 +20,7 @@ function baseMessage(overrides: Partial<Message> = {}): Message {
 }
 
 describe("messageBroadcastLabel", () => {
-  it("shows I for the current owner's own messages", () => {
+  it("shows broadcast name for the current owner's own messages", () => {
     const message = baseMessage({
       sender_id: 7,
       raw_payload: { broadcast_name: "Alex" },
@@ -30,7 +30,7 @@ describe("messageBroadcastLabel", () => {
         selfOwnerId: 7,
         selfBroadcastName: "Alex",
       }),
-    ).toBe("I");
+    ).toBe("Alex");
   });
 
   it("shows embedded broadcast name for other senders", () => {
