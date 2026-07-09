@@ -965,6 +965,7 @@ type ZoneEntry = {
   ownerId: string | null;
   creatorId: string | null;
   editable: boolean;
+  deletable: boolean;
 };
 
 const MAX_ZONE_NAME_LENGTH = 120;
@@ -1335,6 +1336,7 @@ export default function Dashboard() {
     error: zonesError,
     saveZone,
     updateSavedZone,
+    deleteSavedZone,
   } = useZones(userZoneId, {
     role: user?.role,
     currentUserId: user?.id != null ? String(user.id) : null,
@@ -1354,6 +1356,10 @@ export default function Dashboard() {
         role: user?.role,
       }),
     [user?.accountType, user?.account_type, user?.role],
+  );
+  const isAccountAdministrator = useMemo(
+    () => String(user?.role ?? "").toLowerCase() === "administrator",
+    [user?.role],
   );
   const zoneEntries = useMemo<ZoneEntry[]>(
     () =>
@@ -1375,15 +1381,20 @@ export default function Dashboard() {
             : systemAdmin ||
               (creatorId != null && creatorId === currentUserId) ||
               (creatorId == null && ownerId != null && ownerId === currentUserId);
+        const deletable =
+          systemAdmin ||
+          (ownerId != null && ownerId === currentUserId) ||
+          (isAccountAdministrator && ownerId != null);
         return {
           zone,
           key: `${savedZoneRecordId(zone)}:${ownerId ?? "none"}:${idx}`,
           ownerId,
           creatorId,
           editable,
+          deletable,
         };
       }),
-    [zones, currentUserId, systemAdmin],
+    [zones, currentUserId, systemAdmin, isAccountAdministrator],
   );
   const activeZoneEntry = useMemo(
     () => zoneEntries.find((entry) => entry.key === activeSavedZoneKey) ?? null,
@@ -1392,7 +1403,7 @@ export default function Dashboard() {
   const canCreateZone = capabilities?.can_create_zone ?? true;
   const createBlockedReason =
     capabilities?.reason ??
-    (canCreateZone ? "" : "You have reached the zone limit for this account.");
+    (canCreateZone ? "" : "You have reached the zone limit for this user.");
   const canEditCurrentSelection =
     isCreatingNewZone || (!!activeZoneEntry && activeSavedZoneEditable);
   /** Validate / preview reference IDs (Type 2–3); does not require save permission. */
@@ -2718,6 +2729,42 @@ export default function Dashboard() {
       setSaveStatus("Could not copy.");
     }
   };
+
+  const handleDeleteSavedZone = useCallback(
+    async (entry: ZoneEntry) => {
+      if (!entry.deletable) {
+        setSaveStatus("You cannot delete this zone.");
+        return;
+      }
+      const label = entry.zone.name || `Zone ${savedZoneId(entry.zone)}`;
+      if (
+        !window.confirm(
+          `Delete "${label}"? This removes the saved zone permanently.`,
+        )
+      ) {
+        return;
+      }
+      try {
+        await deleteSavedZone(savedZoneRecordId(entry.zone));
+        if (activeSavedZoneKey === entry.key) {
+          setActiveSavedZoneKey(null);
+          setActiveSavedZoneEditable(false);
+          setIsCreatingNewZone(false);
+        }
+        setSaveStatus(`Deleted ${label}.`);
+      } catch (err) {
+        setSaveStatus(
+          err instanceof Error ? err.message : "Could not delete zone.",
+        );
+      }
+    },
+    [
+      activeSavedZoneKey,
+      deleteSavedZone,
+      setActiveSavedZoneEditable,
+      setIsCreatingNewZone,
+    ],
+  );
 
   const startNewZoneDraft = useCallback(() => {
     if (!canCreateZone) {
@@ -4743,26 +4790,41 @@ export default function Dashboard() {
                             activeSavedZoneKey != null &&
                             activeSavedZoneKey === entry.key;
                           return (
-                            <button
+                            <div
                               key={entry.key}
-                              type="button"
-                              onClick={() => {
-                                loadSavedZone(entry);
-                                focusSavedZoneOnMap(entry.zone);
-                              }}
-                              className={`shrink-0 rounded-md border px-2.5 py-1.5 text-xs transition ${
+                              className={`flex shrink-0 items-center gap-1 rounded-md border transition ${
                                 isActive
                                   ? "border-[#2F80ED] bg-[#EDF3FB] text-[#0F2C5C]"
                                   : "border-[#DCE6F2] text-[#566784] hover:border-[#2F80ED]/60"
                               }`}
                             >
-                              <span>{zone.name || `Zone ${savedZoneId(zone)}`}</span>
-                              {!entry.editable && (
-                                <span className="ml-2 text-[10px] uppercase text-[#8694AC]">
-                                  read-only
-                                </span>
-                              )}
-                            </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  loadSavedZone(entry);
+                                  focusSavedZoneOnMap(entry.zone);
+                                }}
+                                className="px-2.5 py-1.5 text-xs"
+                              >
+                                <span>{zone.name || `Zone ${savedZoneId(zone)}`}</span>
+                                {!entry.editable && (
+                                  <span className="ml-2 text-[10px] uppercase text-[#8694AC]">
+                                    read-only
+                                  </span>
+                                )}
+                              </button>
+                              {entry.deletable ? (
+                                <button
+                                  type="button"
+                                  onClick={() => void handleDeleteSavedZone(entry)}
+                                  className="mr-1 rounded p-1 text-rose-600 hover:bg-rose-50"
+                                  aria-label={`Delete ${zone.name || "zone"}`}
+                                  title="Delete zone"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              ) : null}
+                            </div>
                           );
                         })}
                         <button
@@ -4780,6 +4842,11 @@ export default function Dashboard() {
                           + New zone
                         </button>
                       </div>
+                      {zones.length > 0 ? (
+                        <p className="mt-2 text-[10px] text-[#8694AC]">
+                          Select a zone tab to edit, or use the trash icon to delete a saved zone.
+                        </p>
+                      ) : null}
                       {zones.length === 0 && !isCreatingNewZone && (
                         <p className="mt-2 text-xs text-[#8694AC]">
                           {canCreateZone
@@ -4933,8 +5000,18 @@ export default function Dashboard() {
                 className="inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-[#E4ECF7] bg-transparent px-3 py-2.5 text-sm text-[#566784] sm:flex-none"
               >
                 <Trash2 className="h-4 w-4" strokeWidth={2} />
-                Clear all
+                Clear draft
               </button>
+              {activeZoneEntry?.deletable && !isCreatingNewZone ? (
+                <button
+                  type="button"
+                  onClick={() => void handleDeleteSavedZone(activeZoneEntry)}
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-md border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700 sm:flex-none"
+                >
+                  <Trash2 className="h-4 w-4" strokeWidth={2} />
+                  Delete zone
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={handleExportCsv}

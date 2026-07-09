@@ -33,8 +33,9 @@ export async function updateZone(id: string, payload: Partial<Omit<Zone, "id">>)
   return request<Zone>({ method: "PUT", url: `/zones/${id}`, data: payload });
 }
 
-export async function deleteZone(id: string) {
-  return request<{ success: boolean }>({ method: "DELETE", url: `/zones/${id}` });
+/** Delete a saved zone by DB record id (`zone.id`). */
+export async function deleteZone(id: string | number) {
+  return request<null>({ method: "DELETE", url: `/zones/${id}` });
 }
 
 /**

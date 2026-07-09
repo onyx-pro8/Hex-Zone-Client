@@ -370,6 +370,20 @@ export function useZones(
     [refresh],
   );
 
+  const deleteSavedZone = useCallback(
+    async (zoneRecordId: number | string) => {
+      const deleteResult = await request<unknown>({
+        method: "DELETE",
+        url: `/zones/${zoneRecordId}`,
+      });
+      if (deleteResult.error) {
+        throw new Error(deleteResult.error ?? "Zone delete failed");
+      }
+      await refresh();
+    },
+    [refresh],
+  );
+
   useEffect(() => {
     void refresh();
   }, [refresh]);
@@ -383,5 +397,6 @@ export function useZones(
     saveZone,
     saveZoneWithRebalance,
     updateSavedZone,
+    deleteSavedZone,
   };
 }
