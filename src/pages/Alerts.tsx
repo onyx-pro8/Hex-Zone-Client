@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle } from "lucide-react";
+import { MessageDetail } from "../components/messages/MessageDetail";
 import { MessageList } from "../components/messages/MessageList";
 import { useAuth } from "../hooks/useAuth";
 import { useAlarmInbox } from "../state/alarm/AlarmInboxContext";
@@ -25,8 +26,8 @@ export default function Alerts() {
     };
   }, []);
 
-  const ownerNames = useMemo(() => {
-    const map: Record<number, string> = {};
+  const ownerNameById = useMemo(() => {
+    const map = new Map<number, string>();
     members.forEach((row) => {
       const id = Number(row.id);
       if (!Number.isFinite(id) || id <= 0) return;
@@ -35,7 +36,7 @@ export default function Alerts() {
         `${row.first_name ?? ""} ${row.last_name ?? ""}`.trim() ||
         row.email ||
         "";
-      if (name) map[id] = name;
+      if (name) map.set(id, name);
     });
     return map;
   }, [members]);
@@ -47,6 +48,21 @@ export default function Alerts() {
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
       ),
     [alarmMessages],
+  );
+
+  const activeMessage = useMemo(
+    () => sortedAlarms.find((message) => message.id === activeId) ?? null,
+    [sortedAlarms, activeId],
+  );
+
+  const getBroadcastName = useCallback(
+    (message: Parameters<typeof messageBroadcastLabel>[0]) =>
+      messageBroadcastLabel(message, {
+        selfOwnerId: Number.isFinite(ownerId) ? ownerId : null,
+        selfBroadcastName,
+        resolveOwnerName: (id) => ownerNameById.get(id) ?? null,
+      }),
+    [ownerId, selfBroadcastName, ownerNameById],
   );
 
   const handleSelect = (messageId: string) => {
@@ -67,26 +83,29 @@ export default function Alerts() {
         </div>
       </div>
 
-      {error ? (
-        <p className="text-sm text-[#E23B4E]">{error}</p>
-      ) : null}
-      {loading && sortedAlarms.length === 0 ? (
-        <p className="text-sm text-[#566784]">Loading alarms…</p>
-      ) : (
-        <MessageList
-          messages={sortedAlarms}
-          activeId={activeId}
-          onSelect={handleSelect}
-          emptyLabel="No incoming alarms."
-          getBroadcastName={(message) =>
-            messageBroadcastLabel(message, {
-              selfOwnerId: ownerId,
-              selfBroadcastName,
-              resolveOwnerName: (id) => ownerNames[id] ?? null,
-            })
-          }
+      <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
+        <div className="space-y-3">
+          {error ? (
+            <p className="text-sm text-[#E23B4E]">{error}</p>
+          ) : null}
+          {loading && sortedAlarms.length === 0 ? (
+            <p className="text-sm text-[#566784]">Loading alarms…</p>
+          ) : (
+            <MessageList
+              messages={sortedAlarms}
+              activeId={activeId}
+              onSelect={handleSelect}
+              emptyLabel="No incoming alarms."
+              getBroadcastName={getBroadcastName}
+            />
+          )}
+        </div>
+        <MessageDetail
+          message={activeMessage}
+          currentOwnerId={Number.isFinite(ownerId) ? ownerId : null}
+          ownerNameById={ownerNameById}
         />
-      )}
+      </div>
     </div>
   );
 }

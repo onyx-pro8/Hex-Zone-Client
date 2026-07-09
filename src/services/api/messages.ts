@@ -282,6 +282,21 @@ function readCoordinate(value: unknown): number | null {
   return null;
 }
 
+function extractDeliveredOwnerIds(
+  ...sources: Array<Record<string, unknown> | null | undefined>
+): number[] | null {
+  for (const source of sources) {
+    if (!source) continue;
+    const raw = source.delivered_owner_ids;
+    if (!Array.isArray(raw)) continue;
+    const ids = raw
+      .map((v) => Number(v))
+      .filter((id) => Number.isFinite(id) && id > 0);
+    if (ids.length > 0) return ids;
+  }
+  return null;
+}
+
 function extractMessagePosition(
   ...sources: Array<Record<string, unknown> | null | undefined>
 ): { latitude: number; longitude: number } | null {
@@ -492,12 +507,12 @@ export function normalizeMessage(raw: unknown): Message | null {
     type,
   );
   const coordinates = extractMessagePosition(row, msgRecord, rowStructuredPayload, raw_payload);
-  const rawDelivered = row.delivered_owner_ids;
-  const delivered_owner_ids = Array.isArray(rawDelivered)
-    ? rawDelivered
-        .map((v) => Number(v))
-        .filter((id) => Number.isFinite(id) && id > 0)
-    : null;
+  const delivered_owner_ids = extractDeliveredOwnerIds(
+    row,
+    msgRecord,
+    rowStructuredPayload,
+    raw_payload,
+  );
   const rawReadBy = row.read_by_owner_ids;
   const read_by_owner_ids = Array.isArray(rawReadBy)
     ? rawReadBy
@@ -589,6 +604,10 @@ export function messageFromGeoPropagation(
   if (id == null || !zoneId || typeof createdAt !== "string") {
     return null;
   }
+  const coordinates = extractMessagePosition(
+    propagation as unknown as Record<string, unknown>,
+    meta,
+  );
   return normalizeMessage({
     id,
     zone_id: zoneId,
@@ -604,6 +623,12 @@ export function messageFromGeoPropagation(
     ...(servicePa.subject ? { subject: servicePa.subject } : {}),
     ...(servicePa.topic ? { topic: servicePa.topic } : {}),
     ...(servicePa.subtopic ? { subtopic: servicePa.subtopic } : {}),
+    ...(coordinates
+      ? { latitude: coordinates.latitude, longitude: coordinates.longitude }
+      : {}),
+    ...(propagation.delivered_owner_ids?.length
+      ? { delivered_owner_ids: propagation.delivered_owner_ids }
+      : {}),
     raw_payload: propagation.metadata ?? null,
   });
 }

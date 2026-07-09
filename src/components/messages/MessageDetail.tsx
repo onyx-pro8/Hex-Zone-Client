@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Lock, MessagesSquare } from "lucide-react";
-import { formatMessageSenderLabel, type Message } from "../../services/api/messages";
+import { type Message } from "../../services/api/messages";
 import { toMessageTypeLabel } from "../../lib/messageTypes";
-import { readMessageBroadcastName } from "../../lib/messageBroadcast";
+import { messageBroadcastLabel } from "../../lib/messageBroadcast";
 import {
   isPermissionDirectVisibility,
   isPermissionZonePendingBroadcastVisibility,
@@ -32,6 +32,12 @@ export function MessageDetail({
   ownerNameById?: Map<number, string>;
 }) {
   const [threadOtherId, setThreadOtherId] = useState<number | null>(null);
+  const senderLabel = message
+    ? messageBroadcastLabel(message, {
+        selfOwnerId: currentOwnerId ?? null,
+        resolveOwnerName: (id) => ownerNameById?.get(id) ?? null,
+      })
+    : null;
   return (
     <section className="rounded-2xl border border-[#DCE6F2] bg-white p-5 shadow-sm">
       {!message ? (
@@ -119,14 +125,11 @@ export function MessageDetail({
                     : "text-base text-[#0F2C5C]"
               }`}
             >
-              {message.subject ||
-                readMessageBroadcastName(message) ||
-                `Member ${formatMessageSenderLabel(message)}`}
+              {message.subject || senderLabel}
             </p>
             {message.subject ? (
               <p className="mt-1 text-sm font-semibold text-[#566784]">
-                {readMessageBroadcastName(message) ??
-                  `Member ${formatMessageSenderLabel(message)}`}
+                {senderLabel}
               </p>
             ) : null}
             {message.message && message.message !== message.subject ? (

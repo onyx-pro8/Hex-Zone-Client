@@ -179,6 +179,24 @@ describe("normalizeMessage", () => {
     });
     expect(fromRaw?.permission_visibility).toBe("direct");
   });
+
+  it("reads delivered_owner_ids and sender position from geo metadata", () => {
+    const m = normalizeMessage({
+      id: "alarm-1",
+      zone_id: "ZN-1",
+      sender_id: 42,
+      created_at: "2026-03-01T12:00:00Z",
+      type: "PANIC",
+      message: "Help",
+      raw_payload: {
+        delivered_owner_ids: [2, 3],
+        position: { latitude: 47.6062, longitude: -122.3321 },
+      },
+    });
+    expect(m?.delivered_owner_ids).toEqual([2, 3]);
+    expect(m?.latitude).toBeCloseTo(47.6062);
+    expect(m?.longitude).toBeCloseTo(-122.3321);
+  });
 });
 
 describe("sortInboxAccessMessages", () => {
