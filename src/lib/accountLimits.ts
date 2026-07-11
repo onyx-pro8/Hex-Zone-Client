@@ -73,6 +73,14 @@ export function canEditNetworkId(params: {
 export const MEMBER_INVITE_UNAVAILABLE_HINT =
   "Member invite QR is available to administrators on Private, Private+, Exclusive, and Enhanced+ accounts. Enhanced accounts are solo and cannot invite members.";
 
+/** Geo types network-shared on Private+ (family) accounts. */
+export const PRIVATE_PLUS_NETWORK_SHARED_MESSAGE_TYPES = [
+  "PANIC",
+  "NS_PANIC",
+  "PA",
+  "SERVICE",
+] as const;
+
 export function accountTypeLabel(type: NormalizedAccountType): string {
   switch (type) {
     case "PRIVATE_PLUS":
