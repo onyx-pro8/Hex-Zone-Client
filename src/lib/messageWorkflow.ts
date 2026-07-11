@@ -59,7 +59,7 @@ export const MESSAGE_WORKFLOW: Record<
   PANIC: {
     priority: "MAX",
     description:
-      "Emergency distress alarm using your current device location. Inside the admin primary zone, all invited members and the administrator are notified; outside the primary zone, no one receives it. On Private+ (family) accounts, PANIC is shared with the full network whenever the sender is inside any acceptable zone.",
+      "Emergency distress alarm using your current device location. Inside the admin primary zone, all invited members and the administrator are notified; outside the primary zone, no one receives it. On Private+ (family) accounts, PANIC is always shared with every network member and the administrator.",
     delivery: "Instant push + WebSocket to matched network members.",
     locationSource: "live_gps",
     requiresAdmin: false,
@@ -107,7 +107,7 @@ export const MESSAGE_WORKFLOW: Record<
   PA: {
     priority: "MEDIUM",
     description:
-      "Public announcement using your current device location. Inside the admin primary zone, all invited members and the administrator receive it. On Private+ accounts, PA is shared with the full network from any acceptable zone.",
+      "Public announcement using your current device location. Inside the admin primary zone, all invited members and the administrator receive it. On Private+ accounts, PA is always shared with every network member and the administrator.",
     delivery: "WebSocket + optional push.",
     locationSource: "live_gps",
     requiresAdmin: false,
@@ -119,7 +119,7 @@ export const MESSAGE_WORKFLOW: Record<
   SERVICE: {
     priority: "LOW",
     description:
-      "Service listing or maintenance alert using your current device location. Routing follows primary vs secondary zone rules for your network. On Private+ accounts, SERVICE is shared with the full network from any acceptable zone.",
+      "Service listing or maintenance alert using your current device location. Routing follows primary vs secondary zone rules for your network. On Private+ accounts, SERVICE is always shared with every network member and the administrator.",
     delivery: "WebSocket; push optional.",
     locationSource: "live_gps",
     requiresAdmin: false,
