@@ -7,6 +7,7 @@ import {
   isPermissionDirectVisibility,
   isPermissionZonePendingBroadcastVisibility,
 } from "../../lib/permissionVisibility";
+import { messageCoordinatesMapsUrl } from "../../lib/messageCoordinates";
 import { getMessageWorkflow, isUnknownMessageType, priorityBadgeClass } from "../../lib/messageWorkflow";
 import { WellnessAckPanel } from "./WellnessAckPanel";
 import { PrivateThreadModal } from "./PrivateThreadModal";
@@ -104,16 +105,20 @@ export function MessageDetail({
             <span className="text-[#8694AC]">
               {new Date(message.created_at).toLocaleString()}
             </span>
-            {message.latitude != null && message.longitude != null ? (
-              <a
-                className="rounded-full bg-[#EDF3FB] px-2 py-1 text-[#2F80ED] hover:underline"
-                href={`https://www.google.com/maps?q=${message.latitude},${message.longitude}`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                {message.latitude.toFixed(4)}, {message.longitude.toFixed(4)}
-              </a>
-            ) : null}
+            {(() => {
+              const mapsUrl = messageCoordinatesMapsUrl(message);
+              if (!mapsUrl) return null;
+              return (
+                <a
+                  className="rounded-full bg-[#EDF3FB] px-2 py-1 text-[#2F80ED] hover:underline"
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {message.latitude!.toFixed(4)}, {message.longitude!.toFixed(4)}
+                </a>
+              );
+            })()}
           </div>
           <div>
             <p

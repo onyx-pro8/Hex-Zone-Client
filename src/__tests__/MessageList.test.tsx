@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { MessageList } from "../components/messages/MessageList";
 
 describe("MessageList", () => {
-  it("renders friendly type labels and derived scope/category badges", () => {
+  it("renders friendly type labels, category badges, and sender coordinates", () => {
     render(
       <MessageList
         activeId={null}
@@ -22,6 +22,8 @@ describe("MessageList", () => {
             message: "alert message",
             created_at: "2026-01-01T00:00:00Z",
             raw_payload: null,
+            latitude: 47.6062,
+            longitude: -122.3321,
           },
           {
             id: "m2",
@@ -57,7 +59,9 @@ describe("MessageList", () => {
     expect(screen.getByText("WELLNESS CHECK")).toBeInTheDocument();
     expect(screen.getByText("PERMISSION")).toBeInTheDocument();
     expect(screen.getByText("Alarm")).toBeInTheDocument();
-    expect(screen.getAllByText("public")[0]).toBeInTheDocument();
+    expect(screen.getByText("47.6062, -122.3321")).toBeInTheDocument();
+    expect(screen.getAllByText("No location").length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText("public")).not.toBeInTheDocument();
   });
 
   it("shows Zone alert and Private badges for PERMISSION visibility hints", () => {

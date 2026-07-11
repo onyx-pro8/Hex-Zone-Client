@@ -1,5 +1,6 @@
 import { Lock, MessageCircle } from "lucide-react";
 import { formatMessageSenderLabel, type Message } from "../../services/api/messages";
+import { formatMessageCoordinatesLabel } from "../../lib/messageCoordinates";
 import { toMessageTypeLabel } from "../../lib/messageTypes";
 import { isUnknownMessageType } from "../../lib/messageWorkflow";
 import {
@@ -107,8 +108,11 @@ export function MessageList({
                     <span className="rounded-full bg-[#EDF3FB] px-2 py-0.5 text-[#566784]">
                       {message.category}
                     </span>
-                    <span className="rounded-full bg-[#EDF3FB] px-2 py-0.5 capitalize text-[#566784]">
-                      {message.scope}
+                    <span
+                      className="rounded-full bg-[#EDF3FB] px-2 py-0.5 font-mono text-[#566784]"
+                      title="Sender coordinates"
+                    >
+                      {formatMessageCoordinatesLabel(message)}
                     </span>
                     {message.receiver_id != null && (
                       <span className="rounded-full bg-[#EDF3FB] px-2 py-0.5 text-[#566784]">
