@@ -4,6 +4,7 @@ import { MessageDetail } from "../components/messages/MessageDetail";
 import { MessageList } from "../components/messages/MessageList";
 import { useAuth } from "../hooks/useAuth";
 import { useAlarmInbox } from "../state/alarm/AlarmInboxContext";
+import { useZoneNameLookup } from "../hooks/useZoneNameLookup";
 import { messageBroadcastLabel } from "../lib/messageBroadcast";
 import { resolveBroadcastName } from "../lib/appSettings";
 import { getMembers, type Member } from "../services/api/members";
@@ -13,6 +14,7 @@ export default function Alerts() {
   const selfBroadcastName = resolveBroadcastName(user?.name);
   const ownerId = Number(user?.id);
   const { alarmMessages, loading, error, markAlarmsSeen } = useAlarmInbox();
+  const { zoneNames } = useZoneNameLookup();
   const [members, setMembers] = useState<Member[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -97,6 +99,8 @@ export default function Alerts() {
               onSelect={handleSelect}
               emptyLabel="No incoming alarms."
               getBroadcastName={getBroadcastName}
+              viewerOwnerId={Number.isFinite(ownerId) ? ownerId : null}
+              zoneNames={zoneNames}
             />
           )}
         </div>
@@ -104,6 +108,7 @@ export default function Alerts() {
           message={activeMessage}
           currentOwnerId={Number.isFinite(ownerId) ? ownerId : null}
           ownerNameById={ownerNameById}
+          zoneNames={zoneNames}
         />
       </div>
     </div>

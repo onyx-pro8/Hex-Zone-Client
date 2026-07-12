@@ -1,8 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { listMessages, type Message } from "../services/api/messages";
+import {
+  listMessages,
+  messageFromGeoPropagation,
+  type Message,
+} from "../services/api/messages";
 import { listMessageFeatureBlocks } from "../services/api/messageFeature";
 import { filterMessagesForBlocks } from "../lib/messageBlocks";
-import { parseMessageSocketPayload } from "../services/socket/messageSocket";
+import { filterDashboardServiceMessages } from "../lib/recentServicesFilter";
+import {
+  parseMessageFeatureSocketEvent,
+  shouldShowGeoPropagationInInbox,
+} from "../services/socket/messageSocket";
 import { useAuth } from "./useAuth";
 import { useWebSocket } from "./useWebSocket";
 
@@ -13,12 +21,6 @@ function sortNewest(list: Message[]) {
   return [...list].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   );
-}
-
-function filterServiceMessages(batch: Message[], zoneId: string): Message[] {
-  const services = batch.filter((row) => row.type === "SERVICE");
-  if (!zoneId) return services;
-  return services.filter((row) => row.zone_id === zoneId);
 }
 
 export function useRecentServices(zoneId?: string) {
@@ -37,7 +39,7 @@ export function useRecentServices(zoneId?: string) {
 
   const applyBatch = useCallback(
     (batch: Message[]) => {
-      setServices(sortNewest(filterServiceMessages(batch, normalizedZoneId)));
+      setServices(sortNewest(filterDashboardServiceMessages(batch, normalizedZoneId)));
       setError(null);
     },
     [normalizedZoneId],
@@ -73,7 +75,6 @@ export function useRecentServices(zoneId?: string) {
   const prependService = useCallback(
     (incoming: Message) => {
       if (incoming.type !== "SERVICE") return;
-      if (normalizedZoneId && incoming.zone_id !== normalizedZoneId) return;
       setServices((prev) =>
         sortNewest([
           incoming,
@@ -82,26 +83,43 @@ export function useRecentServices(zoneId?: string) {
       );
       setError(null);
     },
-    [normalizedZoneId],
+    [],
   );
 
   const { lastMessage } = useWebSocket({ token, zoneIds });
 
   useEffect(() => {
     if (!lastMessage) return;
-    const row = parseMessageSocketPayload(lastMessage);
-    if (row) {
-      if (row.type === "SERVICE") prependService(row);
+
+    const event = parseMessageFeatureSocketEvent(lastMessage);
+    if (event?.type === "NEW_MESSAGE") {
+      if (event.data.type === "SERVICE") prependService(event.data);
       scheduleRefresh();
       return;
     }
+    if (event?.type === "NEW_GEO_MESSAGE") {
+      if (Number.isFinite(ownerId) && ownerId > 0) {
+        if (shouldShowGeoPropagationInInbox(event.data, ownerId)) {
+          const row = messageFromGeoPropagation(event.data);
+          if (row?.type === "SERVICE") prependService(row);
+        }
+      }
+      scheduleRefresh();
+      return;
+    }
+
     try {
       const parsed = JSON.parse(lastMessage) as { type?: string };
-      if (parsed.type === "NEW_MESSAGE") scheduleRefresh();
+      if (
+        parsed.type === "NEW_MESSAGE" ||
+        parsed.type === "NEW_GEO_MESSAGE"
+      ) {
+        scheduleRefresh();
+      }
     } catch {
       /* ignore */
     }
-  }, [lastMessage, prependService, scheduleRefresh]);
+  }, [lastMessage, ownerId, prependService, scheduleRefresh]);
 
   useEffect(() => {
     void refresh();

@@ -19,6 +19,8 @@ function serviceMeta(row: Message): string {
   return (
     row.topic_label?.trim() ||
     formatTopicPath(row.topic, row.subtopic) ||
+    row.relevant_zone_label?.trim() ||
+    row.relevant_zone_network_id?.trim() ||
     row.zone_id ||
     "Zone"
   );

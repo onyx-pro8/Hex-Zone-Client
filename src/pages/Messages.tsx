@@ -15,6 +15,7 @@ import { MessageDetail } from "../components/messages/MessageDetail";
 import { MessageBlocksPanel } from "../components/messages/MessageBlocksPanel";
 import { ServicePaComposeFieldsPanel } from "../components/messages/ServicePaComposeFields";
 import { useMessageFeed } from "../hooks/useMessageFeed";
+import { useZoneNameLookup } from "../hooks/useZoneNameLookup";
 import { sendMessage, type MessageVisibility } from "../services/api/messages";
 import {
   propagateMessageFeatureMessage,
@@ -94,6 +95,7 @@ const MESSAGING_ACTIONS: QuickAction[] = [
 
 export default function Messages() {
   const { user } = useAuth();
+  const { zoneNames } = useZoneNameLookup();
   const [searchParams] = useSearchParams();
   const settings = useAppSettings();
   const selfBroadcastName = resolveBroadcastName(user?.name);
@@ -115,6 +117,7 @@ export default function Messages() {
   const [composeServicePaFields, setComposeServicePaFields] =
     useState<ServicePaComposeFields>({ subject: "", topic: "", subtopic: "" });
   const [composeStatus, setComposeStatus] = useState("");
+  const [composeSending, setComposeSending] = useState(false);
   const [dbZoneIds, setDbZoneIds] = useState<string[]>([]);
   const [zonesLoading, setZonesLoading] = useState(false);
   const [owners, setOwners] = useState<OwnerListItem[]>([]);
@@ -421,43 +424,46 @@ export default function Messages() {
         setComposeText("");
         return;
       }
-      const resolved = await resolveSenderPosition(type as MessageType);
-      if ("error" in resolved) {
-        setQuickStatus(resolved.error);
-        return;
-      }
-      const { position, source } = resolved;
       setQuickBusy(type);
       setQuickStatus(`Sending ${toMessageTypeLabel(type as MessageType)}…`);
-      const propagateResult = await propagateMessageFeatureMessage({
-        type: type as MessageFeatureType,
-        hid: resolveGuestBrowserDeviceId(),
-        msg: {
-          description: presetText,
-          broadcast_name: selfBroadcastName,
-          latitude: position.latitude,
-          longitude: position.longitude,
-        },
-        position,
-      });
-      setQuickBusy(null);
-      if (propagateResult.error) {
-        setQuickStatus(propagateResult.error);
-        return;
-      }
-      const body = propagateResult.data;
-      if (body && !body.skipped && body.id) {
-        dispatchGeoPropagationInbox({
-          ...body,
-          sender_id:
-            body.sender_id ?? (Number.isFinite(ownerId) ? ownerId : undefined),
-          zone_id: body.zone_id ?? body.zone_ids?.[0] ?? (composeZoneId ?? undefined),
+      try {
+        const resolved = await resolveSenderPosition(type as MessageType);
+        if ("error" in resolved) {
+          setQuickStatus(resolved.error);
+          return;
+        }
+        const { position, source } = resolved;
+        const propagateResult = await propagateMessageFeatureMessage({
+          type: type as MessageFeatureType,
+          hid: resolveGuestBrowserDeviceId(),
+          msg: {
+            description: presetText,
+            broadcast_name: selfBroadcastName,
+            latitude: position.latitude,
+            longitude: position.longitude,
+          },
+          position,
         });
+        if (propagateResult.error) {
+          setQuickStatus(propagateResult.error);
+          return;
+        }
+        const body = propagateResult.data;
+        if (body && !body.skipped && body.id) {
+          dispatchGeoPropagationInbox({
+            ...body,
+            sender_id:
+              body.sender_id ?? (Number.isFinite(ownerId) ? ownerId : undefined),
+            zone_id: body.zone_id ?? body.zone_ids?.[0] ?? (composeZoneId ?? undefined),
+          });
+        }
+        setQuickStatus(
+          `${toMessageTypeLabel(type as MessageType)} sent · ${messagePositionSourceLabel(source)}.`,
+        );
+        void refreshInbox();
+      } finally {
+        setQuickBusy(null);
       }
-      setQuickStatus(
-        `${toMessageTypeLabel(type as MessageType)} sent · ${messagePositionSourceLabel(source)}.`,
-      );
-      void refreshInbox();
     },
     [
       quickBusy,
@@ -472,6 +478,7 @@ export default function Messages() {
   );
 
   const handleSend = async () => {
+    if (composeSending) return;
     if (!composeType) {
       setComposeStatus("Message Type is required.");
       return;
@@ -506,8 +513,10 @@ export default function Messages() {
       setComposeStatus("Receiver ID must be a valid owner id.");
       return;
     }
+    setComposeSending(true);
     setComposeStatus("Sending...");
 
+    try {
     if (usesGeoPropagationMessageType(composeType)) {
       const resolved = await resolveSenderPosition(composeType);
       if ("error" in resolved) {
@@ -585,6 +594,9 @@ export default function Messages() {
       setComposeText("");
       if (isPrivateMessageType(composeType)) setComposeReceiverId("");
     }
+    } finally {
+      setComposeSending(false);
+    }
   };
 
   const selectableGuests = useMemo(
@@ -644,7 +656,7 @@ export default function Messages() {
                 <button
                   key={action.type}
                   type="button"
-                  disabled={quickBusy === action.type}
+                  disabled={!!quickBusy}
                   onClick={() => void sendQuickAlert(action.type)}
                   className={`flex flex-col items-center justify-center gap-2 rounded-xl border px-3 py-6 transition disabled:opacity-60 ${
                     nsPanic
@@ -658,7 +670,7 @@ export default function Messages() {
                 >
                   <Icon className="h-7 w-7" aria-hidden />
                   <span className="text-sm font-extrabold tracking-wide">
-                    {action.label}
+                    {quickBusy === action.type ? "Sending…" : action.label}
                   </span>
                 </button>
               );
@@ -880,6 +892,8 @@ export default function Messages() {
             activeId={activeMessageId}
             onSelect={setActiveMessageId}
             getBroadcastName={getBroadcastName}
+            viewerOwnerId={ownerId}
+            zoneNames={zoneNames}
           />
         </div>
         <div className="space-y-4">
@@ -887,6 +901,7 @@ export default function Messages() {
             message={activeMessage}
             currentOwnerId={ownerId}
             ownerNameById={ownerNameById}
+            zoneNames={zoneNames}
           />
           {Number.isFinite(ownerId) && ownerId > 0 ? (
             <MessageBlocksPanel
@@ -1062,6 +1077,7 @@ export default function Messages() {
               rows={4}
               value={composeText}
               onChange={(e) => setComposeText(e.target.value)}
+              disabled={composeSending}
               placeholder={
                 isServicePaMessageType(composeType)
                   ? "Message body..."
@@ -1072,9 +1088,10 @@ export default function Messages() {
             <button
               type="button"
               onClick={handleSend}
-              className="w-full rounded-lg bg-[#2F80ED] px-4 py-2.5 text-sm font-bold text-white transition hover:brightness-110"
+              disabled={composeSending}
+              className="w-full rounded-lg bg-[#2F80ED] px-4 py-2.5 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Send Message
+              {composeSending ? "Sending…" : "Send Message"}
             </button>
             <p className="text-xs text-[#8694AC]">
               Sending as <span className="font-semibold text-[#2F80ED]">{selfBroadcastName}</span>{" "}

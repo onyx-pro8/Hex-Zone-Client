@@ -11,6 +11,10 @@ import { messageCoordinatesMapsUrl } from "../../lib/messageCoordinates";
 import { getMessageWorkflow, isServiceMessageType, isUnknownMessageType, priorityBadgeClass } from "../../lib/messageWorkflow";
 import { WellnessAckPanel } from "./WellnessAckPanel";
 import { PrivateThreadModal } from "./PrivateThreadModal";
+import {
+  messageZoneLabel,
+  type ZoneNameLookup,
+} from "../../lib/messageZoneLabel";
 
 function resolvePrivateCounterpart(
   message: Message,
@@ -27,10 +31,12 @@ export function MessageDetail({
   message,
   currentOwnerId,
   ownerNameById,
+  zoneNames,
 }: {
   message: Message | null;
   currentOwnerId?: number | null;
   ownerNameById?: Map<number, string>;
+  zoneNames?: ZoneNameLookup;
 }) {
   const [threadOtherId, setThreadOtherId] = useState<number | null>(null);
   const senderLabel = message
@@ -62,7 +68,10 @@ export function MessageDetail({
           })()}
           <div className="flex flex-wrap items-center gap-2 text-xs">
             <span className="rounded-full bg-[#EDF3FB] px-2 py-1 text-[#566784]">
-              {message.zone_id}
+              {messageZoneLabel(message, {
+                viewerOwnerId: currentOwnerId,
+                zoneNames,
+              })}
             </span>
             <span
               className={`rounded-full px-2 py-1 font-semibold ${

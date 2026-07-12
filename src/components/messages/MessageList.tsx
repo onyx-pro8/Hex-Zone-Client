@@ -7,6 +7,10 @@ import {
   isPermissionDirectVisibility,
   isPermissionZonePendingBroadcastVisibility,
 } from "../../lib/permissionVisibility";
+import {
+  messageZoneLabel,
+  type ZoneNameLookup,
+} from "../../lib/messageZoneLabel";
 
 export function MessageList({
   messages,
@@ -14,6 +18,8 @@ export function MessageList({
   onSelect,
   emptyLabel = "No messages found for current filters.",
   getBroadcastName,
+  viewerOwnerId,
+  zoneNames,
 }: {
   messages: Message[];
   activeId: string | null;
@@ -22,6 +28,8 @@ export function MessageList({
   emptyLabel?: string;
   /** Resolve a sender's broadcast name for prominent display. */
   getBroadcastName?: (message: Message) => string;
+  viewerOwnerId?: number | null;
+  zoneNames?: ZoneNameLookup;
 }) {
   if (messages.length === 0) {
     return (
@@ -77,7 +85,7 @@ export function MessageList({
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2 text-xs">
                     <span className="rounded-full bg-[#EDF3FB] px-2 py-0.5 text-[#566784]">
-                      {message.zone_id}
+                      {messageZoneLabel(message, { viewerOwnerId, zoneNames })}
                     </span>
                     <span
                       className={`rounded-full px-2 py-0.5 font-semibold ${

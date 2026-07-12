@@ -66,6 +66,10 @@ export type Message = {
   subtopic?: string | null;
   /** Human-readable topic path for display. */
   topic_label?: string | null;
+  /** Network id for the acceptable zone relevant to this viewer (geo messages). */
+  relevant_zone_network_id?: string | null;
+  relevant_zone_name?: string | null;
+  relevant_zone_label?: string | null;
 };
 
 export type ListMessagesParams = {
@@ -521,6 +525,14 @@ export function normalizeMessage(raw: unknown): Message | null {
     : null;
   const is_read_by_viewer =
     typeof row.is_read_by_viewer === "boolean" ? row.is_read_by_viewer : undefined;
+  const relevantZoneNetworkId =
+    typeof row.relevant_zone_network_id === "string"
+      ? row.relevant_zone_network_id
+      : null;
+  const relevantZoneName =
+    typeof row.relevant_zone_name === "string" ? row.relevant_zone_name : null;
+  const relevantZoneLabel =
+    typeof row.relevant_zone_label === "string" ? row.relevant_zone_label : null;
   return {
     id: String(id),
     zone_id: zoneId,
@@ -556,6 +568,9 @@ export function normalizeMessage(raw: unknown): Message | null {
           topic_label: formatTopicPath(resolvedTopic, resolvedSubtopic),
         }
       : {}),
+    ...(relevantZoneNetworkId ? { relevant_zone_network_id: relevantZoneNetworkId } : {}),
+    ...(relevantZoneName ? { relevant_zone_name: relevantZoneName } : {}),
+    ...(relevantZoneLabel ? { relevant_zone_label: relevantZoneLabel } : {}),
   };
 }
 
