@@ -20,12 +20,19 @@ import type { FitBoundsCorners } from "../lib/mapBounds";
 export type MapInteractionMode = "h3" | "polygon" | "measure" | "place" | "none";
 
 export type MapFitBoundsRequest = { key: number } & FitBoundsCorners;
+export type ZoneMapTooltip = {
+  name: string;
+  typeLabel: string;
+  creatorLabel: string;
+};
+
 export type SavedZoneCellLayer = {
   key: string;
   cells: string[];
   color: string;
   fillOpacity: number;
   weight: number;
+  tooltip?: ZoneMapTooltip;
 };
 export type SavedZonePolygonLayer = {
   key: string;
@@ -33,7 +40,18 @@ export type SavedZonePolygonLayer = {
   color: string;
   fillOpacity: number;
   weight: number;
+  tooltip?: ZoneMapTooltip;
 };
+
+function ZoneMapTooltipContent({ tooltip }: { tooltip: ZoneMapTooltip }) {
+  return (
+    <div style={{ fontSize: 12, lineHeight: 1.45, color: "#0F2C5C" }}>
+      <div style={{ fontWeight: 700, marginBottom: 2 }}>{tooltip.name}</div>
+      <div>Type: {tooltip.typeLabel}</div>
+      <div>Creator: {tooltip.creatorLabel}</div>
+    </div>
+  );
+}
 
 type HexMapperMapProps = {
   center: [number, number];
@@ -51,6 +69,7 @@ type HexMapperMapProps = {
     color: string;
     fillOpacity?: number;
     dashArray?: string;
+    tooltip?: ZoneMapTooltip;
   }>;
   h3Color: string;
   h3FillOpacity: number;
@@ -576,7 +595,13 @@ export default function HexMapperMap({
                   fillColor: layer.color,
                   fillOpacity: layer.fillOpacity,
                 }}
-              />
+              >
+                {layer.tooltip ? (
+                  <Tooltip sticky opacity={0.96}>
+                    <ZoneMapTooltipContent tooltip={layer.tooltip} />
+                  </Tooltip>
+                ) : null}
+              </Polygon>
             );
           }),
         )}
@@ -623,7 +648,13 @@ export default function HexMapperMap({
                   fillColor: layer.color,
                   fillOpacity: layer.fillOpacity,
                 }}
-              />
+              >
+                {layer.tooltip ? (
+                  <Tooltip sticky opacity={0.96}>
+                    <ZoneMapTooltipContent tooltip={layer.tooltip} />
+                  </Tooltip>
+                ) : null}
+              </Polygon>
             );
           }),
         )}
@@ -641,7 +672,13 @@ export default function HexMapperMap({
               fillOpacity: circle.fillOpacity ?? 0.12,
               dashArray: circle.dashArray,
             }}
-          />
+          >
+            {circle.tooltip ? (
+              <Tooltip sticky opacity={0.96}>
+                <ZoneMapTooltipContent tooltip={circle.tooltip} />
+              </Tooltip>
+            ) : null}
+          </Circle>
         ))}
 
         {polygons.map((p) => {

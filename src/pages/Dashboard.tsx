@@ -15,6 +15,7 @@ import HexMapperMap, {
   type MapFitBoundsRequest,
   type SavedZoneCellLayer,
   type SavedZonePolygonLayer,
+  type ZoneMapTooltip,
 } from "../components/HexMapperMap";
 import { AddressAutocompleteInput } from "../components/AddressAutocompleteInput";
 import { GuestRequestsDashboardSection } from "../components/dashboard/GuestRequestsDashboardSection";
@@ -82,7 +83,7 @@ import {
   previewDynamicZone,
   type DynamicZonePreviewResult,
 } from "../services/api/zones";
-import { updateLocation as updateMemberLocation } from "../services/api/members";
+import { updateLocation as updateMemberLocation, getMembers } from "../services/api/members";
 
 const accent = "#00E5D1";
 const panel = "bg-[#F7FAFE]";
@@ -638,6 +639,50 @@ function normalizeZoneTypeValue(raw: unknown): ZoneTypeMode {
     return "government_local_code";
   if (value === "object") return "object";
   return "geofence";
+}
+
+function zoneTypeDisplayLabel(type: ZoneTypeMode): string {
+  switch (type) {
+    case "grid":
+      return "Grid";
+    case "proximity":
+      return "Proximity";
+    case "dynamic":
+      return "Dynamic";
+    case "communal_id":
+      return "Communal ID";
+    case "government_local_code":
+      return "Gov Local Code";
+    case "object":
+      return "Object";
+    default:
+      return "Geofence";
+  }
+}
+
+function buildZoneMapTooltip(
+  entry: ZoneEntry,
+  memberNameById: Map<string, string>,
+  currentUserId: string,
+  currentUserName: string,
+): ZoneMapTooltip {
+  const zone = entry.zone;
+  const normalizedType = normalizeZoneTypeValue(zone.type ?? zone.zone_type);
+  const creatorId = entry.creatorId;
+  let creatorLabel = "Unknown";
+  if (creatorId) {
+    const name =
+      memberNameById.get(creatorId) ??
+      (creatorId === currentUserId && currentUserName
+        ? currentUserName
+        : undefined);
+    creatorLabel = name ? `${name} (${creatorId})` : `(${creatorId})`;
+  }
+  return {
+    name: zone.name?.trim() || `Zone ${savedZoneId(zone)}`,
+    typeLabel: zoneTypeDisplayLabel(normalizedType),
+    creatorLabel,
+  };
 }
 
 function zoneConfigMap(zone: SavedZone): Record<string, unknown> {
@@ -1348,6 +1393,22 @@ export default function Dashboard() {
     if (raw == null) return "";
     return String(raw);
   }, [user?.id]);
+  const currentUserName = useMemo(
+    () => user?.name?.trim() ?? "",
+    [user?.name],
+  );
+  const [memberNameById, setMemberNameById] = useState<Map<string, string>>(
+    () => new Map(),
+  );
+  useEffect(() => {
+    void getMembers().then((res) => {
+      const map = new Map<string, string>();
+      for (const member of res.data ?? []) {
+        map.set(member.id, member.name);
+      }
+      setMemberNameById(map);
+    });
+  }, []);
   const systemAdmin = useMemo(
     () =>
       isSystemAdministrator({
@@ -2858,10 +2919,16 @@ export default function Dashboard() {
             color: layerColor,
             fillOpacity: active ? 0.38 : 0.22,
             weight: active ? 2.4 : 1.6,
+            tooltip: buildZoneMapTooltip(
+              entry,
+              memberNameById,
+              currentUserId,
+              currentUserName,
+            ),
           } satisfies SavedZoneCellLayer;
         })
         .filter((v): v is SavedZoneCellLayer => v !== null),
-    [zoneEntries, activeSavedZoneKey, removedCellIds, showAllZones],
+    [zoneEntries, activeSavedZoneKey, removedCellIds, showAllZones, memberNameById, currentUserId, currentUserName],
   );
 
   const savedZonePolygonLayers = useMemo<SavedZonePolygonLayer[]>(
@@ -2884,10 +2951,16 @@ export default function Dashboard() {
             color: layerColor,
             fillOpacity: active ? 0.26 : 0.12,
             weight: active ? 2.4 : 1.6,
+            tooltip: buildZoneMapTooltip(
+              entry,
+              memberNameById,
+              currentUserId,
+              currentUserName,
+            ),
           } satisfies SavedZonePolygonLayer;
         })
         .filter((v): v is SavedZonePolygonLayer => v !== null),
-    [zoneEntries, activeSavedZoneKey, removedPolygonKeys, showAllZones],
+    [zoneEntries, activeSavedZoneKey, removedPolygonKeys, showAllZones, memberNameById, currentUserId, currentUserName],
   );
   const helperCircles = useMemo(() => {
     const circles: Array<{
@@ -2897,6 +2970,7 @@ export default function Dashboard() {
       color: string;
       fillOpacity?: number;
       dashArray?: string;
+      tooltip?: ZoneMapTooltip;
     }> = [];
     zoneEntries.forEach((entry) => {
       const active = activeSavedZoneKey != null && entry.key === activeSavedZoneKey;
@@ -2904,6 +2978,12 @@ export default function Dashboard() {
       const normalizedType = active
         ? zoneType
         : normalizeZoneTypeValue(entry.zone.type ?? entry.zone.zone_type);
+      const tooltip = buildZoneMapTooltip(
+        entry,
+        memberNameById,
+        currentUserId,
+        currentUserName,
+      );
 
       if (normalizedType === "proximity") {
         const center = active
@@ -2920,6 +3000,7 @@ export default function Dashboard() {
             color: "#06B6D4",
             fillOpacity: active ? 0.2 : 0.1,
             dashArray: "8 6",
+            tooltip,
           });
         }
       }
@@ -2946,6 +3027,7 @@ export default function Dashboard() {
               color: "#22C55E",
               fillOpacity: 0.12,
               dashArray: "6 6",
+              tooltip,
             });
           }
         }
@@ -2965,6 +3047,7 @@ export default function Dashboard() {
             color: "#A855F7",
             fillOpacity: active ? 0.14 : 0.08,
             dashArray: "3 6",
+            tooltip,
           });
         }
       }
@@ -3046,6 +3129,9 @@ export default function Dashboard() {
     proximityRadiusMeters,
     objectCenter,
     objectRadiusMeters,
+    memberNameById,
+    currentUserId,
+    currentUserName,
   ]);
 
   const focusH3Cell = useCallback((cellId: string) => {
