@@ -11,19 +11,21 @@ import {
   Bell,
   QrCode,
   Radio,
+  Smartphone,
 } from "lucide-react";
 
 const LANDING = {
   heroMap: "/landing/hero-isometric-map.png",
-  zonePrivate: "/landing/zone-private-network.png",
-  zoneExclusive: "/landing/zone-exclusive-network.png",
-  planPrivate: "/landing/plan-private-team.png",
-  planExclusive: "/landing/plan-exclusive-solo.png",
+  zonePrivateArt: "/landing/zone-private-card-art.png",
+  zoneExclusiveArt: "/landing/zone-exclusive-card-art.png",
+  planPrivateArt: "/landing/plan-private-card-art.png",
+  planExclusiveArt: "/landing/plan-exclusive-card-art.png",
   apiLaptop: "/landing/api-laptop-code.png",
+  apiBannerCode: "/landing/api-banner-code.png",
   footerBg: "/landing/footer-ready-to-weave.png",
-  stepRegister: "/landing/step-register.png",
-  stepWeave: "/landing/step-weave-zones.png",
-  stepConnect: "/landing/step-connect.png",
+  stepRegister: "/landing/step-register-icon.png",
+  stepWeave: "/landing/step-weave-icon.png",
+  stepConnect: "/landing/step-connect-icon.png",
 } as const;
 
 const apiEndpointPreview: { method: "GET" | "POST" | "PUT"; path: string }[] = [
@@ -104,8 +106,9 @@ const networkCards = [
     devices: 3,
     type: "H3 r13",
     accent: "bg-[#EDF3FB] text-[#2F80ED]",
-    image: LANDING.zonePrivate,
-    imageAlt: "Private zone with team members on a city map",
+    border: "border-[#2F80ED]/15",
+    labelColor: "text-[#2F80ED]",
+    art: LANDING.zonePrivateArt,
   },
   {
     title: "Exclusive Zone",
@@ -114,8 +117,48 @@ const networkCards = [
     devices: 1,
     type: "Geofence",
     accent: "bg-[#FBEFD8] text-[#E0992A]",
-    image: LANDING.zoneExclusive,
-    imageAlt: "Exclusive solo zone with geofence on a city map",
+    border: "border-[#E0992A]/20",
+    labelColor: "text-[#E0992A]",
+    art: LANDING.zoneExclusiveArt,
+  },
+];
+
+const networkTypeCards = [
+  {
+    title: "Private",
+    description: "Team coordination, family tracking, fleet management",
+    icon: Users,
+    iconWrap: "border border-sky-200 bg-sky-50 text-sky-600",
+    checkColor: "text-[#2F80ED]",
+    buttonClass: "bg-[#2F80ED] hover:brightness-110",
+    buttonLabel: "Create Private Zone",
+    border: "border-[#DCE6F2]",
+    art: LANDING.planPrivateArt,
+    features: [
+      "Many users allowed",
+      "1 device per user",
+      "Same zone type for all",
+      "3 acceptable zones per user",
+      "QR code invites",
+    ],
+  },
+  {
+    title: "Exclusive",
+    description: "Solo deployments, individual tracking, personal zones",
+    icon: User,
+    iconWrap: "border border-[#E0992A]/30 bg-[#FBEFD8] text-[#E0992A]",
+    checkColor: "text-[#E0992A]",
+    buttonClass: "bg-[#E0992A] hover:brightness-110",
+    buttonLabel: "Create Exclusive Zone",
+    border: "border-[#E0992A]/40 ring-1 ring-[#E0992A]/15",
+    art: LANDING.planExclusiveArt,
+    features: [
+      "1 user only",
+      "1 device per user",
+      "Any zone type allowed",
+      "3 acceptable zones per user",
+      "Full flexibility",
+    ],
   },
 ];
 
@@ -149,181 +192,235 @@ function SectionShell({
 }) {
   return (
     <div
-      className={`mx-auto w-full min-w-0 max-w-[1280px] px-4 sm:px-6 lg:px-8 ${className}`}
+      className={`mx-auto w-full min-w-0 max-w-7xl px-4 sm:px-6 lg:px-8 ${className}`}
     >
       {children}
     </div>
   );
 }
 
-function ZoneNetworkWidget() {
-  return (
-    <div className="rounded-[2rem] border border-[#DCE6F2] bg-white p-6 shadow-glow sm:p-8">
-      <div className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-lg font-semibold text-[#0F2C5C] sm:text-xl">
-            Zone Network
-          </h2>
-          <p className="mt-1 text-sm text-[#566784]">
-            Live status of your current network and API connectivity.
-          </p>
-        </div>
-        <span className="shrink-0 rounded-md bg-[#EDF3FB] px-3 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#2F80ED] sm:text-xs">
-          Live
-        </span>
-      </div>
-
-      <div className="space-y-4">
-        {networkCards.map((card) => (
-          <article
-            key={card.title}
-            className="overflow-hidden rounded-3xl border border-[#DCE6F2] bg-[#F7FAFE]"
-          >
-            <div className="p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-[#8694AC] sm:text-xs">
-                    {card.title}
-                  </p>
-                  <p className="mt-2 text-lg font-semibold text-[#0F2C5C]">
-                    {card.type}
-                  </p>
-                </div>
-                <span
-                  className={`shrink-0 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] sm:text-xs ${card.accent}`}
-                >
-                  {card.label}
-                </span>
-              </div>
-              <div className="mt-5 grid grid-cols-2 gap-3 text-sm text-[#566784]">
-                <div className="rounded-2xl border border-[#DCE6F2] bg-white p-3">
-                  {card.users} users
-                </div>
-                <div className="rounded-2xl border border-[#DCE6F2] bg-white p-3">
-                  {card.devices} devices
-                </div>
-              </div>
-            </div>
-            <img
-              src={card.image}
-              alt={card.imageAlt}
-              className="h-28 w-full object-cover object-center sm:h-36"
-              loading="lazy"
-            />
-          </article>
-        ))}
-      </div>
-
-      <div className="mt-6 rounded-3xl border border-[#DCE6F2] bg-[#F7FAFE] p-4 sm:p-5">
-        <p className="font-medium text-[#0F2C5C]">
-          Developer-friendly REST API
-        </p>
-        <p className="mt-2 text-sm text-[#566784]">
-          Complete endpoint documentation with live request examples and
-          response previews.
-        </p>
-      </div>
-    </div>
-  );
-}
+const heroFeatureTags = [
+  { label: "H3 Indexing", icon: Hexagon },
+  { label: "Mobile REST API", icon: Smartphone },
+  { label: "QR Onboarding", icon: QrCode },
+] as const;
 
 export default function Landing() {
   return (
-    <div className="min-w-0 overflow-x-hidden pb-0">
-      {/* Hero — copy left, Zone Network widget right (matches design mockup) */}
-      <section className="py-8 sm:py-12 lg:py-14">
-        <SectionShell>
-          <div className="grid items-start gap-8 xl:grid-cols-[1.15fr_1fr] xl:gap-10">
-            <div className="space-y-6">
-              <span className="inline-flex items-center gap-2 rounded-full bg-[#EDF3FB] px-4 py-2 text-sm font-medium text-[#2F80ED]">
-                <Hexagon size={16} aria-hidden />
-                REST API Ready
-              </span>
-              <div className="space-y-4">
-                <h1 className="text-4xl font-semibold leading-tight text-[#0F2C5C] sm:text-5xl lg:text-[3.25rem] lg:leading-[1.1]">
-                  Weave Your Spatial Zones
-                </h1>
-                <p className="max-w-xl text-base leading-8 text-[#566784] sm:text-lg">
-                  A geospatial platform that bridges web and mobile. Define zones
-                  using H3 hexagonal indexing, connect devices via REST API, and
-                  track everything in real time.
-                </p>
-              </div>
-              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                <Link
-                  to="/register"
-                  className="inline-flex items-center justify-center rounded-md bg-[#2F80ED] px-6 py-3 text-sm font-bold text-white transition hover:brightness-110 sm:min-w-[160px]"
-                >
-                  Create Account
-                </Link>
-                <Link
-                  to="/api"
-                  className="inline-flex items-center justify-center rounded-md border border-[#DCE6F2] bg-white px-6 py-3 text-sm text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED] sm:min-w-[140px]"
-                >
-                  API Docs
-                </Link>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-3">
-                {["H3 Indexing", "Mobile REST API", "QR Onboarding"].map(
-                  (tag) => (
-                    <div
-                      key={tag}
-                      className="rounded-3xl border border-[#DCE6F2] bg-white px-4 py-3 text-center text-sm text-[#566784] sm:text-left"
-                    >
-                      {tag}
-                    </div>
-                  ),
-                )}
-              </div>
-            </div>
+    <div className="min-w-0 space-y-12 overflow-x-hidden pb-0 sm:space-y-16">
+      {/* Hero — illustration blends into background (no bordered card) */}
+      <section className="relative isolate overflow-hidden">
+        {/* Desktop / tablet: map anchored right, fades into page bg on the left */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 right-0 hidden w-[62%] min-[480px]:block lg:w-[55%]"
+        >
+          <img
+            src={LANDING.heroMap}
+            alt=""
+            className="h-full w-full object-contain object-right"
+          />
+          <div className="absolute inset-y-0 left-0 w-[42%] bg-gradient-to-r from-[#f3f7fd] via-[#f3f7fd] to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-[#f3f7fd] to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-[#f3f7fd] to-transparent" />
+          <div className="absolute inset-y-0 right-0 w-[5%] bg-gradient-to-l from-[#f3f7fd] to-transparent" />
+        </div>
 
-            <ZoneNetworkWidget />
+        {/* Mobile: subtle map wash behind copy */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 min-[480px]:hidden"
+        >
+          <img
+            src={LANDING.heroMap}
+            alt=""
+            className="absolute -right-8 top-8 h-[min(70vw,320px)] w-auto max-w-none opacity-[0.22]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-white via-white/92 to-[#F7FAFE]" />
+        </div>
+
+        <SectionShell className="relative z-10 py-10 sm:py-14 lg:py-20">
+          <div className="max-w-xl lg:max-w-2xl">
+            <span className="inline-flex items-center gap-2 rounded-full bg-[#EDF3FB] px-4 py-2 text-sm font-medium text-[#2F80ED]">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#2FA24A] opacity-60" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-[#2FA24A]" />
+              </span>
+              REST API Ready
+            </span>
+            <div className="mt-6 space-y-4">
+              <h1 className="text-4xl font-semibold text-[#0F2C5C] sm:text-5xl lg:text-6xl">
+                Weave Your Spatial Zones
+              </h1>
+              <p className="text-lg leading-8 text-[#566784]">
+                A geospatial platform that bridges web and mobile. Define zones
+                using H3 hexagonal indexing, connect devices via REST API, and
+                track everything in real time.
+              </p>
+            </div>
+            <div className="mt-6 flex flex-wrap gap-4">
+              <Link
+                to="/register"
+                className="inline-flex items-center justify-center rounded-md bg-[#2F80ED] px-6 py-3 text-sm font-bold text-white transition hover:brightness-110"
+              >
+                Create Account
+              </Link>
+              <Link
+                to="/api"
+                className="inline-flex items-center justify-center rounded-md border border-[#DCE6F2] bg-white/90 px-6 py-3 text-sm text-[#566784] backdrop-blur-sm transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED]"
+              >
+                API Docs
+              </Link>
+            </div>
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              {heroFeatureTags.map(({ label, icon: Icon }) => (
+                <div
+                  key={label}
+                  className="flex items-center gap-2 rounded-3xl border border-[#DCE6F2] bg-white/90 px-4 py-3 text-sm text-[#566784] shadow-sm backdrop-blur-sm"
+                >
+                  <Icon
+                    className="h-4 w-4 shrink-0 text-[#2F80ED]"
+                    aria-hidden
+                  />
+                  <span>{label}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </SectionShell>
       </section>
 
-      {/* Isometric map visual band */}
-      <section className="pb-10 sm:pb-14">
+      {/* Zone Network — side-by-side cards + dev banner */}
+      <section>
         <SectionShell>
-          <div className="overflow-hidden rounded-[2rem] border border-[#DCE6F2] bg-white shadow-glow">
-            <img
-              src={LANDING.heroMap}
-              alt="Isometric city map with hex zones, mobile app, and drone"
-              className="h-auto w-full object-cover"
-              loading="lazy"
-            />
+          <div className="rounded-[2rem] border border-[#DCE6F2] bg-white p-6 shadow-glow sm:p-8">
+            <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-[#0F2C5C] sm:text-xl">
+                  Zone Network
+                </h2>
+                <p className="mt-1 text-sm text-[#566784]">
+                  Live status of your current network and API connectivity.
+                </p>
+              </div>
+              <span className="inline-flex items-center gap-2 rounded-md bg-[#E3F4E8] px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[#2FA24A]">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#2FA24A] opacity-60" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-[#2FA24A]" />
+                </span>
+                Live
+              </span>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 md:gap-5">
+              {networkCards.map((card) => (
+                <article
+                  key={card.title}
+                  className={`relative overflow-hidden rounded-3xl border bg-[#F7FAFE] ${card.border}`}
+                >
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-y-0 right-0 w-[58%] sm:w-[52%]"
+                  >
+                    <img
+                      src={card.art}
+                      alt=""
+                      className="h-full w-full object-contain object-right"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-y-0 left-0 w-[55%] bg-gradient-to-r from-[#F7FAFE] via-[#F7FAFE]/85 to-transparent" />
+                  </div>
+                  <div className="relative p-5 sm:p-6">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div
+                          className={`flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] ${card.labelColor}`}
+                        >
+                          <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                          {card.title}
+                        </div>
+                        <p className="mt-3 text-xl font-semibold text-[#0F2C5C] sm:text-2xl">
+                          {card.type}
+                        </p>
+                      </div>
+                      <span
+                        className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] ${card.accent}`}
+                      >
+                        {card.label}
+                      </span>
+                    </div>
+                    <div className="mt-5 flex flex-wrap items-center gap-4 text-sm text-[#566784]">
+                      <span className="inline-flex items-center gap-2">
+                        <User className="h-4 w-4 shrink-0" aria-hidden />
+                        {card.users} users
+                      </span>
+                      <span className="inline-flex items-center gap-2">
+                        <Radio className="h-4 w-4 shrink-0" aria-hidden />
+                        {card.devices} devices
+                      </span>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            <div className="relative mt-6 overflow-hidden rounded-3xl border border-[#DCE6F2] bg-[#F7FAFE] p-5 sm:p-6">
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-y-0 right-0 hidden w-[42%] sm:block lg:w-[36%]"
+              >
+                <img
+                  src={LANDING.apiBannerCode}
+                  alt=""
+                  className="h-full w-full object-contain object-right pr-2"
+                  loading="lazy"
+                />
+                <div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-[#F7FAFE] via-[#F7FAFE]/90 to-transparent" />
+              </div>
+              <div className="relative max-w-md sm:max-w-lg">
+                <p className="font-medium text-[#0F2C5C]">
+                  Developer-friendly REST API
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-[#566784]">
+                  Complete endpoint documentation with live request examples and
+                  response previews.
+                </p>
+              </div>
+            </div>
           </div>
         </SectionShell>
       </section>
 
       {/* How it works */}
-      <section className="pb-12 sm:pb-16">
+      <section>
         <SectionShell>
-          <div className="layer-card !p-0 sm:!p-0">
-            <div className="px-6 pb-12 pt-10 sm:px-8 sm:pt-16">
-              <h2 className="text-2xl font-semibold text-[#0F2C5C] sm:text-3xl">
+          <div className="layer-card !p-0">
+            <div className="px-6 pb-12 pt-12 sm:px-8 sm:pt-16">
+              <h2 className="text-2xl font-semibold text-[#0F2C5C]">
                 How Safe Zone Patrol Works
               </h2>
               <p className="mt-3 text-[#566784]">
                 From registration to real-time device tracking in three steps.
               </p>
-              <div className="mt-10 grid gap-4 sm:mt-12 sm:grid-cols-3 sm:gap-6">
+              <div className="mt-12 grid gap-4 sm:grid-cols-3">
                 {howItWorksSteps.map((step, index) => (
                   <div key={step.title} className="flex gap-4 p-2 sm:p-4">
                     <img
                       src={step.image}
                       alt=""
                       aria-hidden
-                      className="h-12 w-12 shrink-0 rounded-xl border border-[#DCE6F2] bg-white object-cover sm:h-14 sm:w-14"
+                      className="mb-4 h-16 w-16 object-contain sm:h-[4.5rem] sm:w-[4.5rem]"
                       loading="lazy"
                     />
                     <div>
-                      <p className="text-3xl font-bold text-[#2F80ED]">
-                        0{index + 1}
-                      </p>
-                      <h3 className="mt-2 text-xl font-semibold text-[#0F2C5C]">
-                        {step.title}
-                      </h3>
+                      <div className="flex items-end gap-2">
+                        <p className="text-3xl font-bold text-[#2F80ED]">
+                          0{index + 1}
+                        </p>
+                        <h3 className="text-xl font-semibold text-[#0F2C5C]">
+                          {step.title}
+                        </h3>
+                      </div>
                       <p className="mt-2 text-sm leading-relaxed text-[#566784]">
                         {step.description}
                       </p>
@@ -337,118 +434,81 @@ export default function Landing() {
       </section>
 
       {/* Network type */}
-      <section className="pb-12 sm:pb-16">
+      <section>
         <SectionShell>
-          <h2 className="text-2xl font-semibold text-[#0F2C5C] sm:text-3xl">
+          <h2 className="text-2xl font-semibold text-[#0F2C5C]">
             Pick Your Network Type
           </h2>
           <p className="mt-3 text-[#566784]">
             Two models, built for different scales
           </p>
           <div className="mt-10 grid gap-6 lg:grid-cols-2">
-            <div className="flex flex-col overflow-hidden rounded-3xl border border-[#DCE6F2] bg-white shadow-glow">
-              <div className="flex flex-1 flex-col p-6 sm:p-8">
-                <div className="flex gap-4">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-sky-200 bg-sky-50">
-                    <Users className="h-5 w-5 text-sky-600" strokeWidth={2} />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-[#0F2C5C]">
-                      Private
-                    </h3>
-                    <p className="mt-1 text-sm leading-relaxed text-[#566784]">
-                      Team coordination, family tracking, fleet management
-                    </p>
-                  </div>
-                </div>
-                <ul className="mt-6 flex flex-1 flex-col gap-3 text-sm text-[#566784]">
-                  {[
-                    "Many users allowed",
-                    "1 device per user",
-                    "Same zone type for all",
-                    "3 acceptable zones per user",
-                    "QR code invites",
-                  ].map((item) => (
-                    <li key={item} className="flex items-start gap-3">
-                      <CircleCheck
-                        className="mt-0.5 h-5 w-5 shrink-0 text-[#2F80ED]"
-                        strokeWidth={2}
-                      />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  to="/register"
-                  className="mt-8 inline-flex w-full items-center justify-center rounded-md bg-[#2F80ED] px-5 py-3 text-sm font-bold text-white transition hover:brightness-110"
+            {networkTypeCards.map((card) => {
+              const Icon = card.icon;
+              return (
+                <article
+                  key={card.title}
+                  className={`relative overflow-hidden rounded-3xl border bg-white shadow-glow ${card.border}`}
                 >
-                  Create Private Zone
-                </Link>
-              </div>
-              <img
-                src={LANDING.planPrivate}
-                alt="Team collaborating in a private zone network"
-                className="h-44 w-full object-cover object-center sm:h-52"
-                loading="lazy"
-              />
-            </div>
-
-            <div className="flex flex-col overflow-hidden rounded-3xl border border-[#E0992A]/40 bg-white shadow-glow ring-1 ring-[#E0992A]/15">
-              <div className="flex flex-1 flex-col p-6 sm:p-8">
-                <div className="flex gap-4">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#E0992A]/30 bg-[#FBEFD8]">
-                    <User className="h-5 w-5 text-[#E0992A]" strokeWidth={2} />
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-y-0 right-0"
+                  >
+                    <img
+                      src={card.art}
+                      alt=""
+                      className="h-full w-full object-contain object-right"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-y-0 left-0 w-[60%] bg-gradient-to-r from-white via-white/90 to-transparent" />
                   </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-[#0F2C5C]">
-                      Exclusive
-                    </h3>
-                    <p className="mt-1 text-sm leading-relaxed text-[#566784]">
-                      Solo deployments, individual tracking, personal zones
-                    </p>
+                  <div className="relative flex min-h-[22rem] flex-col p-6 sm:min-h-[24rem] sm:p-8">
+                    <div className="flex max-w-[58%] gap-4 sm:max-w-[52%]">
+                      <div
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${card.iconWrap}`}
+                      >
+                        <Icon className="h-5 w-5" strokeWidth={2} />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-lg font-semibold text-[#0F2C5C]">
+                          {card.title}
+                        </h3>
+                        <p className="mt-1 text-sm leading-relaxed text-[#566784]">
+                          {card.description}
+                        </p>
+                      </div>
+                    </div>
+                    <ul className="mt-6 flex flex-1 flex-col gap-3 text-sm text-[#566784] sm:max-w-[52%]">
+                      {card.features.map((item) => (
+                        <li key={item} className="flex items-start gap-3">
+                          <CircleCheck
+                            className={`mt-0.5 h-5 w-5 shrink-0 ${card.checkColor}`}
+                            strokeWidth={2}
+                          />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <Link
+                      to="/register"
+                      className={`mt-8 inline-flex w-full items-center justify-center rounded-md px-5 py-3 text-sm font-bold text-white transition sm:max-w-[52%] ${card.buttonClass}`}
+                    >
+                      {card.buttonLabel}
+                    </Link>
                   </div>
-                </div>
-                <ul className="mt-6 flex flex-1 flex-col gap-3 text-sm text-[#566784]">
-                  {[
-                    "1 user only",
-                    "1 device per user",
-                    "Any zone type allowed",
-                    "3 acceptable zones per user",
-                    "Full flexibility",
-                  ].map((item) => (
-                    <li key={item} className="flex items-start gap-3">
-                      <CircleCheck
-                        className="mt-0.5 h-5 w-5 shrink-0 text-[#E0992A]"
-                        strokeWidth={2}
-                      />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  to="/register"
-                  className="mt-8 inline-flex w-full items-center justify-center rounded-md bg-[#E0992A] px-5 py-3 text-sm font-bold text-white transition hover:brightness-110"
-                >
-                  Create Exclusive Zone
-                </Link>
-              </div>
-              <img
-                src={LANDING.planExclusive}
-                alt="Individual user in an exclusive zone"
-                className="h-44 w-full object-cover object-center sm:h-52"
-                loading="lazy"
-              />
-            </div>
+                </article>
+              );
+            })}
           </div>
         </SectionShell>
       </section>
 
       {/* Built for developers */}
-      <section className="pb-12 sm:pb-16">
+      <section>
         <SectionShell>
-          <div className="layer-card !p-0 sm:!p-0">
-            <div className="px-6 pb-12 pt-10 sm:px-8 sm:pt-16">
-              <h2 className="text-2xl font-semibold text-[#0F2C5C] sm:text-3xl">
+          <div className="layer-card !p-0">
+            <div className="px-6 pb-12 pt-12 sm:px-8 sm:pt-16">
+              <h2 className="text-2xl font-semibold text-[#0F2C5C]">
                 Built for developers
               </h2>
               <p className="mt-3 max-w-3xl text-[#566784]">
@@ -484,11 +544,11 @@ export default function Landing() {
       </section>
 
       {/* REST API */}
-      <section className="pb-12 sm:pb-16">
+      <section>
         <SectionShell>
-          <div className="relative grid gap-8 lg:grid-cols-2 lg:items-start lg:gap-12">
+          <div className="grid gap-10 lg:grid-cols-2 lg:items-start">
             <div className="space-y-4">
-              <h2 className="text-2xl font-semibold text-[#0F2C5C] sm:text-3xl">
+              <h2 className="text-2xl font-semibold text-[#0F2C5C]">
                 REST API Endpoints
               </h2>
               <p className="max-w-xl text-[#566784]">
@@ -503,16 +563,8 @@ export default function Landing() {
               </Link>
             </div>
 
-            <div className="relative space-y-5">
-              <div className="overflow-hidden rounded-3xl border border-[#DCE6F2] bg-white shadow-glow lg:absolute lg:-top-6 lg:right-0 lg:z-10 lg:w-[min(100%,320px)]">
-                <img
-                  src={LANDING.apiLaptop}
-                  alt="Laptop showing REST API code"
-                  className="h-44 w-full object-cover object-top sm:h-48"
-                  loading="lazy"
-                />
-              </div>
-              <div className="rounded-3xl border border-[#DCE6F2] bg-white p-6 shadow-glow lg:mt-36">
+            <div className="relative">
+              <div className="rounded-3xl border border-[#DCE6F2] bg-white p-6 shadow-glow">
                 <div className="mb-5 flex items-center gap-2">
                   <Radio
                     className="h-4 w-4 shrink-0 text-[#2F80ED]"
@@ -540,6 +592,15 @@ export default function Landing() {
                   ))}
                 </ul>
               </div>
+              {/* <div className="pointer-events-none absolute -bottom-4 -right-2 hidden w-48 overflow-hidden rounded-2xl border border-[#DCE6F2] bg-white shadow-glow sm:block lg:-right-16 lg:w-56">
+                <img
+                  src={LANDING.apiLaptop}
+                  alt=""
+                  aria-hidden
+                  className="h-auto w-full object-cover object-top"
+                  loading="lazy"
+                />
+              </div> */}
             </div>
           </div>
         </SectionShell>
@@ -547,21 +608,23 @@ export default function Landing() {
 
       {/* Footer CTA */}
       <section
-        className="relative w-full overflow-hidden border-t border-[#DCE6F2] bg-[#EDF3FB]"
+        className="relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2 overflow-hidden border-t border-[#DCE6F2] bg-[#EDF3FB]"
         aria-labelledby="ready-to-weave-heading"
       >
         <img
           src={LANDING.footerBg}
           alt=""
           aria-hidden
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-90"
+          width={1800}
+          height={500}
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center"
         />
-        <div className="relative flex flex-col items-center px-4 py-16 text-center sm:px-6 sm:py-20">
-          <Hexagon
+        <div className="relative flex flex-col items-center px-6 py-16 text-center sm:py-20">
+          {/* <Hexagon
             className="mb-8 h-14 w-14 text-[#2F80ED]"
             strokeWidth={1.25}
             aria-hidden
-          />
+          /> */}
           <h2
             id="ready-to-weave-heading"
             className="text-3xl font-bold tracking-tight text-[#0F2C5C] sm:text-4xl"
@@ -573,7 +636,7 @@ export default function Landing() {
           </p>
           <Link
             to="/register"
-            className="mt-10 inline-flex items-center justify-center rounded-md bg-[#2F80ED] px-6 py-3 text-base font-bold text-white transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2F80ED]"
+            className="mt-10 inline-flex items-center justify-center rounded-md bg-[#2F80ED] px-6 py-3 text-base font-bold text-white transition hover:brightness-110"
           >
             Start Building Zones
           </Link>
