@@ -157,6 +157,27 @@ export function isUnknownMessageType(type: MessageType): boolean {
   return type === "UNKNOWN";
 }
 
+export function isServiceMessageType(type: MessageType): boolean {
+  return type === "SERVICE";
+}
+
+/** Inbox / list emphasis colors (mirrors UNKNOWN red styling for SERVICE green). */
+export const UNKNOWN_MESSAGE_UI = {
+  border: "#B71C1C",
+  surface: "#FFEBEE",
+  badge: "#C62828",
+  title: "#B71C1C",
+  body: "#7A1622",
+} as const;
+
+export const SERVICE_MESSAGE_UI = {
+  border: "#2E7D32",
+  surface: "#E8F5E9",
+  badge: "#2E7D32",
+  title: "#1B5E20",
+  body: "#33691E",
+} as const;
+
 export function requiresAdminToSendType(type: MessageType): boolean {
   return getMessageWorkflow(type)?.requiresAdmin ?? false;
 }

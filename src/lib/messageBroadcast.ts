@@ -35,17 +35,15 @@ export function messageBroadcastLabel(
   message: Message,
   options: BroadcastLabelOptions = {},
 ): string {
+  if (
+    options.selfOwnerId != null &&
+    message.sender_id === options.selfOwnerId
+  ) {
+    return "ME";
+  }
   const embedded = readMessageBroadcastName(message);
   if (embedded) return embedded;
   if (message.guest_sender_id != null) return "Guest";
-  if (
-    options.selfOwnerId != null &&
-    message.sender_id === options.selfOwnerId &&
-    options.selfBroadcastName &&
-    options.selfBroadcastName.trim()
-  ) {
-    return options.selfBroadcastName.trim();
-  }
   const resolved = options.resolveOwnerName?.(message.sender_id);
   if (resolved && resolved.trim()) return resolved.trim();
   return `Member ${message.sender_id}`;

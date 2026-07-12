@@ -2,7 +2,7 @@ import { Lock, MessageCircle } from "lucide-react";
 import { formatMessageSenderLabel, type Message } from "../../services/api/messages";
 import { formatMessageCoordinatesLabel } from "../../lib/messageCoordinates";
 import { toMessageTypeLabel } from "../../lib/messageTypes";
-import { isUnknownMessageType } from "../../lib/messageWorkflow";
+import { isServiceMessageType, isUnknownMessageType } from "../../lib/messageWorkflow";
 import {
   isPermissionDirectVisibility,
   isPermissionZonePendingBroadcastVisibility,
@@ -43,6 +43,7 @@ export function MessageList({
       {messages.map((message) => {
         const active = activeId === message.id;
         const isUnknown = isUnknownMessageType(message.type);
+        const isService = isServiceMessageType(message.type);
         const zoneBroadcast =
           message.type === "PERMISSION" &&
           isPermissionZonePendingBroadcastVisibility(message.permission_visibility);
@@ -57,12 +58,16 @@ export function MessageList({
                 active
                   ? isUnknown
                     ? "border-[#B71C1C] bg-[#FFEBEE]"
-                    : "border-[#2F80ED] bg-[#EDF3FB]"
+                    : isService
+                      ? "border-[#2E7D32] bg-[#E8F5E9]"
+                      : "border-[#2F80ED] bg-[#EDF3FB]"
                   : isUnknown
                     ? "border-[#B71C1C] bg-[#FFEBEE] hover:brightness-95"
-                    : zoneBroadcast
-                      ? "border-[#E0992A]/50 bg-[#FBEFD8]/60 hover:border-[#E0992A]"
-                      : "border-[#DCE6F2] bg-white hover:border-[#C2D2E6]"
+                    : isService
+                      ? "border-[#2E7D32] bg-[#E8F5E9] hover:brightness-95"
+                      : zoneBroadcast
+                        ? "border-[#E0992A]/50 bg-[#FBEFD8]/60 hover:border-[#E0992A]"
+                        : "border-[#DCE6F2] bg-white hover:border-[#C2D2E6]"
               }`}
             >
               <div className="flex items-start gap-3">
@@ -78,12 +83,14 @@ export function MessageList({
                       className={`rounded-full px-2 py-0.5 font-semibold ${
                         isUnknown
                           ? "bg-[#C62828] text-sm font-extrabold text-white"
-                          : toneForCategory(message.category)
+                          : isService
+                            ? "bg-[#2E7D32] text-sm font-extrabold text-white"
+                            : toneForCategory(message.category)
                       }`}
                     >
                       {toMessageTypeLabel(message.type)}
                     </span>
-                    {message.topic_label ? (
+                    {message.type !== "PA" && message.topic_label ? (
                       <span className="rounded-full bg-[#FBEFD8] px-2 py-0.5 font-semibold text-[#E0992A]">
                         {message.topic_label}
                       </span>
@@ -127,9 +134,11 @@ export function MessageList({
                     className={`mt-2 font-bold ${
                       isUnknown
                         ? "text-lg text-[#B71C1C]"
-                        : message.subject
-                          ? "text-base text-[#0F2C5C]"
-                          : "text-sm text-[#0F2C5C]"
+                        : isService
+                          ? "text-lg text-[#1B5E20]"
+                          : message.subject
+                            ? "text-base text-[#0F2C5C]"
+                            : "text-sm text-[#0F2C5C]"
                     }`}
                   >
                     {message.subject ||
@@ -149,7 +158,9 @@ export function MessageList({
                       className={`mt-1 line-clamp-3 ${
                         isUnknown
                           ? "text-base font-semibold text-[#7A1622]"
-                          : "text-sm text-[#566784]"
+                          : isService
+                            ? "text-base font-semibold text-[#33691E]"
+                            : "text-sm text-[#566784]"
                       }`}
                     >
                       {message.message}

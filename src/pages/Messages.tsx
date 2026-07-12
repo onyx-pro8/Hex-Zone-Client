@@ -44,6 +44,7 @@ import {
   getMessageWorkflow,
   isEmergencyMessageType,
   isUnknownMessageType,
+  isServiceMessageType,
 } from "../lib/messageWorkflow";
 import { listGuestRequestsForZone } from "../services/api/accessPermissions";
 import {
@@ -673,12 +674,17 @@ export default function Messages() {
           <div className="grid grid-cols-2 gap-3">
             {visibleMessagingActions.map((action) => {
               const Icon = action.icon;
+              const isService = isServiceMessageType(action.type as MessageType);
               return (
                 <button
                   key={action.type}
                   type="button"
                   onClick={() => selectMessagingType(action.type)}
-                  className="flex flex-col items-center justify-center gap-2 rounded-xl border border-[#F0DBB0] bg-[#FBEFD8] px-3 py-6 text-center text-[#E0992A] transition hover:brightness-95"
+                  className={`flex flex-col items-center justify-center gap-2 rounded-xl border px-3 py-6 text-center transition hover:brightness-95 ${
+                    isService
+                      ? "border-[#1B5E20] bg-[#2E7D32] text-white shadow-md hover:brightness-110"
+                      : "border-[#F0DBB0] bg-[#FBEFD8] text-[#E0992A]"
+                  }`}
                 >
                   <Icon className="h-7 w-7" aria-hidden />
                   <span className="text-xs font-extrabold leading-tight tracking-wide">

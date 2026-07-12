@@ -551,7 +551,7 @@ export function normalizeMessage(raw: unknown): Message | null {
     ...(resolvedSubject ? { subject: resolvedSubject } : {}),
     ...(resolvedTopic ? { topic: resolvedTopic } : {}),
     ...(resolvedSubtopic ? { subtopic: resolvedSubtopic } : {}),
-    ...(resolvedTopic
+    ...(type === "SERVICE" && resolvedTopic
       ? {
           topic_label: formatTopicPath(resolvedTopic, resolvedSubtopic),
         }

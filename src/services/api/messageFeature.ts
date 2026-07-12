@@ -64,13 +64,33 @@ export type WellnessAcknowledgement = {
   created_at: string;
 };
 
+export type WellnessRecipientAsk = {
+  id: string;
+  asker_owner_id: number;
+  created_at: string;
+  sender_reply_id?: string | null;
+};
+
+export type WellnessSenderReply = {
+  id: string;
+  status: string;
+  note?: string | null;
+  created_at: string;
+  answered_asker_ids: number[];
+};
+
 export type WellnessAckSummary = {
   message_event_id: string;
+  sender_id?: number | null;
   expected_recipient_ids: number[];
   pending_recipient_ids: number[];
   acknowledgements: WellnessAcknowledgement[];
+  pending_sender_asks: WellnessRecipientAsk[];
+  sender_replies: WellnessSenderReply[];
   response_tracking_enabled: boolean;
   acknowledgement?: WellnessAcknowledgement;
+  recipient_ask?: WellnessRecipientAsk;
+  sender_reply?: WellnessSenderReply;
 };
 
 export type MessageFeaturePermissionDecision = {
@@ -309,6 +329,24 @@ export async function acknowledgeWellnessCheck(
   return requestMessageFeature<WellnessAckSummary>(
     "POST",
     `/message-feature/messages/${encodeURIComponent(messageEventId)}/wellness-ack`,
+    { data: payload },
+  );
+}
+
+export async function askWellnessSender(messageEventId: string) {
+  return requestMessageFeature<WellnessAckSummary>(
+    "POST",
+    `/message-feature/messages/${encodeURIComponent(messageEventId)}/wellness-ask-sender`,
+  );
+}
+
+export async function replyToWellnessAsks(
+  messageEventId: string,
+  payload: { status?: "ok" | "need_help"; note?: string } = {},
+) {
+  return requestMessageFeature<WellnessAckSummary>(
+    "POST",
+    `/message-feature/messages/${encodeURIComponent(messageEventId)}/wellness-sender-reply`,
     { data: payload },
   );
 }

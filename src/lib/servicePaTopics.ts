@@ -86,9 +86,11 @@ export function validateServicePaCompose(
 ): string | null {
   if (!isServicePaMessageType(type)) return null;
   if (!fields.subject.trim()) return "Subject is required for PA and SERVICE messages.";
-  if (!fields.topic) return "Topic is required for PA and SERVICE messages.";
-  if (serviceTopicRequiresSubtopic(type, fields.topic) && !fields.subtopic) {
-    return "Subtopic is required for SERVICE Products messages.";
+  if (type === "SERVICE") {
+    if (!fields.topic) return "Topic is required for SERVICE messages.";
+    if (serviceTopicRequiresSubtopic(type, fields.topic) && !fields.subtopic) {
+      return "Subtopic is required for SERVICE Products messages.";
+    }
   }
   if (!body.trim()) return "Message body is required.";
   return null;
@@ -101,7 +103,7 @@ export function buildServicePaMsgPayload(
 ): Record<string, unknown> {
   return {
     subject: fields.subject.trim(),
-    topic: fields.topic,
+    ...(fields.topic ? { topic: fields.topic } : {}),
     ...(fields.subtopic ? { subtopic: fields.subtopic } : {}),
     description: description.trim(),
     ...extras,

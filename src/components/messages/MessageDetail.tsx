@@ -8,7 +8,7 @@ import {
   isPermissionZonePendingBroadcastVisibility,
 } from "../../lib/permissionVisibility";
 import { messageCoordinatesMapsUrl } from "../../lib/messageCoordinates";
-import { getMessageWorkflow, isUnknownMessageType, priorityBadgeClass } from "../../lib/messageWorkflow";
+import { getMessageWorkflow, isServiceMessageType, isUnknownMessageType, priorityBadgeClass } from "../../lib/messageWorkflow";
 import { WellnessAckPanel } from "./WellnessAckPanel";
 import { PrivateThreadModal } from "./PrivateThreadModal";
 
@@ -39,6 +39,8 @@ export function MessageDetail({
         resolveOwnerName: (id) => ownerNameById?.get(id) ?? null,
       })
     : null;
+  const isUnknown = message ? isUnknownMessageType(message.type) : false;
+  const isService = message ? isServiceMessageType(message.type) : false;
   return (
     <section className="rounded-2xl border border-[#DCE6F2] bg-white p-5 shadow-sm">
       {!message ? (
@@ -64,14 +66,16 @@ export function MessageDetail({
             </span>
             <span
               className={`rounded-full px-2 py-1 font-semibold ${
-                isUnknownMessageType(message.type)
+                isUnknown
                   ? "bg-[#C62828] text-sm font-extrabold text-white"
-                  : "bg-[#EDF3FB] text-[#2F80ED]"
+                  : isService
+                    ? "bg-[#2E7D32] text-sm font-extrabold text-white"
+                    : "bg-[#EDF3FB] text-[#2F80ED]"
               }`}
             >
               {toMessageTypeLabel(message.type)}
             </span>
-            {message.topic_label ? (
+            {message.type !== "PA" && message.topic_label ? (
               <span className="rounded-full bg-[#FBEFD8] px-2 py-1 font-semibold text-[#E0992A]">
                 {message.topic_label}
               </span>
@@ -123,11 +127,13 @@ export function MessageDetail({
           <div>
             <p
               className={`font-extrabold ${
-                isUnknownMessageType(message.type)
+                isUnknown
                   ? "text-xl text-[#B71C1C]"
-                  : message.subject
-                    ? "text-lg text-[#0F2C5C]"
-                    : "text-base text-[#0F2C5C]"
+                  : isService
+                    ? "text-xl text-[#1B5E20]"
+                    : message.subject
+                      ? "text-lg text-[#0F2C5C]"
+                      : "text-base text-[#0F2C5C]"
               }`}
             >
               {message.subject || senderLabel}
@@ -140,9 +146,11 @@ export function MessageDetail({
             {message.message && message.message !== message.subject ? (
               <p
                 className={`mt-1 leading-relaxed ${
-                  isUnknownMessageType(message.type)
+                  isUnknown
                     ? "text-base font-semibold text-[#7A1622]"
-                    : "text-sm text-[#566784]"
+                    : isService
+                      ? "text-base font-semibold text-[#33691E]"
+                      : "text-sm text-[#566784]"
                 }`}
               >
                 {message.message}
