@@ -2900,7 +2900,7 @@ export default function Dashboard() {
   const savedZoneCellLayers = useMemo<SavedZoneCellLayer[]>(
     () =>
       zoneEntries
-        .map((entry, idx) => {
+        .map((entry, idx): SavedZoneCellLayer | null => {
           const active = activeSavedZoneKey != null && entry.key === activeSavedZoneKey;
           if (!showAllZones && !active) return null;
           const cells = Array.isArray(entry.zone.h3_cells)
@@ -2925,7 +2925,7 @@ export default function Dashboard() {
               currentUserId,
               currentUserName,
             ),
-          } satisfies SavedZoneCellLayer;
+          };
         })
         .filter((v): v is SavedZoneCellLayer => v !== null),
     [zoneEntries, activeSavedZoneKey, removedCellIds, showAllZones, memberNameById, currentUserId, currentUserName],
@@ -2934,7 +2934,7 @@ export default function Dashboard() {
   const savedZonePolygonLayers = useMemo<SavedZonePolygonLayer[]>(
     () =>
       zoneEntries
-        .map((entry, idx) => {
+        .map((entry, idx): SavedZonePolygonLayer | null => {
           const active = activeSavedZoneKey != null && entry.key === activeSavedZoneKey;
           if (!showAllZones && !active) return null;
           const zonePolys = zoneToPolygons(entry.zone);
@@ -2957,7 +2957,7 @@ export default function Dashboard() {
               currentUserId,
               currentUserName,
             ),
-          } satisfies SavedZonePolygonLayer;
+          };
         })
         .filter((v): v is SavedZonePolygonLayer => v !== null),
     [zoneEntries, activeSavedZoneKey, removedPolygonKeys, showAllZones, memberNameById, currentUserId, currentUserName],
