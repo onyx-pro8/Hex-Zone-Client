@@ -309,26 +309,26 @@ export default function Navbar() {
     "inline-flex shrink-0 items-center gap-1.5 rounded-md border border-[#DCE6F2] bg-white px-3 py-2 text-sm text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED]";
 
   return (
-    <header className="border-b border-[#DCE6F2] bg-white/90 backdrop-blur-xl fixed w-full z-50">
+    <header className="fixed z-50 w-full border-b border-[#DCE6F2] bg-white/90 backdrop-blur-xl">
       <div
-        className={`mx-auto flex w-full max-w-full items-center gap-3 sm:px-12 px-6 py-4 ${
+        className={`mx-auto flex w-full max-w-full flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:gap-3 sm:px-6 sm:py-4 lg:px-12 ${
           !showSessionNav ? "justify-between" : ""
         }`}
       >
         <Link
           to="/"
-          className="group flex shrink-0 items-center gap-3 transition hover:opacity-95"
+          className="group flex min-w-0 shrink-0 items-center gap-2.5 transition hover:opacity-95 sm:gap-3"
         >
           <img
             src="/logo-mark.png"
             alt="Safe Zone Patrol"
-            className="h-11 w-11 shrink-0"
+            className="h-9 w-9 shrink-0 sm:h-11 sm:w-11"
           />
-          <div>
-            <p className="text-lg font-extrabold tracking-tight text-[#0F2C5C]">
+          <div className="min-w-0">
+            <p className="truncate text-base font-extrabold tracking-tight text-[#0F2C5C] sm:text-lg">
               Safe <span className="text-[#2FA24A]">Zone</span> Patrol
             </p>
-            <p className="text-sm text-[#8694AC] group-hover:text-[#2F80ED]">
+            <p className="hidden truncate text-sm text-[#8694AC] group-hover:text-[#2F80ED] sm:block">
               neighbourhood safety network
             </p>
           </div>
@@ -537,27 +537,28 @@ export default function Navbar() {
         )}
 
         {!showSessionNav && (
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
             <Link
               to="/api"
-              className="rounded-md border border-[#DCE6F2] bg-white px-4 py-2 text-sm text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED]"
+              className="inline-flex items-center gap-1.5 rounded-md border border-[#DCE6F2] bg-white px-2.5 py-2 text-sm text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED] sm:px-4"
+              aria-label="API documentation"
             >
-              <span className="inline-flex items-center gap-2">
-                <Terminal size={14} /> API
-              </span>
+              <Terminal size={14} aria-hidden />
+              <span className="hidden sm:inline">API</span>
             </Link>
 
             <Link
               to="/login"
-              className="rounded-md border border-[#DCE6F2] bg-white px-4 py-2 text-sm text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED]"
+              className="hidden rounded-md border border-[#DCE6F2] bg-white px-4 py-2 text-sm text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED] sm:inline-flex"
             >
               Sign In
             </Link>
             <Link
               to="/register"
-              className="rounded-md bg-[#2F80ED] px-4 py-2 text-sm font-bold text-white transition hover:brightness-110"
+              className="rounded-md bg-[#2F80ED] px-3 py-2 text-xs font-bold text-white transition hover:brightness-110 sm:px-4 sm:text-sm"
             >
-              Get Started
+              <span className="sm:hidden">Join</span>
+              <span className="hidden sm:inline">Get Started</span>
             </Link>
           </div>
         )}

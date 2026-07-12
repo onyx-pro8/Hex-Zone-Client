@@ -229,17 +229,20 @@ function Shell() {
 
   const guestWideLayout = pathname.startsWith("/guest/");
   const dashboardFullBleed = pathname === "/dashboard";
+  const marketingWideLayout = pathname === "/";
   return (
     <div className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-[#F3F7FD] text-[#0F2C5C]">
       <Navbar />
       <main
         className={[
-          "mx-auto flex-1 pt-28",
+          "mx-auto flex-1 pt-24 sm:pt-28",
           dashboardFullBleed
             ? "w-full min-w-0 max-w-none px-0"
-            : guestWideLayout
-              ? "w-full min-w-0 max-w-none px-4 sm:px-6 lg:px-10"
-              : "max-w-7xl px-5",
+            : marketingWideLayout
+              ? "w-full min-w-0 max-w-none px-0"
+              : guestWideLayout
+                ? "w-full min-w-0 max-w-none px-4 sm:px-6 lg:px-10"
+                : "max-w-7xl px-5",
         ].join(" ")}
       >
         <RoutesView />
