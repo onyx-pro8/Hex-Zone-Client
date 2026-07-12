@@ -537,28 +537,26 @@ export default function Navbar() {
         )}
 
         {!showSessionNav && (
-          <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
+          <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-2">
             <Link
               to="/api"
-              className="inline-flex items-center gap-1.5 rounded-md border border-[#DCE6F2] bg-white px-2.5 py-2 text-sm text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED] sm:px-4"
-              aria-label="API documentation"
+              className="inline-flex items-center gap-2 rounded-md border border-[#DCE6F2] bg-white px-4 py-2 text-sm text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED]"
             >
               <Terminal size={14} aria-hidden />
-              <span className="hidden sm:inline">API</span>
+              <span>API</span>
             </Link>
 
             <Link
               to="/login"
-              className="hidden rounded-md border border-[#DCE6F2] bg-white px-4 py-2 text-sm text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED] sm:inline-flex"
+              className="rounded-md border border-[#DCE6F2] bg-white px-4 py-2 text-sm text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED]"
             >
               Sign In
             </Link>
             <Link
               to="/register"
-              className="rounded-md bg-[#2F80ED] px-3 py-2 text-xs font-bold text-white transition hover:brightness-110 sm:px-4 sm:text-sm"
+              className="rounded-md bg-[#2F80ED] px-4 py-2 text-sm font-bold text-white transition hover:brightness-110"
             >
-              <span className="sm:hidden">Join</span>
-              <span className="hidden sm:inline">Get Started</span>
+              Get Started
             </Link>
           </div>
         )}
