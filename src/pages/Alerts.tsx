@@ -2,12 +2,18 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { MessageDetail } from "../components/messages/MessageDetail";
 import { MessageList } from "../components/messages/MessageList";
+import { MessageInboxFilterBar } from "../components/messages/MessageInboxFilterBar";
 import { useAuth } from "../hooks/useAuth";
 import { useAlarmInbox } from "../state/alarm/AlarmInboxContext";
 import { useZoneNameLookup } from "../hooks/useZoneNameLookup";
 import { messageBroadcastLabel } from "../lib/messageBroadcast";
 import { resolveBroadcastName } from "../lib/appSettings";
 import { getMembers, type Member } from "../services/api/members";
+import {
+  applyMessageInboxFilters,
+  messageTypesForCategories,
+} from "../lib/messageInboxFilters";
+import type { MessageType } from "../lib/messageTypes";
 
 export default function Alerts() {
   const { user } = useAuth();
@@ -17,6 +23,11 @@ export default function Alerts() {
   const { zoneNames } = useZoneNameLookup();
   const [members, setMembers] = useState<Member[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [zoneFilter, setZoneFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | MessageType>("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -43,19 +54,56 @@ export default function Alerts() {
     return map;
   }, [members]);
 
+  const alarmTypeOptions = useMemo(
+    () => messageTypesForCategories(["Alarm"]),
+    [],
+  );
+
+  const allZoneIds = useMemo(() => {
+    const fromMessages = alarmMessages
+      .map((m) => String(m.zone_id ?? "").trim())
+      .filter(Boolean);
+    return Array.from(new Set(fromMessages)).sort();
+  }, [alarmMessages]);
+
+  useEffect(() => {
+    if (zoneFilter !== "all" && !allZoneIds.includes(zoneFilter)) {
+      setZoneFilter("all");
+    }
+  }, [allZoneIds, zoneFilter]);
+
+  const filteredAlarms = useMemo(
+    () =>
+      applyMessageInboxFilters(alarmMessages, {
+        includeCategories: ["Alarm"],
+        zoneFilter,
+        typeFilter,
+        dateFrom,
+        dateTo,
+        search,
+      }),
+    [alarmMessages, zoneFilter, typeFilter, dateFrom, dateTo, search],
+  );
+
   const sortedAlarms = useMemo(
     () =>
-      [...alarmMessages].sort(
+      [...filteredAlarms].sort(
         (a, b) =>
           new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
       ),
-    [alarmMessages],
+    [filteredAlarms],
   );
 
   const activeMessage = useMemo(
     () => sortedAlarms.find((message) => message.id === activeId) ?? null,
     [sortedAlarms, activeId],
   );
+
+  useEffect(() => {
+    if (activeId && !sortedAlarms.some((m) => m.id === activeId)) {
+      setActiveId(null);
+    }
+  }, [activeId, sortedAlarms]);
 
   const getBroadcastName = useCallback(
     (message: Parameters<typeof messageBroadcastLabel>[0]) =>
@@ -84,6 +132,24 @@ export default function Alerts() {
           </p>
         </div>
       </div>
+
+      <MessageInboxFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        zoneFilter={zoneFilter}
+        onZoneFilterChange={setZoneFilter}
+        zoneIds={allZoneIds}
+        zoneNames={zoneNames}
+        typeFilter={typeFilter}
+        onTypeFilterChange={setTypeFilter}
+        typeOptions={alarmTypeOptions}
+        typeAllLabel="All alarm types"
+        dateFrom={dateFrom}
+        onDateFromChange={setDateFrom}
+        dateTo={dateTo}
+        onDateToChange={setDateTo}
+        searchPlaceholder="Search alarms…"
+      />
 
       <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
         <div className="space-y-3">

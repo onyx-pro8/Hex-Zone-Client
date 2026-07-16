@@ -13,10 +13,11 @@ import {
 import { MessageList } from "../components/messages/MessageList";
 import { MessageDetail } from "../components/messages/MessageDetail";
 import { MessageBlocksPanel } from "../components/messages/MessageBlocksPanel";
+import { MessageInboxFilterBar } from "../components/messages/MessageInboxFilterBar";
 import { ServicePaComposeFieldsPanel } from "../components/messages/ServicePaComposeFields";
 import { useMessageFeed } from "../hooks/useMessageFeed";
 import { useZoneNameLookup } from "../hooks/useZoneNameLookup";
-import { sendMessage, type MessageVisibility } from "../services/api/messages";
+import { sendMessage } from "../services/api/messages";
 import {
   propagateMessageFeatureMessage,
   searchPrivateMessageRecipients,
@@ -38,9 +39,12 @@ import {
   toMessageType,
   toMessageTypeLabel,
   usesGeoPropagationMessageType,
-  type MessageCategory,
   type MessageType,
 } from "../lib/messageTypes";
+import {
+  applyMessageInboxFilters,
+  groupMessageTypesForCategories,
+} from "../lib/messageInboxFilters";
 import {
   getMessageWorkflow,
   isEmergencyMessageType,
@@ -104,10 +108,9 @@ export default function Messages() {
   const [quickStatus, setQuickStatus] = useState("");
   const [quickBusy, setQuickBusy] = useState<QuickMessageType | null>(null);
   const [zoneFilter, setZoneFilter] = useState("all");
-  const [scopeFilter, setScopeFilter] = useState<"all" | MessageVisibility>("all");
-  const [categoryFilter, setCategoryFilter] = useState<"all" | MessageCategory>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | MessageType>("all");
-  const [dateFilter, setDateFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [search, setSearch] = useState("");
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
 
@@ -184,10 +187,26 @@ export default function Messages() {
     const messageParam = searchParams.get("message")?.trim() ?? "";
     if (typeParam) {
       const resolved = toMessageType(typeParam);
-      if (resolved) setTypeFilter(resolved);
+      if (resolved && getMessageTypeCategory(resolved) !== "Alarm") {
+        setTypeFilter(resolved);
+      }
     }
     if (messageParam) setActiveMessageId(messageParam);
   }, [searchParams]);
+
+  const filterZoneIds = useMemo(() => {
+    const fromMessages = messages
+      .filter((m) => m.category !== "Alarm")
+      .map((m) => String(m.zone_id ?? "").trim())
+      .filter(Boolean);
+    return Array.from(new Set(fromMessages)).sort();
+  }, [messages]);
+
+  useEffect(() => {
+    if (zoneFilter !== "all" && !filterZoneIds.includes(zoneFilter)) {
+      setZoneFilter("all");
+    }
+  }, [filterZoneIds, zoneFilter]);
 
   const allZoneIds = useMemo(
     () => Array.from(new Set([...dbZoneIds, ...zones])),
@@ -307,44 +326,19 @@ export default function Messages() {
     };
   }, [composeType, privateSearchQuery, user?.mapCenter, user?.map_center]);
 
-  /** Defaults (all zones / all scope / category / type) intentionally include CHAT: meta is Access + private from MESSAGE_TYPE_META. */
-  const filteredMessages = useMemo(() => {
-    return messages.filter((message) => {
-      if (message.category === "Alarm") return false;
-      if (zoneFilter !== "all" && message.zone_id !== zoneFilter) return false;
-      if (scopeFilter !== "all" && message.scope !== scopeFilter) {
-        return false;
-      }
-      if (categoryFilter !== "all" && message.category !== categoryFilter) {
-        return false;
-      }
-      if (typeFilter !== "all" && message.type !== typeFilter) {
-        return false;
-      }
-      if (dateFilter) {
-        const ymd = new Date(message.created_at).toISOString().slice(0, 10);
-        if (ymd !== dateFilter) return false;
-      }
-      const q = search.trim().toLowerCase();
-      if (!q) return true;
-      const guestSenderMatch =
-        message.guest_sender_id != null &&
-        (message.guest_sender_id.toLowerCase().includes(q) ||
-          (q.length > 0 && "guest".startsWith(q)));
-      const guestIdMatch =
-        message.guest_id != null &&
-        typeof message.guest_id === "string" &&
-        message.guest_id.toLowerCase().includes(q);
-      return (
-        message.message.toLowerCase().includes(q) ||
-        message.zone_id.toLowerCase().includes(q) ||
-        String(message.sender_id).includes(q) ||
-        String(message.receiver_id ?? "").includes(q) ||
-        guestSenderMatch ||
-        guestIdMatch
-      );
-    });
-  }, [messages, zoneFilter, scopeFilter, categoryFilter, typeFilter, dateFilter, search]);
+  /** Defaults intentionally include CHAT (Access). Alarms live on Incoming Alarms. */
+  const filteredMessages = useMemo(
+    () =>
+      applyMessageInboxFilters(messages, {
+        excludeCategories: ["Alarm"],
+        zoneFilter,
+        typeFilter,
+        dateFrom,
+        dateTo,
+        search,
+      }),
+    [messages, zoneFilter, typeFilter, dateFrom, dateTo, search],
+  );
 
   const sortedFilteredMessages = useMemo(
     () =>
@@ -605,6 +599,11 @@ export default function Messages() {
   );
 
   const groupedTypeOptions = useMemo(() => groupMessageTypesForUI(), []);
+  /** Inbox filter: Alert + Access only (alarms are on Incoming Alarms). */
+  const inboxTypeOptions = useMemo(
+    () => groupMessageTypesForCategories(["Alert", "Access"]),
+    [],
+  );
   const composeTypeOptions = useMemo(
     () =>
       groupedTypeOptions
@@ -769,67 +768,24 @@ export default function Messages() {
         </div>
       </details>
 
-      <div className="grid gap-4 rounded-2xl border border-[#DCE6F2] bg-white p-5 shadow-sm lg:grid-cols-6">
-        <select
-          value={zoneFilter}
-          onChange={(e) => setZoneFilter(e.target.value)}
-          className="rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] outline-none focus:border-[#2F80ED]"
-        >
-          <option value="all">All zones</option>
-          {allZoneIds.map((zone) => (
-            <option key={zone} value={zone}>
-              {zone}
-            </option>
-          ))}
-        </select>
-        <select
-          value={scopeFilter}
-          onChange={(e) => setScopeFilter(e.target.value as "all" | MessageVisibility)}
-          className="rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] outline-none focus:border-[#2F80ED]"
-        >
-          <option value="all">All Scope</option>
-          <option value="public">Public</option>
-          <option value="private">Private</option>
-        </select>
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value as "all" | MessageCategory)}
-          className="rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] outline-none focus:border-[#2F80ED]"
-        >
-          <option value="all">All Category</option>
-          <option value="Alarm">Alarm</option>
-          <option value="Alert">Alert</option>
-          <option value="Access">Access</option>
-        </select>
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value as "all" | MessageType)}
-          className="rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] outline-none focus:border-[#2F80ED]"
-        >
-          <option value="all">All Message Types</option>
-          {groupedTypeOptions.map((group) => (
-            <optgroup key={group.category} label={group.category}>
-              {group.options.map((option) => (
-                <option key={option.type} value={option.type}>
-                  {option.label}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-        <input
-          type="date"
-          value={dateFilter}
-          onChange={(e) => setDateFilter(e.target.value)}
-          className="rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] outline-none focus:border-[#2F80ED]"
-        />
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search text or zone..."
-          className="lg:col-span-2 rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] outline-none focus:border-[#2F80ED]"
-        />
-      </div>
+      <MessageInboxFilterBar
+        search={search}
+        onSearchChange={setSearch}
+        zoneFilter={zoneFilter}
+        onZoneFilterChange={setZoneFilter}
+        zoneIds={filterZoneIds}
+        zoneNames={zoneNames}
+        typeFilter={typeFilter}
+        onTypeFilterChange={setTypeFilter}
+        typeOptions={[]}
+        typeGroups={inboxTypeOptions}
+        typeAllLabel="All message types"
+        dateFrom={dateFrom}
+        onDateFromChange={setDateFrom}
+        dateTo={dateTo}
+        onDateToChange={setDateTo}
+        searchPlaceholder="Search messages…"
+      />
 
       <details className="rounded-2xl border border-[#DCE6F2] bg-white px-4 py-3 text-sm text-[#566784] shadow-sm">
         <summary className="cursor-pointer select-none font-semibold text-[#0F2C5C]">
