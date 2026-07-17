@@ -8,7 +8,7 @@ import {
   isPermissionZonePendingBroadcastVisibility,
 } from "../../lib/permissionVisibility";
 import { messageCoordinatesMapsUrl } from "../../lib/messageCoordinates";
-import { getMessageWorkflow, isServiceMessageType, isUnknownMessageType, priorityBadgeClass } from "../../lib/messageWorkflow";
+import { getMessageWorkflow, isServiceMessageType, isUnknownMessageType, priorityBadgeClass, wellnessResponseTrackingEnabled } from "../../lib/messageWorkflow";
 import { WellnessAckPanel } from "./WellnessAckPanel";
 import { PrivateThreadModal } from "./PrivateThreadModal";
 import {
@@ -181,7 +181,9 @@ export function MessageDetail({
               </ul>
             </div>
           ) : null}
-          {message.type === "WELLNESS_CHECK" && currentOwnerId ? (
+          {message.type === "WELLNESS_CHECK" &&
+          currentOwnerId &&
+          wellnessResponseTrackingEnabled(message) ? (
             <WellnessAckPanel
               messageEventId={message.id}
               currentOwnerId={currentOwnerId}

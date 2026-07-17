@@ -131,8 +131,8 @@ export const MESSAGE_WORKFLOW: Record<
   WELLNESS_CHECK: {
     priority: "HIGH",
     description:
-      "Safety check alarm sent from your registered home address. Recipients can acknowledge they are OK. Routing follows primary vs secondary zone rules.",
-    delivery: "WebSocket + push; acknowledgements tracked.",
+      "Safety check alarm sent from your registered home address. Recipients can acknowledge they are OK when the check is sent from a smart-home device (not the mobile app). Routing follows primary vs secondary zone rules.",
+    delivery: "WebSocket + push; acknowledgements tracked for smart-home senders.",
     locationSource: "registered_address",
     requiresAdmin: false,
     requiresRecipient: false,
@@ -159,6 +159,21 @@ export function isUnknownMessageType(type: MessageType): boolean {
 
 export function isServiceMessageType(type: MessageType): boolean {
   return type === "SERVICE";
+}
+
+/** True when recipients may respond to a wellness check (smart-home sender only). */
+export function wellnessResponseTrackingEnabled(message: {
+  type: MessageType;
+  raw_payload?: Record<string, unknown> | null;
+}): boolean {
+  if (message.type !== "WELLNESS_CHECK") return false;
+  const payload = message.raw_payload;
+  if (!payload || typeof payload !== "object") return false;
+  if (payload.response_tracking_enabled === true) return true;
+  if (payload.response_tracking_enabled === false) return false;
+  const hid =
+    typeof payload.hid === "string" ? payload.hid.trim().toUpperCase() : "";
+  return Boolean(hid) && !hid.startsWith("MOB-") && !hid.startsWith("WEB-");
 }
 
 /** Inbox / list emphasis colors (mirrors UNKNOWN red styling for SERVICE green). */
