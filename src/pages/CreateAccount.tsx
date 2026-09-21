@@ -475,7 +475,6 @@ export default function CreateAccount() {
                 type="submit"
                 disabled={
                   loading ||
-                  userOnExclusiveAccount ||
                   regCodeLoading ||
                   Boolean(regCodeError) ||
                   !registrationCode.trim()
@@ -492,13 +491,6 @@ export default function CreateAccount() {
                 )}
               </button>
             </form>
-            {userOnExclusiveAccount && (
-              <p className="mt-3 rounded-md border border-[#E0992A]/40 bg-[#FBEFD8] px-3 py-2 text-sm text-[#E0992A]">
-                Exclusive accounts only allow 1 invited user. Ask your
-                administrator to send a QR invite from their dashboard, then
-                join via that link.
-              </p>
-            )}
 
             <p className="mt-8 text-center text-sm text-[#8694AC]">
               Already have an account?{" "}
