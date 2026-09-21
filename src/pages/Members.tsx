@@ -51,6 +51,9 @@ export default function Members() {
   const [updatingAccountTypeOwnerId, setUpdatingAccountTypeOwnerId] = useState<
     string | null
   >(null);
+  const [updatingRoleOwnerId, setUpdatingRoleOwnerId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -103,32 +106,34 @@ export default function Members() {
 
   const changeOwnerAccountType = async (
     owner: OwnerListItem,
-    accountType: string,
+    accountTypeValue: string,
   ) => {
     if (!isSystemAdmin) {
       setError("Only system administrators can change account types.");
       return;
     }
-    if (String(owner.role ?? "").toLowerCase() !== "administrator") {
-      setError("Only administrator accounts can be assigned a new account type.");
+    const current = String(owner.account_type ?? "").toLowerCase();
+    if (current === accountTypeValue.toLowerCase()) return;
+    if (
+      accountTypeValue.toLowerCase() === "private" &&
+      String(owner.role ?? "").toLowerCase() !== "administrator"
+    ) {
+      setError("Only administrator accounts can be assigned Private.");
       return;
     }
-    const current = String(owner.account_type ?? "").toLowerCase();
-    if (current === accountType.toLowerCase()) return;
 
     setUpdatingAccountTypeOwnerId(String(owner.id));
     setError(null);
     try {
       const updated = await updateOwner(owner.id, {
-        account_type: accountType as OwnerUpdateAccountType,
+        account_type: accountTypeValue as OwnerUpdateAccountType,
       });
       setOwners((prev) =>
         prev.map((row) =>
           row.id === owner.id
             ? {
                 ...row,
-                account_type:
-                  updated.account_type ?? accountType,
+                account_type: updated.account_type ?? accountTypeValue,
               }
             : row,
         ),
@@ -137,6 +142,34 @@ export default function Members() {
       setError("Could not update account type. Please try again.");
     } finally {
       setUpdatingAccountTypeOwnerId(null);
+    }
+  };
+
+  const changeOwnerRole = async (owner: OwnerListItem, role: string) => {
+    if (!isSystemAdmin) {
+      setError("Only system administrators can change user roles.");
+      return;
+    }
+    const current = String(owner.role ?? "").toLowerCase();
+    if (current === role.toLowerCase()) return;
+
+    setUpdatingRoleOwnerId(String(owner.id));
+    setError(null);
+    try {
+      const updated = await updateOwner(owner.id, {
+        role: role as OwnerUpdateRole,
+      });
+      setOwners((prev) =>
+        prev.map((row) =>
+          row.id === owner.id
+            ? { ...row, role: updated.role ?? role }
+            : row,
+        ),
+      );
+    } catch {
+      setError("Could not update role. Please try again.");
+    } finally {
+      setUpdatingRoleOwnerId(null);
     }
   };
 
@@ -197,8 +230,8 @@ export default function Members() {
           <p className="mb-4 text-sm text-[#8694AC]">
             {memberLimitDescription(accountType, tierLevel)}
             {isSystemAdmin
-              ? " As a system administrator you can set account types. Assigning Private makes an administrator a system administrator."
-              : " Manage active status for members in your account."}
+              ? " As a system administrator you can set role and account type. Assigning Private makes an administrator a system administrator."
+              : " Manage active status for members in your account. Only the system administrator can change role or account type."}
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {owners.map((owner) => {
@@ -206,11 +239,10 @@ export default function Members() {
                 `${owner.first_name ?? ""} ${owner.last_name ?? ""}`.trim() ||
                 owner.email ||
                 "Owner";
-              const isOwnerAdministrator =
-                String(owner.role ?? "").toLowerCase() === "administrator";
               const currentAccountType = String(
                 owner.account_type ?? "private",
               ).toLowerCase();
+              const currentRole = String(owner.role ?? "user").toLowerCase();
               return (
                 <article
                   key={owner.id}
@@ -237,37 +269,53 @@ export default function Members() {
                   <p className="mt-1 text-xs text-[#8694AC]">
                     Status: {owner.active === false ? "inactive" : "active"}
                   </p>
-                  {isSystemAdmin && isOwnerAdministrator ? (
-                    <label className="mt-3 block text-xs text-[#566784]">
-                      <span className="mb-1 block font-medium">
-                        Set account type
-                      </span>
-                      <select
-                        value={currentAccountType}
-                        disabled={
-                          updatingAccountTypeOwnerId === String(owner.id)
-                        }
-                        onChange={(event) =>
-                          void changeOwnerAccountType(
-                            owner,
-                            event.target.value,
-                          )
-                        }
-                        className="w-full rounded-md border border-[#DCE6F2] bg-white px-2 py-1.5 text-xs text-[#0F2C5C] disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {ADMIN_ASSIGNABLE_ACCOUNT_TYPES.map((option) => (
-                          <option
-                            key={option.apiValue}
-                            value={option.apiValue}
-                          >
-                            {option.label}
-                            {option.value === "PRIVATE"
-                              ? " (System Admin)"
-                              : ""}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                  {isSystemAdmin ? (
+                    <>
+                      <label className="mt-3 block text-xs text-[#566784]">
+                        <span className="mb-1 block font-medium">Set role</span>
+                        <select
+                          value={currentRole}
+                          disabled={updatingRoleOwnerId === String(owner.id)}
+                          onChange={(event) =>
+                            void changeOwnerRole(owner, event.target.value)
+                          }
+                          className="w-full rounded-md border border-[#DCE6F2] bg-white px-2 py-1.5 text-xs text-[#0F2C5C] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <option value="administrator">administrator</option>
+                          <option value="user">user</option>
+                        </select>
+                      </label>
+                      <label className="mt-3 block text-xs text-[#566784]">
+                        <span className="mb-1 block font-medium">
+                          Set account type
+                        </span>
+                        <select
+                          value={currentAccountType}
+                          disabled={
+                            updatingAccountTypeOwnerId === String(owner.id)
+                          }
+                          onChange={(event) =>
+                            void changeOwnerAccountType(
+                              owner,
+                              event.target.value,
+                            )
+                          }
+                          className="w-full rounded-md border border-[#DCE6F2] bg-white px-2 py-1.5 text-xs text-[#0F2C5C] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {ADMIN_ASSIGNABLE_ACCOUNT_TYPES.map((option) => (
+                            <option
+                              key={option.apiValue}
+                              value={option.apiValue}
+                            >
+                              {option.label}
+                              {option.value === "PRIVATE"
+                                ? " (System Admin)"
+                                : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </>
                   ) : null}
                   <button
                     type="button"
@@ -294,3 +342,4 @@ export default function Members() {
 type OwnerUpdateAccountType = NonNullable<
   Parameters<typeof updateOwner>[1]["account_type"]
 >;
+type OwnerUpdateRole = NonNullable<Parameters<typeof updateOwner>[1]["role"]>;

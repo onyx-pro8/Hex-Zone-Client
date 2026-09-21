@@ -123,7 +123,13 @@ export default function QrInvite() {
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#566784]">
           {isSystemAdmin
             ? "Generate a code that lets someone create an Individual (user-role) account for a new network. They choose their own network ID when they register."
-            : "Generate a code that links to your zone. New teammates scan it and register as Individual (user-role) members on your network."}
+            : accountType === "ENHANCED"
+              ? "Generate a code that links to your primary zone. You may invite one Individual (user-role) member."
+              : accountType === "PRIVATE_PLUS"
+                ? "Generate a code that links to your zone. Invitees join as Family (user-role) members."
+                : accountType === "ENHANCED_PLUS"
+                  ? "Generate a code that links to your zone. Invitees join as Organization (user-role) members."
+                  : "Generate a code that links to your zone. New teammates scan it and register as user-role members on your network."}
         </p>
       </div>
 
@@ -162,7 +168,13 @@ export default function QrInvite() {
           <p className="mt-2 text-sm text-[#566784]">
             {isSystemAdmin
               ? "The QR encodes a secure invite token. The invitee creates an Individual (user-role) account for a network ID they enter on the join form."
-              : "The QR encodes a secure invite token. Invitees join your zone as Individual (user-role) members."}
+              : accountType === "ENHANCED"
+                ? "The QR encodes a secure invite token. Invitees join your primary zone as an Individual (user-role) member."
+                : accountType === "PRIVATE_PLUS"
+                  ? "The QR encodes a secure invite token. Invitees join your zone as Family (user-role) members."
+                  : accountType === "ENHANCED_PLUS"
+                    ? "The QR encodes a secure invite token. Invitees join your zone as Organization (user-role) members."
+                    : "The QR encodes a secure invite token. Invitees join your zone as user-role members."}
           </p>
 
           {loadingToken && (
@@ -237,7 +249,13 @@ export default function QrInvite() {
                 title: "Register",
                 body: isSystemAdmin
                   ? "They set a network ID and create an Individual (user-role) account for that new network."
-                  : "They submit details and join your zone as an Individual (user-role) member.",
+                  : accountType === "ENHANCED"
+                    ? "They submit details and join your primary zone as an Individual (user-role) member."
+                    : accountType === "PRIVATE_PLUS"
+                      ? "They submit details and join your zone as a Family (user-role) member."
+                      : accountType === "ENHANCED_PLUS"
+                        ? "They submit details and join your zone as an Organization (user-role) member."
+                        : "They submit details and join your zone as a user-role member.",
               },
             ].map((item) => (
               <div key={item.step} className="flex gap-4">

@@ -42,6 +42,13 @@ export default function JoinWithQr() {
   const [loading, setLoading] = useState(false);
 
   const isNewNetworkAdmin = preview?.invite_kind === "new_network_admin";
+  const membersAtCapacity =
+    !isNewNetworkAdmin && Boolean(preview?.members_at_capacity);
+  const [capacityBlocked, setCapacityBlocked] = useState(false);
+
+  useEffect(() => {
+    setCapacityBlocked(false);
+  }, [token]);
 
   useEffect(() => {
     if (!token) {
@@ -112,11 +119,17 @@ export default function JoinWithQr() {
       });
       navigate("/login");
     } catch (e: unknown) {
-      const errObj =
+      const response =
         e && typeof e === "object"
-          ? (e as { response?: { data?: unknown } })
+          ? (e as { response?: { data?: unknown; status?: number } }).response
           : undefined;
-      const detail = parseApiErrorBody(errObj?.response?.data);
+      const detail = parseApiErrorBody(response?.data);
+      const isCapacity =
+        response?.status === 403 &&
+        /limited|capacity|independent Individual/i.test(detail || "");
+      if (isCapacity) {
+        setCapacityBlocked(true);
+      }
       setError(
         detail ||
           "Could not complete registration with this QR invite. The token may be invalid or expired.",
@@ -125,6 +138,8 @@ export default function JoinWithQr() {
       setLoading(false);
     }
   };
+
+  const showCapacityNotice = membersAtCapacity || capacityBlocked;
 
   return (
     <div className="relative left-1/2 w-screen max-w-[100vw] -translate-x-1/2 overflow-x-hidden">
@@ -144,13 +159,19 @@ export default function JoinWithQr() {
             <span>
               {isNewNetworkAdmin
                 ? "System invite — create your Individual network"
-                : "Member invite — Individual account on the inviter's network"}
+                : preview?.account_type === "private_plus"
+                  ? "Member invite — Family member (user role)"
+                  : preview?.account_type === "enhanced_plus"
+                    ? "Member invite — Organization member (user role)"
+                    : preview?.account_type === "exclusive"
+                      ? "Member invite — Individual (user role)"
+                      : "Member invite — join the inviter's network"}
             </span>
           </div>
 
           <div className="flex flex-1 flex-col overflow-y-auto px-6 py-8 sm:px-10">
             <h1 className="text-center text-2xl font-semibold tracking-tight text-[#0F2C5C]">
-              {isNewNetworkAdmin ? "Create network admin" : "Join with QR"}
+              {isNewNetworkAdmin ? "Create Individual network" : "Join with QR"}
             </h1>
             <p className="mt-2 text-center text-sm text-[#8694AC]">
               {previewLoading
@@ -158,14 +179,38 @@ export default function JoinWithQr() {
                 : isNewNetworkAdmin
                   ? "You will create an Individual (user-role) account for a new network."
                   : preview?.zone_id
-                    ? `You join zone ${preview.zone_id} as an Individual (user-role) member.`
-                    : "You join the inviter's zone as an Individual (user-role) member."}
+                    ? `You join zone ${preview.zone_id} as a ${
+                        preview.account_type === "private_plus"
+                          ? "Family"
+                          : preview.account_type === "enhanced_plus"
+                            ? "Organization"
+                            : "Individual"
+                      } user-role member.`
+                    : "You join the inviter's zone as a user-role member."}
             </p>
 
             {previewError && (
               <p className="mt-6 rounded-md border border-[#E23B4E]/30 bg-[#FCE7EA] px-3 py-2 text-sm text-[#E23B4E]">
                 {previewError}
               </p>
+            )}
+
+            {showCapacityNotice && !previewError && (
+              <div className="mt-6 rounded-md border border-[#D4A017]/35 bg-[#FFF8E7] px-4 py-3 text-sm text-[#7A5A00]">
+                <p className="font-medium text-[#5C4300]">
+                  Currently the number of members on this account is limited.
+                </p>
+                <p className="mt-1.5 text-[#7A5A00]">
+                  You can sign up as an independent Individual account instead.
+                </p>
+                <Link
+                  to="/register"
+                  className={`mt-3 inline-flex items-center gap-1 font-semibold ${accent} hover:underline`}
+                >
+                  Sign up as Individual
+                  <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
+                </Link>
+              </div>
             )}
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-5">
@@ -208,8 +253,11 @@ export default function JoinWithQr() {
 
               {!isNewNetworkAdmin && preview && !previewError && (
                 <p className="text-xs text-[#8694AC]">
-                  Account type: Individual · Role: User. Up to 2 secondary
-                  zones · No member invites · No smart-home.
+                  {preview.account_type === "private_plus"
+                    ? "Account type: Family · Role: User — joins the inviter's network."
+                    : preview.account_type === "enhanced_plus"
+                      ? "Account type: Organization · Role: User — joins the inviter's network."
+                      : "Account type: Individual · Role: User — joins the inviter's primary zone."}
                 </p>
               )}
 
@@ -322,7 +370,7 @@ export default function JoinWithQr() {
                 </div>
               </div>
 
-              {error && (
+              {error && !showCapacityNotice && (
                 <p className="rounded-md border border-[#E23B4E]/30 bg-[#FCE7EA] px-3 py-2 text-sm text-[#E23B4E]">
                   {error}
                 </p>
@@ -330,11 +378,19 @@ export default function JoinWithQr() {
 
               <button
                 type="submit"
-                disabled={loading || !token || !!previewError || previewLoading}
+                disabled={
+                  loading ||
+                  !token ||
+                  !!previewError ||
+                  previewLoading ||
+                  showCapacityNotice
+                }
                 className={`flex w-full items-center justify-center gap-2 rounded-md ${accentBg} py-3.5 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60`}
               >
                 {loading ? (
                   "Joining…"
+                ) : showCapacityNotice ? (
+                  "Member limit reached"
                 ) : (
                   <>
                     {isNewNetworkAdmin
@@ -347,13 +403,27 @@ export default function JoinWithQr() {
             </form>
 
             <p className="mt-8 text-center text-sm text-[#8694AC]">
-              Need your own zone?{" "}
-              <Link
-                to="/register"
-                className={`font-medium ${accent} hover:underline`}
-              >
-                Create account
-              </Link>
+              {showCapacityNotice ? (
+                <>
+                  Continue with your own network?{" "}
+                  <Link
+                    to="/register"
+                    className={`font-medium ${accent} hover:underline`}
+                  >
+                    Create Independent Individual account
+                  </Link>
+                </>
+              ) : (
+                <>
+                  Need your own zone?{" "}
+                  <Link
+                    to="/register"
+                    className={`font-medium ${accent} hover:underline`}
+                  >
+                    Create account
+                  </Link>
+                </>
+              )}
               {" · "}
               <Link
                 to="/login"

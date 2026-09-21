@@ -130,8 +130,18 @@ export type MessageFeatureAccessSchedulePayload = {
   notify_member_assist: boolean;
 };
 
+export type MessageFeatureAccessScheduleStatus =
+  | "PENDING"
+  | "ACCEPTED"
+  | "REJECTED"
+  | "REVOKED";
+
 export type MessageFeatureAccessSchedule = MessageFeatureAccessSchedulePayload & {
-  id: string;
+  id: number | string;
+  active?: boolean;
+  status?: MessageFeatureAccessScheduleStatus;
+  created_by_owner_id?: number | null;
+  reviewed_by?: number | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -475,6 +485,27 @@ export async function listMessageFeatureAccessSchedules(zoneId: string) {
     {
       params: { zone_id: zoneId },
     },
+  );
+}
+
+export async function acceptMessageFeatureAccessSchedule(scheduleId: number | string) {
+  return requestMessageFeature<MessageFeatureAccessSchedule>(
+    "POST",
+    `/message-feature/access/schedules/${encodeURIComponent(String(scheduleId))}/accept`,
+  );
+}
+
+export async function rejectMessageFeatureAccessSchedule(scheduleId: number | string) {
+  return requestMessageFeature<MessageFeatureAccessSchedule>(
+    "POST",
+    `/message-feature/access/schedules/${encodeURIComponent(String(scheduleId))}/reject`,
+  );
+}
+
+export async function revokeMessageFeatureAccessSchedule(scheduleId: number | string) {
+  return requestMessageFeature<MessageFeatureAccessSchedule>(
+    "POST",
+    `/message-feature/access/schedules/${encodeURIComponent(String(scheduleId))}/revoke`,
   );
 }
 

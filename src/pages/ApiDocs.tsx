@@ -330,7 +330,7 @@ const ENDPOINTS: EndpointSpec[] = [
     method: "POST",
     path: "/message-feature/access/schedules",
     group: "core",
-    description: "Create expected-guest schedule and member-assist policy.",
+    description: "Create expected-guest schedule (PENDING until admin accepts; admins auto-accept).",
     bodyJson: true,
     params: [{ name: "body", in: "body", required: true, placeholder: "JSON body" }],
   },
@@ -369,7 +369,7 @@ const ENDPOINTS: EndpointSpec[] = [
     path: "/utils/qr/generate",
     group: "core",
     description:
-      "Generate QR invite. System admin (Private): new Individual user account. Family/Organization: Individual member on inviter zone.",
+      "Generate QR invite. System admin (Private): new Individual user account. Family/Organization: same-type user member. Individual Pro: one Individual user on primary zone.",
     bodyJson: true,
     params: [{ name: "body", in: "body", required: true, placeholder: "JSON body" }],
   },
@@ -390,7 +390,7 @@ const ENDPOINTS: EndpointSpec[] = [
     path: "/utils/qr/join",
     group: "core",
     description:
-      "Register via QR invite. All invitees become Individual (Exclusive) user accounts. System-admin invites require zone_id (new network).",
+      "Register via QR invite. Family/Organization invitees inherit the inviter account type (user role). Individual Pro invites create an Individual user. System-admin invites create an independent Individual and require zone_id (new network).",
     public: true,
     bodyJson: true,
     params: [{ name: "body", in: "body", required: true, placeholder: "JSON body" }],
