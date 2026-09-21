@@ -542,7 +542,7 @@ export default function HexMapperMap({
 
   const primaryTileUrl = grayscale
     ? "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}"
-    : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+    : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
   const fallbackTileUrl = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
   const tileUrl = useFallbackTiles ? fallbackTileUrl : primaryTileUrl;
@@ -551,7 +551,7 @@ export default function HexMapperMap({
     ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     : grayscale
     ? "Tiles &copy; Esri"
-    : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
+    : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
 
   return (
     <div className="h-full min-h-[320px] w-full overflow-hidden [&_.leaflet-container]:bg-[#EDF3FB]">

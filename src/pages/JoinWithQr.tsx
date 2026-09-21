@@ -1,10 +1,15 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ChevronRight, Eye, EyeOff, QrCode } from "lucide-react";
+import { ChevronRight, Eye, EyeOff, QrCode, RefreshCw } from "lucide-react";
 import AuthMapPanel from "../components/AuthMapPanel";
 import { AddressAutocompleteInput } from "../components/AddressAutocompleteInput";
-import { addressToMockCoords, getHexGrid, H3Cell } from "../lib/h3";
-import { joinWithQrToken } from "../lib/api";
+import { addressToMockCoords, generateZoneId, getHexGrid, H3Cell } from "../lib/h3";
+import {
+  joinWithQrToken,
+  parseApiErrorBody,
+  previewQrInviteToken,
+  type QrInvitePreview,
+} from "../lib/api";
 
 const accent = "text-[#2F80ED]";
 const accentBorder = "border-[#2F80ED]/45";
@@ -29,8 +34,50 @@ export default function JoinWithQr() {
   const [addressCoords, setAddressCoords] = useState<[number, number] | null>(
     null,
   );
+  const [zoneId, setZoneId] = useState(() => generateZoneId());
+  const [preview, setPreview] = useState<QrInvitePreview | null>(null);
+  const [previewError, setPreviewError] = useState("");
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const isNewNetworkAdmin = preview?.invite_kind === "new_network_admin";
+
+  useEffect(() => {
+    if (!token) {
+      setPreview(null);
+      setPreviewError("");
+      return;
+    }
+    let cancelled = false;
+    setPreviewLoading(true);
+    setPreviewError("");
+    void previewQrInviteToken(token)
+      .then((data) => {
+        if (cancelled) return;
+        setPreview(data);
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        setPreview(null);
+        const errObj =
+          e && typeof e === "object"
+            ? (e as { response?: { data?: unknown }; message?: string })
+            : undefined;
+        const detail = parseApiErrorBody(errObj?.response?.data);
+        setPreviewError(
+          detail ||
+            (typeof errObj?.message === "string" ? errObj.message : "") ||
+            "This invite link is invalid or expired.",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setPreviewLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [token]);
 
   const center = useMemo<[number, number]>(
     () => addressCoords ?? addressToMockCoords(address),
@@ -46,6 +93,10 @@ export default function JoinWithQr() {
       setError("Missing QR invite token. Please scan a valid QR code.");
       return;
     }
+    if (isNewNetworkAdmin && !zoneId.trim()) {
+      setError("Enter or generate a network ID for your new Exclusive network.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -57,11 +108,18 @@ export default function JoinWithQr() {
         last_name: lastName,
         address,
         phone: phone || undefined,
+        ...(isNewNetworkAdmin ? { zone_id: zoneId.trim() } : {}),
       });
       navigate("/login");
-    } catch {
+    } catch (e: unknown) {
+      const errObj =
+        e && typeof e === "object"
+          ? (e as { response?: { data?: unknown } })
+          : undefined;
+      const detail = parseApiErrorBody(errObj?.response?.data);
       setError(
-        "Could not complete registration with this QR invite. The token may be invalid or expired.",
+        detail ||
+          "Could not complete registration with this QR invite. The token may be invalid or expired.",
       );
     } finally {
       setLoading(false);
@@ -83,16 +141,32 @@ export default function JoinWithQr() {
             className={`flex items-center gap-2 border-b px-6 py-3 text-xs ${accent} ${accentBorder} bg-[#EDF3FB]`}
           >
             <QrCode className="h-4 w-4 shrink-0" strokeWidth={2} />
-            <span>Joining via secure QR invite token</span>
+            <span>
+              {isNewNetworkAdmin
+                ? "System invite — create your Individual network"
+                : "Member invite — Individual account on the inviter's network"}
+            </span>
           </div>
 
           <div className="flex flex-1 flex-col overflow-y-auto px-6 py-8 sm:px-10">
             <h1 className="text-center text-2xl font-semibold tracking-tight text-[#0F2C5C]">
-              Join with QR
+              {isNewNetworkAdmin ? "Create network admin" : "Join with QR"}
             </h1>
             <p className="mt-2 text-center text-sm text-[#8694AC]">
-              Your zone is selected from the inviter token.
+              {previewLoading
+                ? "Checking invite…"
+                : isNewNetworkAdmin
+                  ? "You will create an Individual (user-role) account for a new network."
+                  : preview?.zone_id
+                    ? `You join zone ${preview.zone_id} as an Individual (user-role) member.`
+                    : "You join the inviter's zone as an Individual (user-role) member."}
             </p>
+
+            {previewError && (
+              <p className="mt-6 rounded-md border border-[#E23B4E]/30 bg-[#FCE7EA] px-3 py-2 text-sm text-[#E23B4E]">
+                {previewError}
+              </p>
+            )}
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-5">
               <div className="rounded-md border border-[#DCE6F2] bg-white p-4">
@@ -101,6 +175,43 @@ export default function JoinWithQr() {
                   {token || "No token provided"}
                 </code>
               </div>
+
+              {isNewNetworkAdmin && (
+                <div>
+                  <label htmlFor="join-zone" className={labelClass}>
+                    Network ID
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      id="join-zone"
+                      value={zoneId}
+                      onChange={(e) => setZoneId(e.target.value)}
+                      placeholder="Network-ABC123"
+                      required
+                      className={inputClass}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setZoneId(generateZoneId())}
+                      className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md border border-[#DCE6F2] bg-white px-3 text-sm font-medium text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED]"
+                      aria-label="Generate network ID"
+                    >
+                      <RefreshCw className="h-4 w-4" strokeWidth={2} />
+                    </button>
+                  </div>
+                  <p className="mt-1.5 text-xs text-[#8694AC]">
+                    Account type: Individual · Role: User. Up to 3 secondary
+                    zones · No member invites · No smart-home.
+                  </p>
+                </div>
+              )}
+
+              {!isNewNetworkAdmin && preview && !previewError && (
+                <p className="text-xs text-[#8694AC]">
+                  Account type: Individual · Role: User. Up to 2 secondary
+                  zones · No member invites · No smart-home.
+                </p>
+              )}
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
@@ -219,14 +330,16 @@ export default function JoinWithQr() {
 
               <button
                 type="submit"
-                disabled={loading || !token}
+                disabled={loading || !token || !!previewError || previewLoading}
                 className={`flex w-full items-center justify-center gap-2 rounded-md ${accentBg} py-3.5 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60`}
               >
                 {loading ? (
                   "Joining…"
                 ) : (
                   <>
-                    Join zone &amp; create account
+                    {isNewNetworkAdmin
+                      ? "Create Exclusive network"
+                      : "Join zone & create account"}
                     <ChevronRight className="h-4 w-4" strokeWidth={2.5} />
                   </>
                 )}

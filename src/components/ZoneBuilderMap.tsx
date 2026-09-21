@@ -123,11 +123,11 @@ export default function ZoneBuilderMap({
   }, [viewport, center, resolution]);
 
   const tileUrl = darkBasemap
-    ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+    ? "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
     : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
   const tileAttribution = darkBasemap
-    ? '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    ? "Tiles &copy; Esri"
     : "&copy; OpenStreetMap contributors";
 
   const mapShell = (

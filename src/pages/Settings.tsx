@@ -8,8 +8,9 @@ import {
   type AppSettings,
 } from "../lib/appSettings";
 import { getRemoteAppSettings, updateRemoteAppSettings } from "../services/api";
+import { getDevices } from "../services/api/devices";
 import { useAuth } from "../hooks/useAuth";
-import { canEditNetworkId } from "../lib/accountLimits";
+import { isSmartHomeHid } from "../lib/deviceSync";
 import { AddressAutocompleteInput } from "../components/AddressAutocompleteInput";
 import AddressMapPreview from "../components/AddressMapPreview";
 import { addressToMockCoords, getHexGrid, type H3Cell } from "../lib/h3";
@@ -69,12 +70,11 @@ function Field({
 export default function Settings() {
   const { user, refreshUser } = useAuth();
   const accountName = (user?.name ?? "").trim();
-  const networkIdEditable = canEditNetworkId({
-    accountType: user?.accountType,
-    legacyAccountType: user?.account_type,
-  });
   const settings = useAppSettings();
   const [draft, setDraft] = useState<AppSettings>(settings);
+  const [hubs, setHubs] = useState<
+    Array<{ hid: string; name: string; active: boolean }>
+  >([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -87,20 +87,92 @@ export default function Settings() {
   useEffect(() => {
     let mounted = true;
     void (async () => {
-      const res = await getRemoteAppSettings();
+      const ownerId = String(user?.id ?? "").trim();
+      const [res, devicesRes] = await Promise.all([
+        getRemoteAppSettings(),
+        getDevices(),
+      ]);
       if (!mounted) return;
+
+      const fromSettings = (res.data?.smartHomeDevices ?? [])
+        .filter((d) => typeof d.hid === "string" && d.hid.trim())
+        .map((d) => ({
+          hid: d.hid.trim(),
+          name: (d.name ?? d.hid).trim() || d.hid.trim(),
+          active: d.active !== false,
+        }));
+
+      const deviceRows = Array.isArray(devicesRes.data) ? devicesRes.data : [];
+      const allSmartHomes = deviceRows
+        .filter((d) => isSmartHomeHid(d.hid))
+        .map((d) => ({
+          hid: String(d.hid).trim(),
+          name: (d.name ?? d.hid).trim() || String(d.hid).trim(),
+          active: d.active !== false,
+        }));
+      const owned = ownerId
+        ? deviceRows
+            .filter((d) => {
+              if (!isSmartHomeHid(d.hid)) return false;
+              return (
+                String(d.owner_id ?? d.owner?.id ?? "").trim() === ownerId
+              );
+            })
+            .map((d) => ({
+              hid: String(d.hid).trim(),
+              name: (d.name ?? d.hid).trim() || String(d.hid).trim(),
+              active: d.active !== false,
+            }))
+        : allSmartHomes;
+      const fromDevices = owned.length > 0 ? owned : allSmartHomes;
+
+      const byHid = new Map<string, { hid: string; name: string; active: boolean }>();
+      for (const hub of [...fromSettings, ...fromDevices]) {
+        const key = hub.hid.toUpperCase();
+        if (!key || !isSmartHomeHid(hub.hid)) continue;
+        const prev = byHid.get(key);
+        byHid.set(key, {
+          hid: prev?.hid ?? hub.hid,
+          name: hub.name || prev?.name || hub.hid,
+          active: hub.active && (prev?.active ?? true),
+        });
+      }
+      const mergedHubs = [...byHid.values()].sort((a, b) =>
+        a.hid.localeCompare(b.hid),
+      );
+
       if (res.data) {
-        const merged = updateAppSettings(res.data as Partial<AppSettings>);
+        const remoteSn = res.data.sharedNotification ?? {};
+        let hid =
+          typeof remoteSn.hid === "string" ? remoteSn.hid.trim() : "";
+        if (!isSmartHomeHid(hid)) hid = "";
+        if (!hid && mergedHubs[0]) hid = mergedHubs[0].hid;
+        if (
+          hid &&
+          mergedHubs.length > 0 &&
+          !mergedHubs.some((h) => h.hid.toUpperCase() === hid.toUpperCase())
+        ) {
+          hid = mergedHubs[0].hid;
+        }
+        const merged = updateAppSettings({
+          ...res.data,
+          sharedNotification: {
+            ...remoteSn,
+            hid,
+          },
+        } as Partial<AppSettings>);
+        setHubs(mergedHubs);
         setDraft(merged);
       } else if (res.error) {
         setError(res.error);
+        if (mergedHubs.length) setHubs(mergedHubs);
       }
       setLoading(false);
     })();
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [user?.id]);
 
   // Seed the map from the owner's geocoded home address (from /me) on first load.
   useEffect(() => {
@@ -162,6 +234,17 @@ export default function Settings() {
       return;
     }
     const merged = updateAppSettings((res.data as Partial<AppSettings>) ?? draft);
+    if (res.data?.smartHomeDevices) {
+      setHubs(
+        res.data.smartHomeDevices
+          .filter((d) => typeof d.hid === "string" && d.hid.trim())
+          .map((d) => ({
+            hid: d.hid.trim(),
+            name: (d.name ?? d.hid).trim() || d.hid.trim(),
+            active: d.active !== false,
+          })),
+      );
+    }
     setDraft(merged);
     setSaved(true);
     void refreshUser();
@@ -254,43 +337,66 @@ export default function Settings() {
             <Megaphone className="h-5 w-5 text-[#2F80ED]" /> Smart-home integration
           </div>
           <p className="mb-4 text-sm text-[#566784]">
-            First add a smart-home hub on Device Manager (DEV- ID). Copy the API
-            key and Network ID onto that hub. To receive Hex Zone alarms on the
-            hub, paste the hub’s public webhook URL below — Hex Zone will POST
-            alarms there. Leave webhook blank if the hub only polls.
+            First add smart-home hubs on Device Manager (DEV- ID). Select which
+            hub this account uses for integration, then copy the API key and
+            Network ID onto that hub. Paste a public webhook URL to receive
+            Alarm/Alert messages from this network only. Leave webhook blank if
+            the hub only polls.
           </p>
           <div className="space-y-3">
-            <Field
-              label="Hardware Identification (HID)"
-              value={draft.sharedNotification.hid}
-              onChange={() => {}}
-              placeholder="DEV-A1B2C3"
-              disabled
-            />
+            <label className="block">
+              <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[#566784]">
+                Hardware Identification (HID)
+              </span>
+              {hubs.length > 0 ? (
+                <select
+                  value={draft.sharedNotification.hid || hubs[0].hid}
+                  onChange={(e) =>
+                    update({
+                      sharedNotification: {
+                        ...draft.sharedNotification,
+                        hid: e.target.value,
+                      },
+                    })
+                  }
+                  disabled={loading || saving}
+                  className={settingsInputClass}
+                >
+                  {hubs.map((hub) => (
+                    <option key={hub.hid} value={hub.hid}>
+                      {hub.name && hub.name !== hub.hid
+                        ? `${hub.name} (${hub.hid})`
+                        : hub.hid}
+                      {hub.active ? "" : " · inactive"}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  value="No smart-home hub yet"
+                  disabled
+                  className="w-full rounded-lg border border-[#E3EAF3] bg-[#EEF2F7] px-3 py-2 text-sm text-[#8694AC] outline-none cursor-not-allowed"
+                />
+              )}
+            </label>
             <p className="-mt-1 text-xs text-[#8694AC]">
-              Filled from your registered smart-home device (Device Manager → Add
-              device). MOB-/WEB- login clients are ignored here.
+              {hubs.length > 1
+                ? "Choose which registered hub to use. Add more hubs in Device Manager."
+                : hubs.length === 1
+                  ? "Your registered smart-home hub. Add more in Device Manager if your account allows it."
+                  : "Register a hub in Device Manager first."}
             </p>
             <Field
               label="Network ID"
               value={draft.sharedNotification.networkId}
-              onChange={(v) =>
-                update({
-                  sharedNotification: { ...draft.sharedNotification, networkId: v },
-                })
-              }
+              onChange={() => {}}
               placeholder="ZONE-ABC123"
-              disabled={!networkIdEditable}
+              disabled
             />
-            {!networkIdEditable ? (
-              <p className="-mt-1 text-xs text-[#8694AC]">
-                Network ID is assigned by your administrator and cannot be changed.
-              </p>
-            ) : (
-              <p className="-mt-1 text-xs text-[#8694AC]">
-                System administrators may personalize the network ID (e.g. DISTRICT 11).
-              </p>
-            )}
+            <p className="-mt-1 text-xs text-[#8694AC]">
+              Assigned to your account. Copy this onto the hub; it cannot be
+              changed here. Your hub only receives alarms from this network.
+            </p>
             <Field
               label="API Key"
               value={draft.sharedNotification.apiKey}
@@ -312,10 +418,10 @@ export default function Settings() {
               placeholder="https://hub.example.com/hooks/hex-zone"
             />
             <p className="-mt-1 text-xs text-[#8694AC]">
-              When set, Hex Zone POSTs SENSOR/PANIC/WELLNESS and other zone alerts
-              to this URL (JSON event{" "}
-              <code className="text-[#8694AC]">SMART_HOME_ALARM</code>). Use a
-              publicly reachable hub URL.
+              Must start with https:// (or http://). When set, Hex Zone POSTs{" "}
+              <code className="text-[#8694AC]">{"{ title, message }"}</code> JSON
+              for Alarm/Alert messages from this network (Home Assistant
+              webhook shape).
             </p>
             <Field
               label="Periodical Check (sec)"

@@ -5,7 +5,10 @@ import { updateOwner } from "../lib/api";
 import {
   accountTypeLabel,
   ADMIN_ASSIGNABLE_ACCOUNT_TYPES,
+  formatLimit,
+  getMemberLimit,
   isSystemAdministrator,
+  memberLimitDescription,
   normalizeAccountType,
 } from "../lib/accountLimits";
 import { useAuth } from "../hooks/useAuth";
@@ -33,6 +36,12 @@ export default function Members() {
     role: user?.role,
     accountType: user?.accountType ?? user?.account_type,
   });
+  const accountType = normalizeAccountType(
+    user?.accountType,
+    user?.account_type,
+  );
+  const tierLevel = user?.tierLevel ?? user?.tier_level ?? null;
+  const memberLimit = getMemberLimit(accountType, tierLevel);
   const { setMembers: setGlobalMembers } = useAppState();
   const [members, setMembers] = useState<Member[]>([]);
   const [owners, setOwners] = useState<OwnerListItem[]>([]);
@@ -177,16 +186,20 @@ export default function Members() {
           <h2 className="mb-1 text-lg font-bold text-[#0F2C5C]">
             Owners (administration)
           </h2>
-          {isSystemAdmin ? (
-            <p className="mb-4 text-sm text-[#8694AC]">
-              As a system administrator you can set account types. Assigning
-              Private makes an administrator a system administrator.
-            </p>
-          ) : (
-            <p className="mb-4 text-sm text-[#8694AC]">
-              Manage active status for members in your account.
-            </p>
-          )}
+          <p className="mb-1 text-sm text-[#566784]">
+            {accountTypeLabel(accountType)}
+            {accountType === "ENHANCED_PLUS" && tierLevel != null
+              ? ` · Level ${tierLevel}`
+              : ""}{" "}
+            · {formatLimit(owners.filter((o) => o.active !== false).length, memberLimit)}{" "}
+            users
+          </p>
+          <p className="mb-4 text-sm text-[#8694AC]">
+            {memberLimitDescription(accountType, tierLevel)}
+            {isSystemAdmin
+              ? " As a system administrator you can set account types. Assigning Private makes an administrator a system administrator."
+              : " Manage active status for members in your account."}
+          </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {owners.map((owner) => {
               const name =

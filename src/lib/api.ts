@@ -88,6 +88,22 @@ export interface QrJoinPayload {
   last_name: string;
   address: string;
   phone?: string;
+  /** Required for system-admin invites (new Individual user account). */
+  zone_id?: string;
+}
+
+export type QrInvitePreview = {
+  invite_kind: "member" | "new_network_admin";
+  account_type: string;
+  zone_id?: string | null;
+};
+
+export async function previewQrInviteToken(token: string) {
+  return api
+    .get<QrInvitePreview>("/utils/qr/preview", {
+      params: { token },
+    })
+    .then((res) => res.data);
 }
 
 export async function joinWithQrToken(payload: QrJoinPayload) {

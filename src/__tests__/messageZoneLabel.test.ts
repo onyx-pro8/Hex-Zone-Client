@@ -25,17 +25,78 @@ function baseMessage(overrides: Partial<Message> = {}): Message {
 describe("messageZoneLabel", () => {
   it("prefers relevant_zone_label from API", () => {
     const message = baseMessage({
-      relevant_zone_label: "Primary (ZN-6DV321)",
+      relevant_zone_label: "Primary (ZN-HOME)",
     });
-    expect(messageZoneLabel(message)).toBe("Primary (ZN-6DV321)");
+    expect(messageZoneLabel(message)).toBe("Primary (ZN-HOME)");
   });
 
-  it("composes name and network id from API fields", () => {
+  it("composes delivery zone name with sender network id from API fields", () => {
     const message = baseMessage({
-      relevant_zone_name: "Primary",
-      relevant_zone_network_id: "ZN-6DV321",
+      relevant_zone_name: "Downtown Grid",
+      relevant_zone_network_id: "ZN-HOME",
     });
-    expect(messageZoneLabel(message)).toBe("Primary (ZN-6DV321)");
+    expect(messageZoneLabel(message)).toBe("Downtown Grid (ZN-HOME)");
+  });
+
+  it("uses sender network id when delivery zone belongs to another network", () => {
+    const message = baseMessage({
+      sender_id: 2,
+      raw_payload: {
+        sender_network_id: "ZN-HOME",
+        recipient_relevant_zones: {
+          "5": {
+            name: "Other district zone",
+            network_id: "ZN-OTHER",
+            sender_network_id: "ZN-HOME",
+            label: "Other district zone (ZN-HOME)",
+          },
+        },
+      },
+    });
+    expect(messageZoneLabel(message, { viewerOwnerId: 5 })).toBe(
+      "Other district zone (ZN-HOME)",
+    );
+  });
+
+  it("summarizes multi-zone sends for the sender", () => {
+    const message = baseMessage({
+      sender_id: 2,
+      relevant_zone_label: "Primary (ZN-HOME)",
+      raw_payload: {
+        sender_network_id: "ZN-HOME",
+        sender_matched_zone_count: 4,
+        sender_relevant_zone: {
+          name: "Primary",
+          network_id: "ZN-HOME",
+          sender_network_id: "ZN-HOME",
+          label: "Primary (ZN-HOME)",
+        },
+      },
+    });
+    expect(messageZoneLabel(message, { viewerOwnerId: 2 })).toBe(
+      "My zone and 3 more zones",
+    );
+  });
+
+  it("keeps single-zone label for recipients even when sender matched several", () => {
+    const message = baseMessage({
+      sender_id: 2,
+      raw_payload: {
+        sender_network_id: "ZN-HOME",
+        sender_matched_zone_count: 4,
+        recipient_relevant_zones: {
+          "5": {
+            name: "East wing",
+            network_id: "ZN-ABC123",
+            sender_network_id: "ZN-HOME",
+            label: "East wing (ZN-HOME)",
+          },
+        },
+      },
+    });
+    expect(messageZoneLabel(message, { viewerOwnerId: 5 })).toBe(
+      "East wing (ZN-HOME)",
+    );
   });
 
   it("resolves name from zone lookup when API omits name", () => {
@@ -44,23 +105,6 @@ describe("messageZoneLabel", () => {
     ]);
     expect(messageZoneLabel(baseMessage(), { zoneNames })).toBe(
       "Primary (ZN-6DV321)",
-    );
-  });
-
-  it("reads recipient relevant zone from raw_payload metadata", () => {
-    const message = baseMessage({
-      raw_payload: {
-        recipient_relevant_zones: {
-          "5": {
-            name: "East wing",
-            network_id: "ZN-ABC123",
-            label: "East wing (ZN-ABC123)",
-          },
-        },
-      },
-    });
-    expect(messageZoneLabel(message, { viewerOwnerId: 5 })).toBe(
-      "East wing (ZN-ABC123)",
     );
   });
 

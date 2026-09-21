@@ -8,6 +8,7 @@ export type SavedZone = {
   type?: string;
   owner_id?: number | string;
   creator_id?: number | string;
+  owner_name?: string;
   zone_type?: string;
   geometry?: Record<string, unknown>;
   config?: Record<string, unknown>;
@@ -16,6 +17,15 @@ export type SavedZone = {
   geo_fence_polygon?: unknown;
   polygons?: unknown;
   can_edit?: boolean;
+  is_primary?: boolean;
+  /** Present when zone is shown via Communal ID overlay (not owned list). */
+  shared_via_communal?: boolean;
+  evicted_zones?: {
+    id: number;
+    name: string;
+    creator_id: number;
+    zone_id?: string;
+  }[];
 };
 
 export type ZonesCapabilities = {
@@ -27,6 +37,13 @@ export type ZonesCapabilities = {
   role?: "administrator" | "standard" | string;
   reason?: string;
   max_total?: number;
+  max_primary?: number;
+  admin_primary_count?: number;
+  next_zone_is_primary?: boolean;
+  member_secondary_limit?: number;
+  reserved_for_standard_users?: number;
+  can_create_primary?: boolean;
+  can_create_secondary?: boolean;
 };
 
 type ZonesPayload = {
@@ -138,6 +155,12 @@ function normalizeSavedZone(raw: unknown): SavedZone | null {
                       (row.user as Record<string, unknown>).id != null
                     ? ((row.user as Record<string, unknown>).id as number | string)
                     : undefined,
+    owner_name:
+      typeof row.owner_name === "string"
+        ? row.owner_name
+        : typeof row.ownerName === "string"
+          ? row.ownerName
+          : undefined,
     zone_type: zoneType,
     geometry,
     config: configMap,
@@ -150,6 +173,12 @@ function normalizeSavedZone(raw: unknown): SavedZone | null {
         ? row.can_edit
         : typeof row.canEdit === "boolean"
           ? row.canEdit
+          : undefined,
+    is_primary:
+      typeof row.is_primary === "boolean"
+        ? row.is_primary
+        : typeof row.isPrimary === "boolean"
+          ? row.isPrimary
           : undefined,
   };
 }
@@ -190,6 +219,31 @@ function normalizeCapabilities(value: unknown): ZonesCapabilities | null {
     role: typeof row.role === "string" ? row.role : undefined,
     reason: typeof row.reason === "string" ? row.reason : undefined,
     max_total: typeof row.max_total === "number" ? row.max_total : undefined,
+    max_primary: typeof row.max_primary === "number" ? row.max_primary : undefined,
+    admin_primary_count:
+      typeof row.admin_primary_count === "number"
+        ? row.admin_primary_count
+        : undefined,
+    next_zone_is_primary:
+      typeof row.next_zone_is_primary === "boolean"
+        ? row.next_zone_is_primary
+        : undefined,
+    member_secondary_limit:
+      typeof row.member_secondary_limit === "number"
+        ? row.member_secondary_limit
+        : undefined,
+    reserved_for_standard_users:
+      typeof row.reserved_for_standard_users === "number"
+        ? row.reserved_for_standard_users
+        : undefined,
+    can_create_primary:
+      typeof row.can_create_primary === "boolean"
+        ? row.can_create_primary
+        : undefined,
+    can_create_secondary:
+      typeof row.can_create_secondary === "boolean"
+        ? row.can_create_secondary
+        : undefined,
   };
 }
 
@@ -230,6 +284,14 @@ async function fetchAccountZones(ownerZoneId: number | string): Promise<ZonesPay
   return normalizeZonesPayload(alt.data);
 }
 
+async function fetchZoneCapabilities(): Promise<ZonesCapabilities | null> {
+  const caps = await request<unknown>({
+    method: "GET",
+    url: "/zones/capabilities",
+  });
+  return normalizeCapabilities(caps.data);
+}
+
 export function useZones(
   ownerZoneId: number | string | null,
   scope?: {
@@ -246,15 +308,19 @@ export function useZones(
   const refresh = useCallback(async () => {
     if (ownerZoneId == null || ownerZoneId === "") {
       setZones([]);
+      setCapabilities(null);
       setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      const payload = await fetchAccountZones(ownerZoneId);
+      const [payload, caps] = await Promise.all([
+        fetchAccountZones(ownerZoneId),
+        fetchZoneCapabilities().catch(() => null),
+      ]);
       setZones(payload.data);
-      setCapabilities(payload.capabilities);
+      setCapabilities(caps ?? payload.capabilities);
     } catch {
       setError("Could not load saved zones.");
     } finally {
@@ -267,10 +333,14 @@ export function useZones(
       if (ownerZoneId == null || ownerZoneId === "") {
         throw new Error("Missing owner network id");
       }
+      const ownerStamp = {
+        id: String(ownerZoneId),
+        zone_id: String(ownerZoneId),
+      };
       const createResult = await request<SavedZone>({
         method: "POST",
         url: "/zones",
-        data: { ...payload, zone_id: String(ownerZoneId) },
+        data: { ...payload, ...ownerStamp },
       });
       if (!createResult.data || createResult.error) {
         throw new Error(createResult.error ?? "Zone save failed");
@@ -332,6 +402,7 @@ export function useZones(
       );
       const toSave = {
         ...payload,
+        id: String(ownerZoneId),
         zone_id: String(ownerZoneId),
         h3_cells: filteredNewCells,
       };

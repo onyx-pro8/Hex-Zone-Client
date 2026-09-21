@@ -25,6 +25,32 @@ export async function getZones() {
   return request<Zone[]>({ method: "GET", url: "/zones" });
 }
 
+export type ZoneCapabilities = {
+  can_create_zone: boolean;
+  can_edit_active_zone?: boolean;
+  remaining_total?: number;
+  remaining_for_role?: number;
+  remaining_for_current_user_role?: number;
+  role?: "administrator" | "standard" | string;
+  reason?: string;
+  max_total?: number;
+  max_primary?: number;
+  admin_primary_count?: number;
+  next_zone_is_primary?: boolean;
+  member_secondary_limit?: number;
+  reserved_for_standard_users?: number;
+  can_create_primary?: boolean;
+  can_create_secondary?: boolean;
+};
+
+/** Authoritative create/edit quotas for the signed-in account. */
+export async function getZoneCapabilities() {
+  return request<ZoneCapabilities>({
+    method: "GET",
+    url: "/zones/capabilities",
+  });
+}
+
 export async function createZone(payload: Omit<Zone, "id">) {
   return request<Zone>({ method: "POST", url: "/zones", data: payload });
 }

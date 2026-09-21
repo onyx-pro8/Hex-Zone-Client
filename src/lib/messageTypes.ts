@@ -85,6 +85,10 @@ export function usesGeoPropagationMessageType(type: MessageType): boolean {
   return GEO_PROPAGATION_MESSAGE_TYPES.has(type);
 }
 
+export function usesComposeZoneTargeting(type: MessageType): boolean {
+  return usesGeoPropagationMessageType(type) && type !== "UNKNOWN";
+}
+
 export function toMessageTypeLabel(type: MessageType): string {
   return MESSAGE_TYPE_META[type].displayLabel;
 }

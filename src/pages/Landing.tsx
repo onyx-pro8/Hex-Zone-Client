@@ -57,7 +57,7 @@ const developerFeatures: {
   {
     title: "H3 Hexagonal Indexing",
     description:
-      "Earth's surface divided into hex cells. Each user gets 3 acceptable zones at resolution 13 – precise enough for city blocks.",
+      "Earth's surface divided into hex cells. Admins get up to 2 primary zones (3 total) and members get secondary zones based on how many primaries exist – at resolution 13, precise enough for city blocks.",
     icon: Hexagon,
     iconWrap: "border border-sky-200 bg-sky-50 text-sky-600",
   },
@@ -138,7 +138,7 @@ const networkTypeCards = [
       "Many users allowed",
       "1 device per user",
       "Same zone type for all",
-      "3 acceptable zones per user",
+      "Admin up to 2 primary + 1 secondary; members 1–2 secondary",
       "QR code invites",
     ],
   },
@@ -156,7 +156,7 @@ const networkTypeCards = [
       "1 user only",
       "1 device per user",
       "Any zone type allowed",
-      "3 acceptable zones per user",
+      "Up to 2 primary + 1 secondary",
       "Full flexibility",
     ],
   },

@@ -21,11 +21,15 @@ import { sendMessage } from "../services/api/messages";
 import {
   propagateMessageFeatureMessage,
   searchPrivateMessageRecipients,
+  listComposeZones,
+  listComposeZoneRecipients,
   type PrivateSearchMember,
   type MessageFeatureType,
+  type ComposeZoneOption,
 } from "../services/api/messageFeature";
 import { dispatchGeoPropagationInbox } from "../lib/inboxRealtime";
 import { resolveGuestBrowserDeviceId } from "../lib/guestDeviceId";
+import { toastSmartHomeWebhookDelivery } from "../lib/smartHomeToast";
 import { getOwners, type OwnerListItem } from "../services/api/auth";
 import { getMembers, type Member } from "../services/api/members";
 import { getZones } from "../services/api/zones";
@@ -38,6 +42,7 @@ import {
   isPrivateMessageType,
   toMessageType,
   toMessageTypeLabel,
+  usesComposeZoneTargeting,
   usesGeoPropagationMessageType,
   type MessageType,
 } from "../lib/messageTypes";
@@ -74,6 +79,28 @@ import {
   privateLocationStatusMessage,
   type PrivateLocationStatus,
 } from "../lib/privateMessageLocation";
+
+function memberBroadcastName(member: PrivateSearchMember): string {
+  return (member.broadcast_name || "").trim() || member.display_name;
+}
+
+/** Distance subtitle only — never fall back to email. */
+function memberDistanceLabel(member: PrivateSearchMember): string {
+  const sub = (member.subtitle || "").trim();
+  if (sub && !sub.includes("@")) return sub;
+  if (
+    typeof member.distance_meters === "number" &&
+    Number.isFinite(member.distance_meters) &&
+    member.distance_meters >= 0
+  ) {
+    const meters = member.distance_meters;
+    if (meters < 1000) return `${Math.round(meters)} m away`;
+    const km = meters / 1000;
+    if (km < 10) return `${km.toFixed(1)} km away`;
+    return `${Math.round(km)} km away`;
+  }
+  return "";
+}
 
 type QuickAction = {
   type: MessageType;
@@ -133,6 +160,15 @@ export default function Messages() {
   const [privateLocationStatus, setPrivateLocationStatus] =
     useState<PrivateLocationStatus | null>(null);
   const [senderZoneCheckLoading, setSenderZoneCheckLoading] = useState(false);
+  const [composeZones, setComposeZones] = useState<ComposeZoneOption[]>([]);
+  const [composeZoneSelection, setComposeZoneSelection] = useState<"all" | number>("all");
+  const [zoneRecipients, setZoneRecipients] = useState<PrivateSearchMember[]>([]);
+  const [zoneRecipientGroups, setZoneRecipientGroups] = useState<
+    { zoneRecordId: number; label: string; members: PrivateSearchMember[] }[]
+  >([]);
+  const [zoneRecipientsLoading, setZoneRecipientsLoading] = useState(false);
+  const [receiversModalOpen, setReceiversModalOpen] = useState(false);
+  const [loadingComposeZones, setLoadingComposeZones] = useState(false);
   const [guestRows, setGuestRows] = useState<GuestRequestRow[]>([]);
   const [guestsLoading, setGuestsLoading] = useState(false);
   const [guestListError, setGuestListError] = useState<string | null>(null);
@@ -215,6 +251,10 @@ export default function Messages() {
     () => (userZoneId == null ? null : String(userZoneId).trim()),
     [userZoneId],
   );
+  const selectedZoneRecordId =
+    composeZoneSelection === "all" ? null : composeZoneSelection;
+  const showComposeZonePicker =
+    usesComposeZoneTargeting(composeType) && composeZones.length > 1;
 
   const effectiveZoneForGuests = useMemo(() => {
     const z = composeZoneId?.trim();
@@ -299,15 +339,21 @@ export default function Messages() {
     setComposeReceiverId("");
     setPrivateSearchQuery("");
     setPrivateSearchResults([]);
+    setComposeZoneSelection("all");
+    setZoneRecipients([]);
   }, [composeType]);
 
   /** PRIVATE: zone gate + recipient search (same position workflow as PANIC). */
   useEffect(() => {
-    if (!isPrivateMessageType(composeType)) {
-      setPrivateSearchError(null);
-      setSenderZoneIds([]);
-      setPrivateLocationStatus(null);
-      setPrivateSearchResults([]);
+    if (!isPrivateMessageType(composeType) || selectedZoneRecordId != null) {
+      if (!isPrivateMessageType(composeType) && selectedZoneRecordId == null) {
+        setPrivateSearchError(null);
+        setSenderZoneIds([]);
+        setPrivateLocationStatus(null);
+        setPrivateSearchResults([]);
+      }
+      setSenderZoneCheckLoading(false);
+      setPrivateSearchLoading(false);
       return;
     }
 
@@ -351,7 +397,163 @@ export default function Messages() {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [composeType, privateSearchQuery, user?.mapCenter, user?.map_center]);
+  }, [composeType, privateSearchQuery, selectedZoneRecordId, user?.mapCenter, user?.map_center]);
+
+  useEffect(() => {
+    if (!usesComposeZoneTargeting(composeType)) {
+      setComposeZones([]);
+      setComposeZoneSelection("all");
+      setZoneRecipients([]);
+      setZoneRecipientGroups([]);
+      setLoadingComposeZones(false);
+      setReceiversModalOpen(false);
+      return;
+    }
+    let active = true;
+    setComposeZones([]);
+    setComposeZoneSelection("all");
+    setZoneRecipients([]);
+    setZoneRecipientGroups([]);
+    setLoadingComposeZones(true);
+    void (async () => {
+      try {
+        const resolved = await resolveMessagePropagationPositionForType(
+          composeType,
+          user?.mapCenter ?? user?.map_center ?? null,
+        );
+        const position = "error" in resolved ? undefined : resolved.position;
+        const result = await listComposeZones(position);
+        if (!active) return;
+        const zones = result.data?.zones ?? [];
+        setComposeZones(zones);
+      } finally {
+        if (active) setLoadingComposeZones(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [composeType, user?.mapCenter, user?.map_center]);
+
+  useEffect(() => {
+    if (
+      !usesComposeZoneTargeting(composeType) ||
+      isAccessGuestChannelType(composeType)
+    ) {
+      if (!usesComposeZoneTargeting(composeType)) {
+        setZoneRecipients([]);
+        setZoneRecipientGroups([]);
+      }
+      setZoneRecipientsLoading(false);
+      return;
+    }
+    if (isPrivateMessageType(composeType) && selectedZoneRecordId == null) {
+      setZoneRecipients([]);
+      setZoneRecipientGroups([]);
+      setZoneRecipientsLoading(false);
+      return;
+    }
+    if (selectedZoneRecordId == null) {
+      if (loadingComposeZones) return;
+      if (composeZones.length === 0) {
+        setZoneRecipients([]);
+        setZoneRecipientGroups([]);
+        setZoneRecipientsLoading(false);
+        return;
+      }
+    }
+
+    const zoneTargets =
+      selectedZoneRecordId != null
+        ? [
+            composeZones.find((z) => z.zone_record_id === selectedZoneRecordId) ?? {
+              zone_record_id: selectedZoneRecordId,
+              zone_id: "",
+              name: null,
+              label: "Selected zone",
+              tier: "secondary",
+            },
+          ]
+        : composeZones;
+
+    let active = true;
+    setZoneRecipientsLoading(true);
+    const debounceMs =
+      isPrivateMessageType(composeType) && privateSearchQuery.trim().length >= 2
+        ? 300
+        : 0;
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const resolved = await resolveMessagePropagationPositionForType(
+            composeType,
+            user?.mapCenter ?? user?.map_center ?? null,
+          );
+          const position = "error" in resolved ? undefined : resolved.position;
+          const groups = await Promise.all(
+            zoneTargets.map(async (zone) => {
+              const result = await listComposeZoneRecipients({
+                zoneRecordId: zone.zone_record_id,
+                type: composeType as MessageFeatureType,
+                position,
+                query:
+                  isPrivateMessageType(composeType) &&
+                  privateSearchQuery.trim().length >= 2
+                    ? privateSearchQuery
+                    : "",
+              });
+              return {
+                zoneRecordId: zone.zone_record_id,
+                label: zone.label,
+                members: result.error ? [] : (result.data?.members ?? []),
+              };
+            }),
+          );
+          if (!active) return;
+          setZoneRecipientGroups(groups);
+          const merged = new Map<number, PrivateSearchMember>();
+          for (const group of groups) {
+            for (const member of group.members) {
+              merged.set(member.id, member);
+            }
+          }
+          setZoneRecipients(Array.from(merged.values()));
+          setPrivateLocationStatus(
+            groups.some((g) => g.members.length > 0) || composeZones.length > 0
+              ? "inside_zone"
+              : "outside_zone",
+          );
+          setSenderZoneIds(
+            Array.from(
+              new Set(
+                zoneTargets
+                  .map((z) => String(z.zone_id ?? "").trim())
+                  .filter(Boolean),
+              ),
+            ),
+          );
+        } finally {
+          if (active) setZoneRecipientsLoading(false);
+        }
+      })();
+    }, debounceMs);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [
+    composeType,
+    selectedZoneRecordId,
+    composeZones,
+    loadingComposeZones,
+    privateSearchQuery,
+    user?.mapCenter,
+    user?.map_center,
+  ]);
+
+  useEffect(() => {
+    setReceiversModalOpen(false);
+  }, [composeType]);
 
   /** Defaults intentionally include CHAT (Access). Alarms live on Incoming Alarms. */
   const filteredMessages = useMemo(
@@ -477,6 +679,7 @@ export default function Messages() {
           return;
         }
         const body = propagateResult.data;
+        toastSmartHomeWebhookDelivery(body);
         if (body && !body.skipped && body.id) {
           dispatchGeoPropagationInbox({
             ...body,
@@ -572,12 +775,16 @@ export default function Messages() {
         ...(isPrivateMessageType(composeType)
           ? { receiver_owner_id: parsedReceiverId }
           : {}),
+        ...(selectedZoneRecordId != null
+          ? { zone_record_id: selectedZoneRecordId }
+          : {}),
       });
       if (propagateResult.error) {
         setComposeStatus(propagateResult.error);
         return;
       }
       const body = propagateResult.data;
+      toastSmartHomeWebhookDelivery(body);
       if (body && !body.skipped && body.id) {
         dispatchGeoPropagationInbox({
           ...body,
@@ -926,6 +1133,72 @@ export default function Messages() {
             {composeTypeNotice ? (
               <p className="text-xs text-[#E0992A]">{composeTypeNotice}</p>
             ) : null}
+            {usesComposeZoneTargeting(composeType) ? (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-[#566784]">Send to zone</p>
+                {loadingComposeZones ? (
+                  <p className="text-xs text-[#8694AC]">Checking zones for this message type…</p>
+                ) : composeZones.length === 0 ? (
+                  <p className="text-xs text-[#8694AC]">
+                    No overlapping zones at this message type&apos;s send location.
+                  </p>
+                ) : showComposeZonePicker ? (
+                  <>
+                    <p className="text-xs text-[#8694AC]">
+                      You are inside more than one zone. Choose one zone or keep all zones.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setComposeZoneSelection("all");
+                          setComposeReceiverId("");
+                        }}
+                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${
+                          composeZoneSelection === "all"
+                            ? "border-[#2F80ED] bg-[#EDF3FB] text-[#2F80ED]"
+                            : "border-[#DCE6F2] bg-[#F7FAFE] text-[#566784]"
+                        }`}
+                      >
+                        All zones
+                      </button>
+                      {composeZones.map((zone) => (
+                        <button
+                          key={zone.zone_record_id}
+                          type="button"
+                          onClick={() => {
+                            setComposeZoneSelection(zone.zone_record_id);
+                            setComposeReceiverId("");
+                          }}
+                          className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${
+                            composeZoneSelection === zone.zone_record_id
+                              ? "border-[#2F80ED] bg-[#EDF3FB] text-[#2F80ED]"
+                              : "border-[#DCE6F2] bg-[#F7FAFE] text-[#566784]"
+                          }`}
+                        >
+                          {zone.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-xs text-[#8694AC]">
+                    {composeZones[0]?.label ?? "1 zone"}
+                  </p>
+                )}
+                {!isAccessGuestChannelType(composeType) &&
+                !isPrivateMessageType(composeType) &&
+                composeZones.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setReceiversModalOpen(true)}
+                    className="rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-xs font-semibold text-[#2F80ED]"
+                  >
+                    View possible receivers
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
             {isAccessGuestChannelType(composeType) && (
               <>
                 <p className="text-xs text-[#8694AC]">
@@ -976,9 +1249,6 @@ export default function Messages() {
                   placeholder="Search member by name or email"
                   className="w-full rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2.5 text-sm text-[#0F2C5C] outline-none focus:border-[#2F80ED]"
                 />
-                {privateSearchLoading ? (
-                  <p className="text-xs text-[#8694AC]">Searching…</p>
-                ) : null}
                 {privateSearchError ? (
                   <p className="text-xs text-[#E0992A]">{privateSearchError}</p>
                 ) : null}
@@ -992,19 +1262,36 @@ export default function Messages() {
                 ) : null}
                 {senderZoneIds.length > 0 ? (
                   <p className="text-xs text-[#8694AC]">
-                    Search admin and members reachable in this zone (same as PANIC). You
-                    cannot select yourself.
+                    {selectedZoneRecordId != null
+                      ? "Members reachable in the selected zone. You cannot select yourself."
+                      : "Search admin and members reachable in this zone (same as PANIC). You cannot select yourself."}
                   </p>
                 ) : null}
-                {privateSearchResults.length > 0 ? (
+                {(selectedZoneRecordId != null
+                  ? zoneRecipientsLoading
+                  : privateSearchLoading) ? (
+                  <p className="text-xs text-[#8694AC]">
+                    {selectedZoneRecordId != null ? "Loading receivers…" : "Searching…"}
+                  </p>
+                ) : null}
+                {(selectedZoneRecordId != null
+                  ? zoneRecipients
+                  : privateSearchResults
+                ).length > 0 ? (
                   <ul className="max-h-40 overflow-y-auto rounded-lg border border-[#DCE6F2] bg-[#F7FAFE]">
-                    {privateSearchResults.map((row) => (
+                    {(selectedZoneRecordId != null
+                      ? zoneRecipients
+                      : privateSearchResults
+                    ).map((row) => {
+                      const name = memberBroadcastName(row);
+                      const distance = memberDistanceLabel(row);
+                      return (
                       <li key={`search-${row.id}`}>
                         <button
                           type="button"
                           onClick={() => {
                             setComposeReceiverId(String(row.id));
-                            setPrivateSearchQuery(row.display_name);
+                            setPrivateSearchQuery(name);
                           }}
                           className={`w-full px-3 py-2 text-left text-sm hover:bg-[#EDF3FB] ${
                             composeReceiverId === String(row.id)
@@ -1012,19 +1299,27 @@ export default function Messages() {
                               : "text-[#0F2C5C]"
                           }`}
                         >
-                          <span>{row.display_name}</span>
-                          <span className="ml-2 text-xs text-[#8694AC]">
-                            {row.subtitle || row.email}
-                          </span>
+                          <span>{name}</span>
+                          {distance ? (
+                            <span className="ml-2 text-xs text-[#8694AC]">
+                              {distance}
+                            </span>
+                          ) : null}
                         </button>
                       </li>
-                    ))}
+                      );
+                    })}
                   </ul>
                 ) : null}
                 {privateSearchQuery.trim().length >= 2 &&
-                !privateSearchLoading &&
+                !(selectedZoneRecordId != null
+                  ? zoneRecipientsLoading
+                  : privateSearchLoading) &&
                 senderZoneIds.length > 0 &&
-                privateSearchResults.length === 0 ? (
+                (selectedZoneRecordId != null
+                  ? zoneRecipients
+                  : privateSearchResults
+                ).length === 0 ? (
                   <p className="text-xs text-[#8694AC]">No members matched your search.</p>
                 ) : null}
                 {composeReceiverId ? (
@@ -1093,6 +1388,105 @@ export default function Messages() {
           </section>
         </div>
       </div>
+
+      {receiversModalOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[#0F2C5C]/55 px-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Possible receivers"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            aria-label="Close receivers list"
+            onClick={() => setReceiversModalOpen(false)}
+          />
+          <div className="relative z-10 w-full max-w-md rounded-2xl border border-[#C2D2E6] bg-white p-4 shadow-xl">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-bold text-[#0F2C5C]">Possible receivers</h3>
+              <button
+                type="button"
+                onClick={() => setReceiversModalOpen(false)}
+                className="rounded-lg px-2 py-1 text-xs font-semibold text-[#566784] hover:bg-[#F7FAFE]"
+              >
+                Close
+              </button>
+            </div>
+            <p className="mb-3 text-xs text-[#8694AC]">
+              {composeZoneSelection === "all"
+                ? `All overlapping zones (${composeZones.length})`
+                : composeZones.find((z) => z.zone_record_id === composeZoneSelection)
+                    ?.label ?? "Selected zone"}
+            </p>
+            {zoneRecipientsLoading ? (
+              <p className="text-xs text-[#8694AC]">Loading receivers…</p>
+            ) : composeZoneSelection === "all" ? (
+              zoneRecipientGroups.length === 0 ||
+              zoneRecipientGroups.every((g) => g.members.length === 0) ? (
+                <p className="text-xs text-[#8694AC]">No receivers for this selection.</p>
+              ) : (
+                <div className="max-h-72 space-y-3 overflow-y-auto">
+                  {zoneRecipientGroups.map((group) => (
+                    <div key={`recv-group-${group.zoneRecordId}`}>
+                      <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-[#8694AC]">
+                        {group.label}
+                      </p>
+                      {group.members.length === 0 ? (
+                        <p className="text-xs text-[#8694AC]">No receivers in this zone.</p>
+                      ) : (
+                        <ul className="rounded-lg border border-[#DCE6F2] bg-[#F7FAFE]">
+                          {group.members.map((row) => {
+                            const distance = memberDistanceLabel(row);
+                            return (
+                            <li
+                              key={`recv-modal-${group.zoneRecordId}-${row.id}`}
+                              className="flex items-center justify-between gap-3 border-b border-[#DCE6F2] px-3 py-2 text-sm text-[#0F2C5C] last:border-b-0"
+                            >
+                              <span className="min-w-0 truncate font-medium">
+                                {memberBroadcastName(row)}
+                              </span>
+                              {distance ? (
+                                <span className="shrink-0 text-xs text-[#8694AC]">
+                                  {distance}
+                                </span>
+                              ) : null}
+                            </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )
+            ) : zoneRecipients.length === 0 ? (
+              <p className="text-xs text-[#8694AC]">No receivers for this selection.</p>
+            ) : (
+              <ul className="max-h-72 overflow-y-auto rounded-lg border border-[#DCE6F2] bg-[#F7FAFE]">
+                {zoneRecipients.map((row) => {
+                  const distance = memberDistanceLabel(row);
+                  return (
+                  <li
+                    key={`recv-modal-${row.id}`}
+                    className="flex items-center justify-between gap-3 border-b border-[#DCE6F2] px-3 py-2 text-sm text-[#0F2C5C] last:border-b-0"
+                  >
+                    <span className="min-w-0 truncate font-medium">
+                      {memberBroadcastName(row)}
+                    </span>
+                    {distance ? (
+                      <span className="shrink-0 text-xs text-[#8694AC]">
+                        {distance}
+                      </span>
+                    ) : null}
+                  </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

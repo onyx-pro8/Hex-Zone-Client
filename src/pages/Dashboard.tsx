@@ -22,7 +22,9 @@ import { GuestRequestsDashboardSection } from "../components/dashboard/GuestRequ
 import { GuestAccessQrSection } from "../components/dashboard/GuestAccessQrSection";
 import { RecentServicesDashboardSection } from "../components/dashboard/RecentServicesDashboardSection";
 import { useAuth } from "../hooks/useAuth";
-import { isSystemAdministrator } from "../lib/accountLimits";
+import {
+  normalizeAccountType,
+} from "../lib/accountLimits";
 import {
   useZones,
   type SavedZone,
@@ -76,7 +78,11 @@ import {
 } from "../lib/governmentAddress";
 import {
   generateZoneReference,
+  listCommunalIds,
+  listZonesForCommunalId,
   validateZoneReference,
+  type CommunalIdRow,
+  type CommunalZoneSummary,
   type ZoneReferenceValidateResult,
 } from "../services/api/zoneReferences";
 import {
@@ -96,6 +102,34 @@ const ZONE_MAP_COLORS = [
   "#22C55E",
   "#F472B6",
 ] as const;
+const PROXIMITY_RADIUS_MIN = 10;
+const PROXIMITY_RADIUS_MAX = 5000;
+const OBJECT_RADIUS_DEFAULT = 80;
+const OBJECT_RADIUS_MAX = 2000;
+
+/** True when a zone config lists this Communal ID. */
+function zoneHasCommunalId(zone: SavedZone, referenceId: string): boolean {
+  const wanted = referenceId.trim().toUpperCase();
+  if (!wanted) return false;
+  const cfg =
+    zone.config && typeof zone.config === "object"
+      ? (zone.config as Record<string, unknown>)
+      : {};
+  const raw = cfg.communal_ids ?? cfg.communalIds;
+  const ids: string[] = [];
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (typeof item === "string" && item.trim()) {
+        ids.push(item.trim().toUpperCase());
+      }
+    }
+  }
+  const legacy = cfg.communal_id ?? cfg.communalId;
+  if (typeof legacy === "string" && legacy.trim()) {
+    ids.push(legacy.trim().toUpperCase());
+  }
+  return ids.includes(wanted);
+}
 
 type MapperMode = "h3" | "polygon";
 type GeofenceDrawTool = "polygon" | "circle";
@@ -108,6 +142,8 @@ type ValidReferenceValidation = {
   config: Record<string, unknown>;
   h3Cells: string[];
   source?: string;
+  exists?: boolean;
+  matchedZones?: CommunalZoneSummary[];
 };
 
 type ReferenceValidationState =
@@ -670,7 +706,9 @@ function buildZoneMapTooltip(
   const normalizedType = normalizeZoneTypeValue(zone.type ?? zone.zone_type);
   const creatorId = entry.creatorId;
   let creatorLabel = "Unknown";
-  if (creatorId) {
+  if (zone.owner_name && String(zone.owner_name).trim()) {
+    creatorLabel = String(zone.owner_name).trim();
+  } else if (creatorId) {
     const name =
       memberNameById.get(creatorId) ??
       (creatorId === currentUserId && currentUserName
@@ -733,6 +771,27 @@ function referenceValidationFromZone(
 
 function communalValidationFromZone(zone: SavedZone): ReferenceValidationState | null {
   return referenceValidationFromZone(zone, "communal_id");
+}
+
+function communalIdsFromConfig(
+  config: Record<string, unknown>,
+  zoneType: string,
+): string[] {
+  const fromMulti = Array.isArray(config.communal_ids)
+    ? config.communal_ids.filter(
+        (item): item is string =>
+          typeof item === "string" && item.trim().length > 0,
+      )
+    : [];
+  const legacy =
+    typeof config.communal_id === "string" && zoneType !== "communal_id"
+      ? [config.communal_id]
+      : [];
+  return [
+    ...new Set(
+      [...fromMulti, ...legacy].map((item) => item.trim().toUpperCase()),
+    ),
+  ];
 }
 
 function governmentValidationFromZone(zone: SavedZone): ReferenceValidationState | null {
@@ -1282,6 +1341,15 @@ export default function Dashboard() {
   const [communalValidation, setCommunalValidation] =
     useState<ReferenceValidationState | null>(null);
   const [communalValidating, setCommunalValidating] = useState(false);
+  const [matchedCommunalZones, setMatchedCommunalZones] = useState<
+    CommunalZoneSummary[]
+  >([]);
+  const [communalExists, setCommunalExists] = useState<boolean | null>(null);
+  /** Communal IDs attached when creating/editing primary zones. */
+  const [definingCommunalIds, setDefiningCommunalIds] = useState<string[]>([]);
+  const [definingCommunalPickerOpen, setDefiningCommunalPickerOpen] =
+    useState(false);
+  const [definingCommunalQuery, setDefiningCommunalQuery] = useState("");
   const [governmentAddressMode, setGovernmentAddressMode] =
     useState<GovernmentAddressMode>("postal");
   const [governmentPostalCode, setGovernmentPostalCode] = useState("");
@@ -1312,11 +1380,11 @@ export default function Dashboard() {
   );
   const [objectReferenceId, setObjectReferenceId] = useState("");
   const [objectPlaceName, setObjectPlaceName] = useState("");
-  const [objectRadiusMeters, setObjectRadiusMeters] = useState(250);
+  const [objectRadiusMeters, setObjectRadiusMeters] = useState(OBJECT_RADIUS_DEFAULT);
   const [objectCenter, setObjectCenter] = useState<[number, number] | null>(null);
   const [objectSearchQuery, setObjectSearchQuery] = useState("");
 
-  const [mapperMode, setMapperMode] = useState<MapperMode>("h3");
+  const [mapperMode, setMapperMode] = useState<MapperMode>("polygon");
   const [resolution, setResolution] = useState(6);
   const [h3Color, setH3Color] = useState(accent);
   const [h3OpacityPct, setH3OpacityPct] = useState(38);
@@ -1364,7 +1432,8 @@ export default function Dashboard() {
   const [activeSavedZoneKey, setActiveSavedZoneKey] = useState<string | null>(
     null,
   );
-  const [isCreatingNewZone, setIsCreatingNewZone] = useState(false);
+  const [isCreatingNewZone, setIsCreatingNewZone] = useState(true);
+  const [createAsPrimary, setCreateAsPrimary] = useState(false);
   const [showAllZones, setShowAllZones] = useState(true);
   const [activeSavedZoneEditable, setActiveSavedZoneEditable] =
     useState<boolean>(false);
@@ -1382,12 +1451,73 @@ export default function Dashboard() {
     saveZone,
     updateSavedZone,
     deleteSavedZone,
+    refresh,
   } = useZones(userZoneId, {
     role: user?.role,
     currentUserId: user?.id != null ? String(user.id) : null,
     accountOwnerId:
       user?.account_owner_id != null ? String(user.account_owner_id) : null,
   });
+  const [publicCommunalIds, setPublicCommunalIds] = useState<CommunalIdRow[]>(
+    [],
+  );
+  /** Zones tagged with this network's Communal IDs — map overlay only, not in the list. */
+  const [communalMapZones, setCommunalMapZones] = useState<SavedZone[]>([]);
+  const [communalZonesPicker, setCommunalZonesPicker] = useState<{
+    referenceId: string;
+    zones: SavedZone[];
+  } | null>(null);
+  const [communalZonesLoading, setCommunalZonesLoading] = useState(false);
+
+  const refreshCommunalCatalog = useCallback(async () => {
+    const { data, error } = await listCommunalIds();
+    if (error || !data) {
+      if (!error) setPublicCommunalIds([]);
+      setCommunalMapZones([]);
+      return;
+    }
+    setPublicCommunalIds(data);
+    const mine = String(zoneId ?? "").trim();
+    const myCommunalWithZones = data.filter(
+      (row) =>
+        String(row.network_id ?? "").trim() === mine &&
+        Number(row.zone_count ?? 0) > 0,
+    );
+    const batches = await Promise.all(
+      myCommunalWithZones.map((row) => listZonesForCommunalId(row.reference_id)),
+    );
+    const byId = new Map<string, SavedZone>();
+    for (const batch of batches) {
+      if (batch.error || !batch.data) continue;
+      for (const row of batch.data) {
+        const key = String(row.id);
+        byId.set(key, {
+          ...(row as SavedZone),
+          id: key,
+          shared_via_communal: true,
+        } as SavedZone & { shared_via_communal?: boolean });
+      }
+    }
+    setCommunalMapZones(Array.from(byId.values()));
+  }, [zoneId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      await refreshCommunalCatalog();
+      if (cancelled) return;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshCommunalCatalog, zones.length, saveStatus]);
+  const networkCommunalIds = useMemo(() => {
+    const mine = String(zoneId ?? "").trim();
+    if (!mine) return [];
+    return publicCommunalIds.filter(
+      (row) => String(row.network_id ?? "").trim() === mine,
+    );
+  }, [publicCommunalIds, zoneId]);
   const currentUserId = useMemo(() => {
     const raw = user?.id;
     if (raw == null) return "";
@@ -1409,19 +1539,22 @@ export default function Dashboard() {
       setMemberNameById(map);
     });
   }, []);
-  const systemAdmin = useMemo(
-    () =>
-      isSystemAdministrator({
-        accountType: user?.accountType,
-        legacyAccountType: user?.account_type,
-        role: user?.role,
-      }),
-    [user?.accountType, user?.account_type, user?.role],
+  const accountType = useMemo(
+    () => normalizeAccountType(user?.accountType, user?.account_type),
+    [user?.accountType, user?.account_type],
   );
-  const isAccountAdministrator = useMemo(
-    () => String(user?.role ?? "").toLowerCase() === "administrator",
-    [user?.role],
-  );
+  /** Individual accounts are user-role only and never create primary zones. */
+  const canChoosePrimaryTier =
+    String(user?.role ?? "").toLowerCase() === "administrator" &&
+    accountType !== "EXCLUSIVE";
+  const isAccountAdministrator = canChoosePrimaryTier;
+  /** Network admins (non-Individual) may validate/generate Communal IDs and attach them to primaries. */
+  const canUseCommunalTools = canChoosePrimaryTier;
+  useEffect(() => {
+    if (!canUseCommunalTools && zoneType === "communal_id") {
+      setZoneType("geofence");
+    }
+  }, [canUseCommunalTools, zoneType]);
   const zoneEntries = useMemo<ZoneEntry[]>(
     () =>
       [...zones]
@@ -1435,17 +1568,18 @@ export default function Dashboard() {
         const ownerId =
           zone.owner_id != null ? String(zone.owner_id) : null;
         const creatorId =
-          zone.creator_id != null ? String(zone.creator_id) : null;
-        const editable =
-          typeof zone.can_edit === "boolean"
-            ? zone.can_edit
-            : systemAdmin ||
-              (creatorId != null && creatorId === currentUserId) ||
-              (creatorId == null && ownerId != null && ownerId === currentUserId);
-        const deletable =
-          systemAdmin ||
-          (ownerId != null && ownerId === currentUserId) ||
-          (isAccountAdministrator && ownerId != null);
+          zone.creator_id != null
+            ? String(zone.creator_id)
+            : ownerId;
+        const isPrimary = Boolean(
+          (zone as { is_primary?: boolean }).is_primary ??
+            (zone as { isPrimary?: boolean }).isPrimary,
+        );
+        // Match mobile: primary → network admin; secondary → creator only.
+        const editable = isPrimary
+          ? isAccountAdministrator
+          : Boolean(creatorId && currentUserId && creatorId === currentUserId);
+        const deletable = editable;
         return {
           zone,
           key: `${savedZoneRecordId(zone)}:${ownerId ?? "none"}:${idx}`,
@@ -1455,16 +1589,45 @@ export default function Dashboard() {
           deletable,
         };
       }),
-    [zones, currentUserId, systemAdmin, isAccountAdministrator],
+    [zones, currentUserId, isAccountAdministrator],
   );
   const activeZoneEntry = useMemo(
     () => zoneEntries.find((entry) => entry.key === activeSavedZoneKey) ?? null,
     [zoneEntries, activeSavedZoneKey],
   );
-  const canCreateZone = capabilities?.can_create_zone ?? true;
+  const canCreateZone = capabilities?.can_create_zone === true;
+  const canCreatePrimary =
+    isAccountAdministrator &&
+    String(capabilities?.role ?? "").toLowerCase() === "administrator" &&
+    (capabilities?.can_create_primary ??
+      Boolean(capabilities?.next_zone_is_primary)) === true &&
+    (capabilities?.max_primary ?? 0) > 0;
+  const canCreateSecondary = capabilities?.can_create_secondary ?? true;
   const createBlockedReason =
     capabilities?.reason ??
-    (canCreateZone ? "" : "You have reached the zone limit for this user.");
+    (canCreateZone ? "" : "You have reached the zone create limit.");
+
+  useEffect(() => {
+    if (!isAccountAdministrator) {
+      setCreateAsPrimary(false);
+      return;
+    }
+    if (!canCreatePrimary) {
+      setCreateAsPrimary(false);
+      return;
+    }
+    setCreateAsPrimary((prev) => {
+      if (prev && canCreatePrimary) return true;
+      if (!prev && canCreateSecondary) return false;
+      return false;
+    });
+  }, [
+    isAccountAdministrator,
+    canCreatePrimary,
+    canCreateSecondary,
+    capabilities?.admin_primary_count,
+    capabilities?.remaining_total,
+  ]);
   const canEditCurrentSelection =
     isCreatingNewZone || (!!activeZoneEntry && activeSavedZoneEditable);
   /** Validate / preview reference IDs (Type 2–3); does not require save permission. */
@@ -1473,10 +1636,9 @@ export default function Dashboard() {
     if (activeZoneEntry != null) return true;
     return canCreateZone;
   }, [isCreatingNewZone, activeZoneEntry, canCreateZone]);
-  const communalValidated = useMemo(() => {
-    if (communalValidation?.valid !== true) return false;
-    return communalCode.trim().toUpperCase() === communalValidation.referenceId;
-  }, [communalValidation, communalCode]);
+  const workingAsPrimary = isCreatingNewZone
+    ? createAsPrimary
+    : Boolean(activeZoneEntry?.zone.is_primary);
   const governmentValidated = useMemo(() => {
     if (governmentValidation?.valid !== true) return false;
     return governmentAddressMatchesValidation(
@@ -1485,9 +1647,7 @@ export default function Dashboard() {
     );
   }, [governmentValidation, governmentFields]);
   const activeReferenceValidation = useMemo((): ValidReferenceValidation | null => {
-    if (zoneType === "communal_id" && communalValidation?.valid === true) {
-      return communalValidation;
-    }
+    // Communal no longer supplies map geometry — only government does.
     if (
       zoneType === "government_local_code" &&
       governmentValidation?.valid === true
@@ -1495,20 +1655,28 @@ export default function Dashboard() {
       return governmentValidation;
     }
     return null;
-  }, [zoneType, communalValidation, governmentValidation]);
+  }, [zoneType, governmentValidation]);
   const usesMapGeometry = zoneType === "geofence" || zoneType === "grid";
+
+  // Match mobile: geofence = polygon/circle only; grid = H3 only.
+  useEffect(() => {
+    if (zoneType === "geofence" && mapperMode !== "polygon") {
+      setMapperMode("polygon");
+    } else if (zoneType === "grid" && mapperMode !== "h3") {
+      setMapperMode("h3");
+    }
+  }, [zoneType, mapperMode]);
   const typeVisual = useMemo(() => {
     if (zoneType === "grid") return { color: "#F59E0B", label: "Grid" };
     if (zoneType === "proximity")
       return { color: "#06B6D4", label: "Proximity" };
     if (zoneType === "dynamic") return { color: "#22C55E", label: "Dynamic" };
     if (zoneType === "communal_id") {
-      const validated =
-        communalValidation?.valid === true &&
-        communalCode.trim().toUpperCase() === communalValidation.referenceId;
-      return validated
-        ? { color: "#8B5CF6", label: "Communal ID" }
-        : { color: "#64748B", label: "Communal ID (validate first)" };
+      if (communalExists === true)
+        return { color: "#8B5CF6", label: "Communal ID (found)" };
+      if (communalExists === false)
+        return { color: "#8B5CF6", label: "Communal ID (available)" };
+      return { color: "#64748B", label: "Communal ID (validate first)" };
     }
     if (zoneType === "government_local_code") {
       const validated =
@@ -1525,8 +1693,7 @@ export default function Dashboard() {
     return { color: accent, label: "Geofence" };
   }, [
     zoneType,
-    communalValidation,
-    communalCode,
+    communalExists,
     governmentValidation,
     governmentFields,
   ]);
@@ -1710,120 +1877,20 @@ export default function Dashboard() {
   ]);
 
   useEffect(() => {
+    // Match mobile: stay in create/draft until the user explicitly picks a zone.
     if (isCreatingNewZone) return;
-    if (zoneEntries.length === 0) return;
-    if (activeSavedZoneKey != null) {
-      const stillActive = zoneEntries.some(
-        (entry) => entry.key === activeSavedZoneKey,
-      );
-      if (stillActive) return;
+    if (activeSavedZoneKey == null) return;
+    const stillActive = zoneEntries.some(
+      (entry) => entry.key === activeSavedZoneKey,
+    );
+    if (!stillActive) {
+      setActiveSavedZoneKey(null);
+      setActiveSavedZoneEditable(false);
+      if (canCreateZone) {
+        setIsCreatingNewZone(true);
+      }
     }
-    const chosen =
-      zoneEntries.find(
-        (entry) =>
-          Array.isArray(entry.zone.h3_cells) && entry.zone.h3_cells.length > 0,
-      ) ||
-      zoneEntries.find((entry) => zoneToPolygons(entry.zone).length > 0) ||
-      zoneEntries.find(
-        (entry) =>
-          normalizeZoneTypeValue(entry.zone.type ?? entry.zone.zone_type) ===
-          "proximity",
-      ) ||
-      zoneEntries[0] ||
-      null;
-    if (!chosen) return;
-    const normalizedType = normalizeZoneTypeValue(
-      chosen.zone.type ?? chosen.zone.zone_type,
-    );
-    setZoneType(normalizedType);
-    setZoneName((chosen.zone.name ?? "").trim());
-    setActiveSavedZoneKey(chosen.key);
-    setActiveSavedZoneEditable(
-      chosen.editable && (capabilities?.can_edit_active_zone ?? true),
-    );
-    setSelectedCells(
-      Array.isArray(chosen.zone.h3_cells) ? [...chosen.zone.h3_cells] : [],
-    );
-    setRemovedCellIds(new Set());
-    setRemovedPolygonKeys(new Set());
-    setPolygons(zoneToPolygons(chosen.zone));
-    if (normalizedType === "proximity") {
-      const proximity = loadProximityFromZone(chosen.zone, 500);
-      setProximitySourceMode(proximity.sourceMode);
-      setProximityCenter(proximity.center);
-      setProximityRadiusMeters(proximity.radiusMeters);
-    } else {
-      setProximitySourceMode("map_pin");
-      setProximityCenter(null);
-    }
-    const chosenConfig = zoneConfigMap(chosen.zone);
-    if (normalizedType === "dynamic") {
-      setDynamicTriggers(parseDynamicTriggersFromConfig(chosenConfig));
-      const defaultRadius = chosenConfig.default_radius_meters;
-      setDynamicDefaultRadiusMeters(
-        typeof defaultRadius === "number" && Number.isFinite(defaultRadius)
-          ? defaultRadius
-          : null,
-      );
-      hydrateDynamicInputsFromConfig(
-        chosenConfig,
-        chosen.zone.geometry && typeof chosen.zone.geometry === "object"
-          ? (chosen.zone.geometry as Record<string, unknown>)
-          : null,
-      );
-    } else {
-      setDynamicTriggers([]);
-      setDynamicDefaultRadiusMeters(null);
-      setDynamicPreview(null);
-      setDynamicPreviewError(null);
-    }
-    setCommunalCode(
-      typeof chosenConfig.communal_id === "string" ? chosenConfig.communal_id : "",
-    );
-    setCommunalValidation(
-      normalizedType === "communal_id"
-        ? communalValidationFromZone(chosen.zone)
-        : null,
-    );
-    {
-      const govFields = applyGovernmentFieldsFromConfig(chosenConfig);
-      setGovernmentAddressMode(govFields.addressMode);
-      setGovernmentPostalCode(govFields.postalCode);
-      setGovernmentCity(govFields.city);
-      setGovernmentCountry(govFields.country);
-      setGovernmentStreet(govFields.street);
-      setGovernmentStreetNumber(govFields.streetNumber);
-    }
-    setGovernmentValidation(
-      normalizedType === "government_local_code"
-        ? governmentValidationFromZone(chosen.zone)
-        : null,
-    );
-    setObjectReferenceId(
-      typeof chosenConfig.object_id === "string" ? chosenConfig.object_id : "",
-    );
-    setObjectPlaceName(
-      typeof chosenConfig.object_name === "string"
-        ? chosenConfig.object_name
-        : typeof chosenConfig.object_id === "string"
-          ? chosenConfig.object_id
-          : "",
-    );
-    setObjectRadiusMeters(
-      typeof chosenConfig.radius_meters === "number" && chosenConfig.radius_meters > 0
-        ? chosenConfig.radius_meters
-        : 250,
-    );
-    const center = extractZoneCenter(chosen.zone);
-    setObjectCenter(center);
-    setObjectSearchQuery(
-      typeof chosenConfig.object_name === "string" && chosenConfig.object_name.trim()
-        ? chosenConfig.object_name
-        : typeof chosenConfig.object_id === "string"
-          ? chosenConfig.object_id
-          : "",
-    );
-  }, [zoneEntries, activeSavedZoneKey, isCreatingNewZone, capabilities?.can_edit_active_zone]);
+  }, [zoneEntries, activeSavedZoneKey, isCreatingNewZone, canCreateZone]);
 
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
@@ -1979,7 +2046,7 @@ export default function Dashboard() {
       if (!canEditCurrentSelection) {
         setSaveStatus(
           zones.length === 0
-            ? "No zone selected. Click Create new zone to start drawing."
+            ? "Draw on the map to shape a new zone, or select a saved zone to edit."
             : "Selected zone is read-only. Choose one of your own zones or create a new zone.",
         );
         return;
@@ -2427,7 +2494,54 @@ export default function Dashboard() {
       setSaveStatus("Your account has no network ID.");
       return;
     }
-    if (!isCreatingNewZone && !activeSavedZoneEditable) {
+    if (zoneType === "communal_id") {
+      if (!canUseCommunalTools) {
+        setSaveStatus("Only network administrators can save Communal IDs.");
+        return;
+      }
+      const code = communalCode.trim().toUpperCase();
+      if (code.length < 3) {
+        setSaveStatus("Enter or generate a Communal ID first.");
+        return;
+      }
+      if (communalExists === true) {
+        setSaveStatus(`Communal ID ${code} is already saved.`);
+        return;
+      }
+      setSaveStatus("Saving Communal ID…");
+      try {
+        const { data, error } = await generateZoneReference({
+          zone_type: "communal_id",
+          reference_id: code,
+          persist: true,
+        });
+        if (error || !data) {
+          setSaveStatus(error ?? "Could not save Communal ID.");
+          return;
+        }
+        const saved = (data.reference_id || code).toUpperCase();
+        setCommunalCode(saved);
+        setCommunalExists(true);
+        setCommunalValidation({
+          valid: true,
+          referenceId: saved,
+          geometry: {},
+          config: { communal_id: saved },
+          h3Cells: [],
+        });
+        setSaveStatus(data.message ?? `Saved Communal ID ${saved}.`);
+        await refreshCommunalCatalog();
+      } catch (err) {
+        setSaveStatus(
+          err instanceof Error ? err.message : "Could not save Communal ID.",
+        );
+      }
+      return;
+    }
+    if (
+      !isCreatingNewZone &&
+      !activeSavedZoneEditable
+    ) {
       setSaveStatus("Selected zone is read-only. Choose one of your own zones to edit.");
       return;
     }
@@ -2435,23 +2549,34 @@ export default function Dashboard() {
       setSaveStatus(createBlockedReason || "You cannot create more zones.");
       return;
     }
-    const normalizedZoneName = zoneName.trim();
-    if (!normalizedZoneName) {
+    if (!zoneName.trim()) {
       setSaveStatus("Zone name is required.");
       return;
     }
-    if (normalizedZoneName.length > MAX_ZONE_NAME_LENGTH) {
+    if (zoneName.trim().length > MAX_ZONE_NAME_LENGTH) {
       setSaveStatus(`Zone name must be ${MAX_ZONE_NAME_LENGTH} characters or less.`);
       return;
     }
-    const cellsToSave = selectedCells.filter((c) => !removedCellIds.has(c));
-    const polygonsToSave = polygons.filter(
-      (p) => !removedPolygonKeys.has(polygonKey(p)),
-    );
-    const geoFenceForSave = polygonsToGeoFenceMultiPolygon(polygonsToSave);
+    const normalizedZoneName = zoneName.trim();
+    const cellsToSave =
+      zoneType === "grid"
+        ? selectedCells.filter((c) => !removedCellIds.has(c))
+        : [];
+    const polygonsToSave =
+      zoneType === "geofence"
+        ? polygons.filter((p) => !removedPolygonKeys.has(polygonKey(p)))
+        : [];
+    const geoFenceForSave =
+      zoneType === "geofence"
+        ? polygonsToGeoFenceMultiPolygon(polygonsToSave)
+        : null;
 
     const canSaveGeometry =
-      cellsToSave.length > 0 || polygonsToSave.length > 0;
+      zoneType === "grid"
+        ? cellsToSave.length > 0
+        : zoneType === "geofence"
+          ? polygonsToSave.length > 0
+          : false;
     const dynamicReady =
       dynamicMinRadiusMeters > 0 &&
       dynamicMaxRadiusMeters >= dynamicMinRadiusMeters &&
@@ -2467,21 +2592,19 @@ export default function Dashboard() {
           ? proximityRadiusMeters > 0 && proximityCenter != null
           : zoneType === "dynamic"
             ? dynamicReady
-            : zoneType === "communal_id"
-              ? communalValidated &&
-                (polygonsToSave.length > 0 || cellsToSave.length > 0)
-              : zoneType === "government_local_code"
-                ? governmentValidated &&
-                  (polygonsToSave.length > 0 || cellsToSave.length > 0)
-                : zoneType === "object"
-                  ? objectReferenceId.trim().length > 0 &&
-                    objectRadiusMeters > 0 &&
-                    objectCenter != null
-                : true;
+            : zoneType === "government_local_code"
+              ? governmentValidated
+              : zoneType === "object"
+                ? objectReferenceId.trim().length > 0 &&
+                  objectRadiusMeters > 0 &&
+                  objectCenter != null
+              : true;
     if (!canSaveByType) {
       setSaveStatus(
-        usesMapGeometry
-          ? "Select H3 cells or add polygons before saving."
+        zoneType === "grid"
+          ? "Select H3 cells before saving."
+          : zoneType === "geofence"
+            ? "Add a polygon or circle before saving."
           : zoneType === "proximity"
             ? "Set a proximity radius before saving."
             : zoneType === "dynamic"
@@ -2489,15 +2612,13 @@ export default function Dashboard() {
                 ? dynamicPreview.reason ??
                   "Server could not find a cluster matching the current dynamic inputs."
                 : "Enter target users + min/max radii and wait for the live preview to resolve."
-              : zoneType === "communal_id"
-                ? "Validate the communal ID and confirm the map preview before saving."
-                : zoneType === "government_local_code"
-                  ? "Validate the address and confirm the map preview before saving."
-                  : "Set object ID, radius, and anchor point before saving.",
+              : zoneType === "government_local_code"
+                ? "Validate the address before saving."
+                : "Set object ID, radius, and anchor point before saving.",
       );
       return;
     }
-    if (usesMapGeometry && hasCrossResolutionOverlap(cellsToSave)) {
+    if (zoneType === "grid" && hasCrossResolutionOverlap(cellsToSave)) {
       setSaveStatus(
         "Overlapping H3 cells across resolutions are not allowed. Remove parent/child duplicates before saving.",
       );
@@ -2572,11 +2693,26 @@ export default function Dashboard() {
                         longitude: mapCenter[1],
                       },
                 }
+            : zoneType === "grid"
+              ? {}
           : {
               geo_fence_polygon: geoFenceForSave,
             };
+      const communalConfigExtra =
+        canUseCommunalTools && workingAsPrimary
+          ? {
+              communal_ids: definingCommunalIds,
+              ...(definingCommunalIds[0]
+                ? { communal_id: definingCommunalIds[0] }
+                : {}),
+              is_public: true,
+            }
+          : { is_public: true };
       const configPayload: Record<string, unknown> = {
-        h3_cells: activeReferenceValidation ? referenceCellsToSave : cellsToSave,
+        h3_cells:
+          zoneType === "grid" || activeReferenceValidation
+            ? referenceCellsToSave
+            : [],
         ...(zoneType === "proximity"
           ? {
               radius_meters: proximityRadiusMeters,
@@ -2591,24 +2727,6 @@ export default function Dashboard() {
               max_radius_meters: dynamicMaxRadiusMeters,
               ...(dynamicResolvedRadius != null
                 ? { resolved_radius_meters: dynamicResolvedRadius }
-                : {}),
-              ...(dynamicDefaultRadiusMeters != null &&
-              dynamicDefaultRadiusMeters >= dynamicMinRadiusMeters &&
-              dynamicDefaultRadiusMeters <= dynamicMaxRadiusMeters
-                ? { default_radius_meters: dynamicDefaultRadiusMeters }
-                : {}),
-              ...(dynamicTriggers.length > 0
-                ? {
-                    triggers: dynamicTriggers.map(serializeDynamicTrigger),
-                  }
-                : {}),
-            }
-          : {}),
-        ...(zoneType === "communal_id"
-          ? {
-              communal_id: communalCode.trim().toUpperCase(),
-              ...(communalValidation?.valid === true
-                ? communalValidation.config
                 : {}),
             }
           : {}),
@@ -2625,23 +2743,39 @@ export default function Dashboard() {
               radius_meters: objectRadiusMeters,
             }
           : {}),
+        ...communalConfigExtra,
       };
       const payload = {
-        // zone_id: zoneId,
         name: normalizedZoneName,
         description,
         zone_type: compatibilityZoneType,
         type: zoneType,
-        h3_cells: activeReferenceValidation ? referenceCellsToSave : cellsToSave,
-        geo_fence_polygon: activeReferenceValidation
-          ? referenceGeoFence
-          : geoFenceForSave,
+        h3_cells:
+          zoneType === "grid" || activeReferenceValidation
+            ? referenceCellsToSave
+            : [],
+        ...(zoneType === "geofence" || activeReferenceValidation
+          ? { geo_fence_polygon: referenceGeoFence }
+          : {}),
         geometry: geometryPayload,
         config: configPayload,
+        ...(isCreatingNewZone
+          ? {
+              is_primary: isAccountAdministrator ? createAsPrimary : false,
+            }
+          : {}),
       };
       if (isCreatingNewZone) {
-        await saveZone(payload);
-        setSaveStatus("New zone created successfully.");
+        const created = await saveZone(payload);
+        const evicted = created.evicted_zones ?? [];
+        if (evicted.length > 0) {
+          const names = evicted.map((z) => `"${z.name}"`).join(", ");
+          setSaveStatus(
+            `New zone created. ${evicted.length} member secondary zone(s) removed automatically: ${names}.`,
+          );
+        } else {
+          setSaveStatus("New zone created successfully.");
+        }
         setIsCreatingNewZone(false);
       } else if (activeZoneEntry) {
         await updateSavedZone(savedZoneRecordId(activeZoneEntry.zone), payload);
@@ -2681,6 +2815,7 @@ export default function Dashboard() {
     const normalizedType = normalizeZoneTypeValue(zone.type ?? zone.zone_type);
     setIsCreatingNewZone(false);
     setZoneType(normalizedType);
+    setMapperMode(normalizedType === "grid" ? "h3" : "polygon");
     setZoneName((zone.name ?? "").trim());
     setActiveSavedZoneKey(entry.key);
     setActiveSavedZoneEditable(
@@ -2724,8 +2859,16 @@ export default function Dashboard() {
       setDynamicPreviewError(null);
     }
     setCommunalCode(
-      typeof config.communal_id === "string" ? config.communal_id : "",
+      normalizedType === "communal_id" &&
+        typeof config.communal_id === "string"
+        ? config.communal_id
+        : "",
     );
+    setDefiningCommunalIds(communalIdsFromConfig(config, normalizedType));
+    setDefiningCommunalPickerOpen(false);
+    setDefiningCommunalQuery("");
+    setCommunalExists(null);
+    setMatchedCommunalZones([]);
     setCommunalValidation(
       normalizedType === "communal_id" ? communalValidationFromZone(zone) : null,
     );
@@ -2756,7 +2899,7 @@ export default function Dashboard() {
     setObjectRadiusMeters(
       typeof config.radius_meters === "number" && config.radius_meters > 0
         ? config.radius_meters
-        : 250,
+        : OBJECT_RADIUS_DEFAULT,
     );
     setObjectCenter(extractZoneCenter(zone));
     setObjectSearchQuery(
@@ -2852,6 +2995,11 @@ export default function Dashboard() {
     setDynamicDefaultRadiusMeters(null);
     setCommunalCode("");
     setCommunalValidation(null);
+    setCommunalExists(null);
+    setMatchedCommunalZones([]);
+    setDefiningCommunalPickerOpen(false);
+    setDefiningCommunalQuery("");
+    setDefiningCommunalIds([]);
     setGovernmentAddressMode("postal");
     setGovernmentPostalCode("");
     setGovernmentCity("");
@@ -2862,12 +3010,12 @@ export default function Dashboard() {
     setObjectReferenceId("");
     setObjectPlaceName("");
     setObjectSearchQuery("");
-    setObjectRadiusMeters(250);
+    setObjectRadiusMeters(OBJECT_RADIUS_DEFAULT);
     setObjectCenter(null);
     setDraftRing([]);
     setDrawingActive(false);
     setHoleParentId(null);
-    setSaveStatus("New zone mode: draw cells/polygons, then Save zone.");
+    setSaveStatus("New zone mode: draw on the map, then Save zone.");
   }, [canCreateZone, createBlockedReason]);
 
   const cancelNewZoneDraft = useCallback(() => {
@@ -2898,8 +3046,8 @@ export default function Dashboard() {
   );
 
   const savedZoneCellLayers = useMemo<SavedZoneCellLayer[]>(
-    () =>
-      zoneEntries
+    () => {
+      const ownLayers = zoneEntries
         .map((entry, idx): SavedZoneCellLayer | null => {
           const active = activeSavedZoneKey != null && entry.key === activeSavedZoneKey;
           if (!showAllZones && !active) return null;
@@ -2927,13 +3075,49 @@ export default function Dashboard() {
             ),
           };
         })
-        .filter((v): v is SavedZoneCellLayer => v !== null),
-    [zoneEntries, activeSavedZoneKey, removedCellIds, showAllZones, memberNameById, currentUserId, currentUserName],
+        .filter((v): v is SavedZoneCellLayer => v !== null);
+
+      const communalLayers = communalMapZones
+        .map((zone): SavedZoneCellLayer | null => {
+          if (!showAllZones) return null;
+          const cells = Array.isArray(zone.h3_cells)
+            ? zone.h3_cells.filter((v): v is string => typeof v === "string")
+            : [];
+          if (cells.length === 0) return null;
+          return {
+            key: `communal-cell-${savedZoneRecordId(zone)}`,
+            cells,
+            color: "#8B5CF6",
+            fillOpacity: 0.16,
+            weight: 1.4,
+            tooltip: {
+              name: zone.name?.trim() || `Zone ${savedZoneId(zone)}`,
+              typeLabel: zoneTypeDisplayLabel(
+                normalizeZoneTypeValue(zone.type ?? zone.zone_type),
+              ),
+              creatorLabel: zone.owner_name?.trim() || "Communal",
+            },
+          };
+        })
+        .filter((v): v is SavedZoneCellLayer => v !== null);
+
+      return [...ownLayers, ...communalLayers];
+    },
+    [
+      zoneEntries,
+      communalMapZones,
+      activeSavedZoneKey,
+      removedCellIds,
+      showAllZones,
+      memberNameById,
+      currentUserId,
+      currentUserName,
+    ],
   );
 
   const savedZonePolygonLayers = useMemo<SavedZonePolygonLayer[]>(
-    () =>
-      zoneEntries
+    () => {
+      const ownLayers = zoneEntries
         .map((entry, idx): SavedZonePolygonLayer | null => {
           const active = activeSavedZoneKey != null && entry.key === activeSavedZoneKey;
           if (!showAllZones && !active) return null;
@@ -2959,8 +3143,42 @@ export default function Dashboard() {
             ),
           };
         })
-        .filter((v): v is SavedZonePolygonLayer => v !== null),
-    [zoneEntries, activeSavedZoneKey, removedPolygonKeys, showAllZones, memberNameById, currentUserId, currentUserName],
+        .filter((v): v is SavedZonePolygonLayer => v !== null);
+
+      const communalLayers = communalMapZones
+        .map((zone): SavedZonePolygonLayer | null => {
+          if (!showAllZones) return null;
+          const filtered = zoneToPolygons(zone);
+          if (filtered.length === 0) return null;
+          return {
+            key: `communal-poly-${savedZoneRecordId(zone)}`,
+            polygons: filtered,
+            color: "#8B5CF6",
+            fillOpacity: 0.1,
+            weight: 1.4,
+            tooltip: {
+              name: zone.name?.trim() || `Zone ${savedZoneId(zone)}`,
+              typeLabel: zoneTypeDisplayLabel(
+                normalizeZoneTypeValue(zone.type ?? zone.zone_type),
+              ),
+              creatorLabel: zone.owner_name?.trim() || "Communal",
+            },
+          };
+        })
+        .filter((v): v is SavedZonePolygonLayer => v !== null);
+
+      return [...ownLayers, ...communalLayers];
+    },
+    [
+      zoneEntries,
+      communalMapZones,
+      activeSavedZoneKey,
+      removedPolygonKeys,
+      showAllZones,
+      memberNameById,
+      currentUserId,
+      currentUserName,
+    ],
   );
   const helperCircles = useMemo(() => {
     const circles: Array<{
@@ -3211,14 +3429,68 @@ export default function Dashboard() {
 
   const applyCommunalFromApi = useCallback(
     (result: ZoneReferenceValidateResult) => {
-      applyReferenceZoneFromApi(result, {
-        setCode: setCommunalCode,
-        setValidation: setCommunalValidation,
-        invalidMessage: "Communal ID could not be resolved.",
-      });
+      const referenceId = (result.reference_id || "").trim().toUpperCase();
+      setCommunalCode(referenceId);
+      const exists = result.exists === true || result.valid === true;
+      setCommunalExists(exists);
+      const matched = Array.isArray(result.zones) ? result.zones : [];
+      setMatchedCommunalZones(matched);
+      if (exists) {
+        setCommunalValidation({
+          valid: true,
+          referenceId,
+          displayName: result.display_name ?? undefined,
+          geometry: {},
+          config: result.config ?? { communal_id: referenceId },
+          h3Cells: [],
+          source: result.source ?? "database",
+          exists: true,
+          matchedZones: matched,
+        });
+      } else {
+        setCommunalValidation({
+          valid: false,
+          message:
+            result.message ??
+            "Communal ID not found. You can generate a new one.",
+        });
+      }
     },
-    [applyReferenceZoneFromApi],
+    [],
   );
+
+  const removeDefiningCommunalId = useCallback((id: string) => {
+    const normalized = id.trim().toUpperCase();
+    setDefiningCommunalIds((prev) =>
+      prev.filter((item) => item !== normalized),
+    );
+  }, []);
+
+  const toggleDefiningCommunalId = useCallback((id: string) => {
+    const normalized = id.trim().toUpperCase();
+    if (!normalized) return;
+    setDefiningCommunalIds((prev) =>
+      prev.includes(normalized)
+        ? prev.filter((item) => item !== normalized)
+        : [...prev, normalized],
+    );
+  }, []);
+
+  const filteredNetworkCommunalIds = useMemo(() => {
+    const q = definingCommunalQuery.trim().toUpperCase();
+    if (!q) return publicCommunalIds;
+    return publicCommunalIds.filter((row) => {
+      const hay = [
+        row.reference_id,
+        row.network_id,
+        row.creator_name ?? "",
+        String(row.creator_id ?? ""),
+      ]
+        .join(" ")
+        .toUpperCase();
+      return hay.includes(q);
+    });
+  }, [definingCommunalQuery, publicCommunalIds]);
 
   const applyGovernmentFromApi = useCallback(
     (result: ZoneReferenceValidateResult) => {
@@ -3268,6 +3540,10 @@ export default function Dashboard() {
   );
 
   const validateCommunalId = useCallback(async () => {
+    if (!canUseCommunalTools) {
+      setSaveStatus("Only network administrators can manage Communal IDs.");
+      return;
+    }
     const referenceId = communalCode.trim();
     if (!referenceId) {
       setSaveStatus("Enter a communal ID to validate.");
@@ -3281,6 +3557,8 @@ export default function Dashboard() {
         reference_id: referenceId,
       });
       if (error || !data) {
+        setCommunalExists(null);
+        setMatchedCommunalZones([]);
         setCommunalValidation({
           valid: false,
           message: error ?? "Validation request failed.",
@@ -3289,38 +3567,61 @@ export default function Dashboard() {
         return;
       }
       applyCommunalFromApi(data);
-      if (data.valid) {
+      if (data.exists === true || data.valid === true) {
+        const count = Array.isArray(data.zones) ? data.zones.length : 0;
         setSaveStatus(
-          data.display_name
-            ? `Validated "${data.display_name}" — preview on map.`
-            : `Validated ${data.reference_id} — preview on map.`,
+          data.message ??
+            `Communal ID found on ${count} zone(s).`,
         );
       } else {
-        setSaveStatus(data.message ?? "Communal ID could not be resolved.");
+        setSaveStatus(
+          data.message ??
+            "Communal ID not found. You can generate a new one.",
+        );
       }
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Validation request failed.";
+      setCommunalExists(null);
+      setMatchedCommunalZones([]);
       setCommunalValidation({ valid: false, message });
       setSaveStatus(message);
     } finally {
       setCommunalValidating(false);
     }
-  }, [applyCommunalFromApi, communalCode]);
+  }, [applyCommunalFromApi, canUseCommunalTools, communalCode]);
 
   const generateCommunalId = useCallback(async () => {
+    if (!canUseCommunalTools) {
+      setSaveStatus("Only network administrators can generate Communal IDs.");
+      return;
+    }
     setCommunalValidating(true);
     setSaveStatus("Generating communal ID…");
     try {
       const { data, error } = await generateZoneReference({
         zone_type: "communal_id",
+        persist: false,
       });
       if (error || !data) {
         setSaveStatus(error ?? "Could not generate communal ID.");
         return;
       }
-      applyCommunalFromApi(data);
-      setSaveStatus(`Generated ${data.reference_id} — preview on map.`);
+      const referenceId = (data.reference_id || "").trim().toUpperCase();
+      setCommunalCode(referenceId);
+      setCommunalExists(false);
+      setMatchedCommunalZones([]);
+      setCommunalValidation({
+        valid: true,
+        referenceId,
+        geometry: {},
+        config: { communal_id: referenceId },
+        h3Cells: [],
+      });
+      setSaveStatus(
+        data.message ??
+          `Candidate ${referenceId}. Tap Save to register it.`,
+      );
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Could not generate communal ID.";
@@ -3328,7 +3629,7 @@ export default function Dashboard() {
     } finally {
       setCommunalValidating(false);
     }
-  }, [applyCommunalFromApi]);
+  }, [canUseCommunalTools]);
 
   const validateGovernmentAddress = useCallback(async () => {
     if (!isGovernmentAddressComplete(governmentFields)) {
@@ -3522,6 +3823,46 @@ export default function Dashboard() {
     [focusH3Cell, focusObjectZone, focusPolygonShape, focusPolygonShapes, proximityRadiusMeters],
   );
 
+  const handleSelectCommunalId = useCallback(
+    async (row: CommunalIdRow) => {
+      if (Number(row.zone_count ?? 0) <= 0) return;
+      setCommunalZonesLoading(true);
+      try {
+        let matched = communalMapZones.filter((zone) =>
+          zoneHasCommunalId(zone, row.reference_id),
+        );
+        if (matched.length === 0) {
+          const res = await listZonesForCommunalId(row.reference_id);
+          if (res.error) {
+            setSaveStatus(res.error);
+            return;
+          }
+          matched = (res.data ?? []).map((zone) => ({
+            ...(zone as SavedZone),
+            id: String(zone.id),
+            shared_via_communal: true,
+          }));
+        }
+        if (matched.length === 0) {
+          setSaveStatus("No drawable zones found for this Communal ID yet.");
+          return;
+        }
+        if (matched.length === 1) {
+          focusSavedZoneOnMap(matched[0]);
+          setSaveStatus(`Focused zone for Communal ID ${row.reference_id}.`);
+          return;
+        }
+        setCommunalZonesPicker({
+          referenceId: row.reference_id,
+          zones: matched,
+        });
+      } finally {
+        setCommunalZonesLoading(false);
+      }
+    },
+    [communalMapZones, focusSavedZoneOnMap],
+  );
+
   const didInitialZonesFitRef = useRef(false);
   useEffect(() => {
     if (zoneEntries.length === 0) {
@@ -3580,6 +3921,54 @@ export default function Dashboard() {
 
   return (
     <div className="w-full min-w-0 max-w-full overflow-x-clip rounded-lg border border-[#DCE6F2] bg-white">
+      {communalZonesPicker ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg border border-[#DCE6F2] bg-white p-4 shadow-xl">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-[#0F2C5C]">
+                  Communal ID {communalZonesPicker.referenceId}
+                </p>
+                <p className="text-[11px] text-[#8694AC]">
+                  Choose a zone to focus on the map
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCommunalZonesPicker(null)}
+                className="rounded border border-[#DCE6F2] px-2 py-1 text-xs text-[#566784]"
+              >
+                Close
+              </button>
+            </div>
+            <div className="max-h-72 space-y-1 overflow-y-auto">
+              {communalZonesPicker.zones.map((zone) => (
+                <button
+                  key={savedZoneRecordId(zone)}
+                  type="button"
+                  onClick={() => {
+                    focusSavedZoneOnMap(zone);
+                    setCommunalZonesPicker(null);
+                    setSaveStatus(
+                      `Focused "${zone.name?.trim() || savedZoneId(zone)}" for Communal ID ${communalZonesPicker.referenceId}.`,
+                    );
+                  }}
+                  className="flex w-full items-center justify-between gap-2 rounded-md border border-[#DCE6F2] px-3 py-2 text-left hover:border-[#8B5CF6]/50 hover:bg-[#F8F5FF]"
+                >
+                  <span className="truncate text-sm font-medium text-[#0F2C5C]">
+                    {zone.name?.trim() || `Zone ${savedZoneId(zone)}`}
+                  </span>
+                  <span className="shrink-0 text-[10px] uppercase tracking-[0.12em] text-[#8694AC]">
+                    {zoneTypeDisplayLabel(
+                      normalizeZoneTypeValue(zone.type ?? zone.zone_type),
+                    )}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[#DCE6F2] px-4 py-3 sm:px-6">
         <span className="text-xs font-bold uppercase tracking-[0.2em] text-[#0F2C5C]">
           H3 Hexagon Mapper
@@ -3636,22 +4025,71 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div>
-              <label className={labelClass} htmlFor="zone-name">
-                Zone name
-              </label>
-              <input
-                id="zone-name"
-                value={zoneName}
-                onChange={(e) => setZoneName(e.target.value)}
-                maxLength={MAX_ZONE_NAME_LENGTH}
-                placeholder="Enter zone name"
-                className={`w-full rounded-md border border-[#DCE6F2] ${panel} px-3 py-2 text-sm text-[#0F2C5C] focus:border-[#2F80ED]/60 focus:outline-none focus:ring-1 focus:ring-[#2F80ED]/25`}
-              />
-              <p className="mt-1 text-[10px] text-[#8694AC]">
-                Required. Max {MAX_ZONE_NAME_LENGTH} characters.
-              </p>
-            </div>
+            {zoneType !== "communal_id" ? (
+              <div>
+                <label className={labelClass} htmlFor="zone-name">
+                  Zone name
+                </label>
+                <input
+                  id="zone-name"
+                  value={zoneName}
+                  onChange={(e) => setZoneName(e.target.value)}
+                  maxLength={MAX_ZONE_NAME_LENGTH}
+                  placeholder="Enter zone name"
+                  className={`w-full rounded-md border border-[#DCE6F2] ${panel} px-3 py-2 text-sm text-[#0F2C5C] focus:border-[#2F80ED]/60 focus:outline-none focus:ring-1 focus:ring-[#2F80ED]/25`}
+                />
+                <p className="mt-1 text-[10px] text-[#8694AC]">
+                  Required. Max {MAX_ZONE_NAME_LENGTH} characters.
+                </p>
+              </div>
+            ) : null}
+
+            {zoneType !== "communal_id" &&
+            isCreatingNewZone &&
+            isAccountAdministrator &&
+            canCreateZone ? (
+              <div className="space-y-2">
+                <label className={labelClass}>Zone tier</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    disabled={!canCreatePrimary}
+                    onClick={() => setCreateAsPrimary(true)}
+                    className={`rounded-md border px-3 py-2 text-left transition ${
+                      createAsPrimary && canCreatePrimary
+                        ? "border-[#2F80ED] bg-[#2F80ED]/10 text-[#0F2C5C]"
+                        : "border-[#DCE6F2] bg-[#F7FAFE] text-[#566784]"
+                    } ${!canCreatePrimary ? "opacity-40" : ""}`}
+                  >
+                    <div className="text-sm font-semibold">Primary</div>
+                    <div className="text-[10px] text-[#8694AC]">
+                      Visible to all members
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!canCreateSecondary}
+                    onClick={() => setCreateAsPrimary(false)}
+                    className={`rounded-md border px-3 py-2 text-left transition ${
+                      !createAsPrimary && canCreateSecondary
+                        ? "border-[#2F80ED] bg-[#2F80ED]/10 text-[#0F2C5C]"
+                        : "border-[#DCE6F2] bg-[#F7FAFE] text-[#566784]"
+                    } ${!canCreateSecondary ? "opacity-40" : ""}`}
+                  >
+                    <div className="text-sm font-semibold">Secondary</div>
+                    <div className="text-[10px] text-[#8694AC]">
+                      Creator only
+                    </div>
+                  </button>
+                </div>
+                <p className="text-[10px] text-[#8694AC]">
+                  Up to {capabilities?.max_primary ?? 2} primary ·{" "}
+                  {capabilities?.admin_primary_count ?? 0} primary used ·{" "}
+                  {capabilities?.remaining_total ?? "—"} slot
+                  {(capabilities?.remaining_total ?? 0) === 1 ? "" : "s"} left
+                </p>
+              </div>
+            ) : null}
 
             <div>
               <label className={labelClass} htmlFor="zone-type">
@@ -3663,6 +4101,16 @@ export default function Dashboard() {
                 onChange={(e) => {
                   const next = normalizeZoneTypeValue(e.target.value);
                   setZoneType(next);
+                  if (next === "geofence") {
+                    setMapperMode("polygon");
+                    setSelectedCells([]);
+                  } else if (next === "grid") {
+                    setMapperMode("h3");
+                    setPolygons([]);
+                    setDraftRing([]);
+                    setCircleDraft(null);
+                    setDrawingActive(false);
+                  }
                   if (next !== "communal_id") {
                     setCommunalValidation(null);
                   }
@@ -3679,7 +4127,9 @@ export default function Dashboard() {
                 <option value="grid">Grid zoning</option>
                 <option value="proximity">Proximity-to-source</option>
                 <option value="dynamic">Dynamic-size</option>
-                <option value="communal_id">Communal ID</option>
+                {canUseCommunalTools ? (
+                  <option value="communal_id">Communal ID</option>
+                ) : null}
                 <option value="government_local_code">Government Local Code</option>
                 <option value="object">Object zoning</option>
               </select>
@@ -3754,22 +4204,34 @@ export default function Dashboard() {
                   <input
                     id="zone-proximity-radius-slider"
                     type="range"
-                    min={10}
-                    max={20000}
+                    min={PROXIMITY_RADIUS_MIN}
+                    max={PROXIMITY_RADIUS_MAX}
                     step={10}
-                    value={Math.min(Math.max(proximityRadiusMeters, 10), 20000)}
+                    value={Math.min(
+                      Math.max(proximityRadiusMeters, PROXIMITY_RADIUS_MIN),
+                      PROXIMITY_RADIUS_MAX,
+                    )}
                     onChange={(e) =>
-                      setProximityRadiusMeters(Number(e.target.value) || 10)
+                      setProximityRadiusMeters(Number(e.target.value) || PROXIMITY_RADIUS_MIN)
                     }
                     className="mt-1 w-full accent-[#2F80ED]"
                   />
                   <input
                     id="zone-proximity-radius"
                     type="number"
-                    min={1}
+                    min={PROXIMITY_RADIUS_MIN}
+                    max={PROXIMITY_RADIUS_MAX}
                     value={proximityRadiusMeters}
                     onChange={(e) =>
-                      setProximityRadiusMeters(Number(e.target.value) || 0)
+                      setProximityRadiusMeters(
+                        Math.min(
+                          PROXIMITY_RADIUS_MAX,
+                          Math.max(
+                            PROXIMITY_RADIUS_MIN,
+                            Number(e.target.value) || PROXIMITY_RADIUS_MIN,
+                          ),
+                        ),
+                      )
                     }
                     className="mt-2 w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
                   />
@@ -4217,7 +4679,12 @@ export default function Dashboard() {
             )}
 
             {zoneType === "communal_id" && (
-              <div className="space-y-2">
+              <div className="space-y-3">
+                <p className="text-[11px] text-[#8694AC]">
+                  Communal does not draw a zone. Generate or validate a Communal
+                  ID, then tap Save to register it. Attach saved IDs when
+                  creating a Primary zone.
+                </p>
                 <label className={labelClass} htmlFor="zone-communal-id">
                   Communal ID
                 </label>
@@ -4227,48 +4694,198 @@ export default function Dashboard() {
                   onChange={(e) => {
                     setCommunalCode(e.target.value);
                     setCommunalValidation(null);
+                    setCommunalExists(null);
+                    setMatchedCommunalZones([]);
                   }}
-                  placeholder="COMM-12345"
-                  className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C] uppercase"
+                  placeholder="Type or generate an ID"
+                  className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C] uppercase disabled:opacity-70"
                 />
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => void validateCommunalId()}
-                    disabled={communalValidating || !canValidateReferenceZone}
+                    disabled={communalValidating || !communalCode.trim()}
                     className="rounded-md border border-[#8B5CF6]/50 bg-[#8B5CF6]/15 px-3 py-1.5 text-xs font-medium text-[#6D28D9] hover:bg-[#8B5CF6]/25 disabled:opacity-50"
                   >
-                    {communalValidating ? "Validating…" : "Validate ID"}
+                    {communalValidating ? "Validating…" : "Validate"}
                   </button>
                   <button
                     type="button"
                     onClick={() => void generateCommunalId()}
                     disabled={communalValidating || !canValidateReferenceZone}
                     className="rounded-md border border-[#E4ECF7] bg-[#EDF3FB] px-3 py-1.5 text-xs font-medium text-[#566784] hover:bg-[#E4ECF7] disabled:opacity-50"
+                    title="Generate a new unique Communal ID"
                   >
-                    Generate ID
+                    Generate
                   </button>
                 </div>
-                {communalValidation?.valid === true && communalValidated ? (
-                  <p className="text-[10px] text-[#6D28D9]">
-                    {communalValidation.displayName
-                      ? `${communalValidation.displayName} (${communalValidation.referenceId})`
-                      : communalValidation.referenceId}{" "}
-                    — map preview ready
-                    {communalValidation.source
-                      ? ` · ${communalValidation.source}`
-                      : ""}
-                  </p>
-                ) : communalValidation?.valid === false ? (
-                  <p className="text-[10px] text-rose-600">
-                    {communalValidation.message}
+                {communalExists === true ? (
+                  <div className="space-y-1">
+                    <p className="text-[10px] text-[#6D28D9]">
+                      Communal ID ready
+                      {matchedCommunalZones.length
+                        ? ` · ${matchedCommunalZones.length} zone(s) already share it`
+                        : ""}
+                    </p>
+                    {matchedCommunalZones.map((z) => (
+                      <p
+                        key={z.id}
+                        className="text-[10px] text-[#566784]"
+                      >
+                        • {z.name} ({z.type}
+                        {z.owner_name ? ` · ${z.owner_name}` : ""})
+                      </p>
+                    ))}
+                  </div>
+                ) : communalExists === false ? (
+                  <p className="text-[10px] text-emerald-700">
+                    Communal ID not found — Generate is available.
                   </p>
                 ) : (
                   <p className="text-[10px] text-[#8694AC]">
-                    Enter an ID or generate one, validate, then confirm the boundary on
-                    the map before saving.
+                    Validate to check whether this Communal ID already exists.
                   </p>
                 )}
+              </div>
+            )}
+
+            {zoneType !== "communal_id" &&
+              canUseCommunalTools &&
+              workingAsPrimary && (
+              <div className="space-y-2 rounded-md border border-[#E4ECF7] bg-[#F7FAFE] p-3">
+                <label className={labelClass} htmlFor="defining-communal-id">
+                  Communal IDs (optional)
+                </label>
+                <p className="text-[10px] text-[#8694AC]">
+                  Tap the field to pick any public Communal ID (any network).
+                  Selected IDs appear as chips — click × to remove.
+                </p>
+                {definingCommunalIds.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {definingCommunalIds.map((id) => (
+                      <span
+                        key={id}
+                        className="inline-flex max-w-full items-center gap-1 rounded-full border border-[#8B5CF6]/40 bg-[#8B5CF6]/15 px-2.5 py-1 text-xs font-medium text-[#6D28D9]"
+                      >
+                        <span className="truncate">{id}</span>
+                        <button
+                          type="button"
+                          className="shrink-0 text-[#6D28D9] hover:text-[#4C1D95]"
+                          onClick={() => removeDefiningCommunalId(id)}
+                          aria-label={`Remove ${id}`}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-[#8694AC]">
+                    No Communal IDs connected yet.
+                  </p>
+                )}
+                <div className="relative">
+                  <input
+                    id="defining-communal-id"
+                    value={definingCommunalQuery}
+                    onChange={(e) => {
+                      setDefiningCommunalQuery(e.target.value);
+                      setDefiningCommunalPickerOpen(true);
+                    }}
+                    onFocus={() => {
+                      setDefiningCommunalPickerOpen(true);
+                    }}
+                    placeholder="Tap to select Communal IDs…"
+                    className="w-full rounded-md border border-[#DCE6F2] bg-white px-3 py-2 text-sm text-[#0F2C5C] disabled:opacity-70"
+                    autoComplete="off"
+                  />
+                  {definingCommunalPickerOpen ? (
+                    <div className="absolute left-0 right-0 z-30 mt-1 max-h-64 overflow-y-auto rounded-md border border-[#DCE6F2] bg-white shadow-lg">
+                      <div className="sticky top-0 flex items-center justify-between gap-2 border-b border-[#E4ECF7] bg-white px-3 py-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8694AC]">
+                          Select Communal IDs
+                        </p>
+                        <button
+                          type="button"
+                          className="text-[11px] font-medium text-[#2F80ED] hover:underline"
+                          onClick={() => {
+                            setDefiningCommunalPickerOpen(false);
+                            setDefiningCommunalQuery("");
+                          }}
+                        >
+                          Done
+                          {definingCommunalIds.length
+                            ? ` · ${definingCommunalIds.length}`
+                            : ""}
+                        </button>
+                      </div>
+                      {publicCommunalIds.length === 0 ? (
+                        <p className="px-3 py-3 text-xs text-[#8694AC]">
+                          No Communal IDs registered yet. Create one with the
+                          Communal tool first.
+                        </p>
+                      ) : filteredNetworkCommunalIds.length === 0 ? (
+                        <p className="px-3 py-3 text-xs text-[#8694AC]">
+                          No Communal IDs match “{definingCommunalQuery.trim()}”.
+                        </p>
+                      ) : (
+                        filteredNetworkCommunalIds.map((row) => {
+                          const active = definingCommunalIds.includes(
+                            row.reference_id,
+                          );
+                          const generator =
+                            row.creator_name?.trim() ||
+                            (row.creator_id != null
+                              ? `User #${row.creator_id}`
+                              : "Unknown");
+                          const network = row.network_id?.trim() || "—";
+                          const zonesLabel =
+                            row.zone_count === 0
+                              ? "0 zones"
+                              : `${row.zone_count} zone${row.zone_count === 1 ? "" : "s"}`;
+                          return (
+                            <button
+                              key={row.reference_id}
+                              type="button"
+                              onClick={() =>
+                                toggleDefiningCommunalId(row.reference_id)
+                              }
+                              className={`flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-[#F7FAFE] ${
+                                active ? "bg-[#8B5CF6]/10" : ""
+                              }`}
+                            >
+                              <span
+                                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
+                                  active
+                                    ? "border-[#8B5CF6] bg-[#8B5CF6] text-white"
+                                    : "border-[#DCE6F2] bg-white"
+                                }`}
+                              >
+                                {active ? "✓" : ""}
+                              </span>
+                              <span className="max-w-[46%] shrink min-w-0">
+                                <span className="block truncate text-xs font-semibold text-[#0F2C5C]">
+                                  {row.reference_id}
+                                </span>
+                                <span className="block truncate text-[10px] text-[#8694AC]">
+                                  {zonesLabel}
+                                </span>
+                              </span>
+                              <span className="min-w-0 flex-1 text-right">
+                                <span className="block truncate text-[11px] font-medium text-[#566784]">
+                                  {generator}
+                                </span>
+                                <span className="block truncate text-[10px] text-[#8694AC]">
+                                  {network}
+                                </span>
+                              </span>
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  ) : null}
+                </div>
               </div>
             )}
 
@@ -4477,8 +5094,16 @@ export default function Dashboard() {
                     id="zone-object-radius"
                     type="number"
                     min={1}
+                    max={OBJECT_RADIUS_MAX}
                     value={objectRadiusMeters}
-                    onChange={(e) => setObjectRadiusMeters(Number(e.target.value) || 0)}
+                    onChange={(e) =>
+                      setObjectRadiusMeters(
+                        Math.min(
+                          OBJECT_RADIUS_MAX,
+                          Math.max(1, Number(e.target.value) || 0),
+                        ),
+                      )
+                    }
                     className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
                   />
                 </div>
@@ -4491,38 +5116,45 @@ export default function Dashboard() {
 
             {usesMapGeometry ? (
               <div>
-                <p className={labelClass}>Mode</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMapperMode("h3");
-                      setDrawingActive(false);
-                      setDraftRing([]);
-                    }}
-                    className={`rounded-md border px-3 py-2.5 text-sm font-medium transition ${
-                      mapperMode === "h3"
-                        ? "border-[#2F80ED] bg-[#EDF3FB] text-[#2F80ED]"
-                        : "border-[#DCE6F2] bg-[#F7FAFE] text-[#8694AC]"
-                    }`}
-                  >
-                    H3
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMapperMode("polygon");
-                      setActiveTool(null);
-                    }}
-                    className={`rounded-md border px-3 py-2.5 text-sm font-medium transition ${
-                      mapperMode === "polygon"
-                        ? "border-[#2F80ED] bg-[#EDF3FB] text-[#2F80ED]"
-                        : "border-[#DCE6F2] bg-[#F7FAFE] text-[#8694AC]"
-                    }`}
-                  >
-                    Polygon
-                  </button>
-                </div>
+                <p className={labelClass}>Draw mode</p>
+                <p className="mt-1 text-[10px] text-[#8694AC]">
+                  {zoneType === "grid"
+                    ? "Grid zoning uses H3 cells only (same as mobile)."
+                    : "Geofence uses polygon or circle drawing only (same as mobile)."}
+                </p>
+                {zoneType === "geofence" ? (
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGeofenceDrawTool("polygon");
+                        setCircleDraft(null);
+                      }}
+                      className={`rounded-md border px-3 py-2.5 text-sm font-medium transition ${
+                        geofenceDrawTool === "polygon"
+                          ? "border-[#2F80ED] bg-[#EDF3FB] text-[#2F80ED]"
+                          : "border-[#DCE6F2] bg-[#F7FAFE] text-[#8694AC]"
+                      }`}
+                    >
+                      Polygon
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGeofenceDrawTool("circle");
+                        setDraftRing([]);
+                        setDrawingActive(false);
+                      }}
+                      className={`rounded-md border px-3 py-2.5 text-sm font-medium transition ${
+                        geofenceDrawTool === "circle"
+                          ? "border-[#2F80ED] bg-[#EDF3FB] text-[#2F80ED]"
+                          : "border-[#DCE6F2] bg-[#F7FAFE] text-[#8694AC]"
+                      }`}
+                    >
+                      Circle
+                    </button>
+                  </div>
+                ) : null}
               </div>
             ) : (
               <p className="text-[10px] text-[#8694AC]">
@@ -4864,6 +5496,62 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <div className="rounded-md border border-[#DCE6F2] bg-white p-2">
+                  {networkCommunalIds.length > 0 ? (
+                    <div className="mb-2 space-y-1 border-b border-[#E4ECF7] pb-2">
+                      <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8694AC]">
+                        Communal IDs ({networkCommunalIds.length})
+                      </p>
+                      {networkCommunalIds.map((row) => {
+                        const generator =
+                          row.creator_name?.trim() ||
+                          (row.creator_id != null
+                            ? `User #${row.creator_id}`
+                            : "Unknown");
+                        const network = row.network_id?.trim() || "—";
+                        const zonesLabel =
+                          row.zone_count === 0
+                            ? "0 zones"
+                            : `${row.zone_count} zone${row.zone_count === 1 ? "" : "s"}`;
+                        const canOpen = Number(row.zone_count ?? 0) > 0;
+                        return (
+                          <button
+                            key={row.reference_id}
+                            type="button"
+                            disabled={!canOpen || communalZonesLoading}
+                            onClick={() => void handleSelectCommunalId(row)}
+                            className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition ${
+                              canOpen
+                                ? "hover:bg-[#F3EEFF]"
+                                : "cursor-default opacity-70"
+                            }`}
+                            title={
+                              canOpen
+                                ? "Show zones tagged with this Communal ID on the map"
+                                : "No zones attached yet"
+                            }
+                          >
+                            <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-[#8B5CF6]" />
+                            <div className="max-w-[46%] min-w-0 shrink">
+                              <p className="truncate text-xs font-semibold text-[#0F2C5C]">
+                                {row.reference_id}
+                              </p>
+                              <p className="truncate text-[10px] text-[#8694AC]">
+                                {zonesLabel}
+                              </p>
+                            </div>
+                            <div className="min-w-0 flex-1 text-right">
+                              <p className="truncate text-[11px] font-medium text-[#566784]">
+                                {generator}
+                              </p>
+                              <p className="truncate text-[10px] text-[#8694AC]">
+                                {network}
+                              </p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
                   {zonesError ? (
                     <p className="text-xs text-[#E23B4E]">{zonesError}</p>
                   ) : (
@@ -5106,13 +5794,23 @@ export default function Dashboard() {
               >
                 <Download className="h-4 w-4" strokeWidth={2} />
               </button>
+              {zoneType !== "communal_id" || canUseCommunalTools ? (
                 <button
-                type="button"
-                onClick={handleSave}
-                className="ml-auto min-w-[120px] flex-1 rounded-md bg-[#2F80ED] px-4 py-2.5 text-sm font-bold text-white sm:flex-none"
-              >
-                {isCreatingNewZone ? "Create zone" : "Save zone"}
-              </button>
+                  type="button"
+                  onClick={handleSave}
+                  disabled={
+                    zoneType === "communal_id" &&
+                    (communalCode.trim().length < 3 || communalExists === true)
+                  }
+                  className="ml-auto min-w-[120px] flex-1 rounded-md bg-[#2F80ED] px-4 py-2.5 text-sm font-bold text-white sm:flex-none disabled:opacity-50"
+                >
+                  {zoneType === "communal_id"
+                    ? "Save"
+                    : isCreatingNewZone
+                      ? "Create zone"
+                      : "Save zone"}
+                </button>
+              ) : null}
             </div>
             {saveStatus ? (
               <p className="mt-2 text-center text-xs text-[#8694AC]">

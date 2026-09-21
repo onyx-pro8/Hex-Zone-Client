@@ -18,7 +18,16 @@ type MessageFeatureEnvelopeType =
 export type MessageFeatureSocketEvent =
   | IncomingNewMessage
   | { type: "NEW_GEO_MESSAGE"; data: MessageFeaturePropagationResponse }
-  | { type: "PERMISSION_MESSAGE"; data: MessageFeaturePermissionDecision };
+  | { type: "PERMISSION_MESSAGE"; data: MessageFeaturePermissionDecision }
+  | {
+      type: "SMART_HOME_WEBHOOK";
+      data: {
+        ok?: boolean;
+        hid?: string;
+        title?: string;
+        toast?: string;
+      };
+    };
 
 type SocketEvent =
   | MessageFeatureSocketEvent
@@ -255,6 +264,21 @@ export function parseMessageFeatureSocketEvent(
     }
     if (parsed.type === "PERMISSION_MESSAGE" && isPermissionDecision(parsed.data)) {
       return { type: "PERMISSION_MESSAGE", data: parsed.data };
+    }
+    if (
+      parsed.type === "SMART_HOME_WEBHOOK" &&
+      parsed.data &&
+      typeof parsed.data === "object"
+    ) {
+      return {
+        type: "SMART_HOME_WEBHOOK",
+        data: parsed.data as {
+          ok?: boolean;
+          hid?: string;
+          title?: string;
+          toast?: string;
+        },
+      };
     }
   } catch {
     /* ignore */

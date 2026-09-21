@@ -5,6 +5,7 @@ import { useAuth } from "../hooks/useAuth";
 import { generateQrRegistrationToken, parseApiErrorBody } from "../lib/api";
 import {
   canAdministratorInviteUserMember,
+  isSystemAdministrator,
   memberInviteUnavailableHint,
   normalizeAccountType,
 } from "../lib/accountLimits";
@@ -21,6 +22,11 @@ export default function QrInvite() {
     user?.account_type,
   );
   const canInviteUserMember = canAdministratorInviteUserMember({
+    role: user?.role,
+    accountType: user?.accountType,
+    legacyAccountType: user?.account_type,
+  });
+  const isSystemAdmin = isSystemAdministrator({
     role: user?.role,
     accountType: user?.accountType,
     legacyAccountType: user?.account_type,
@@ -111,11 +117,13 @@ export default function QrInvite() {
     <section className="space-y-6">
       <div className="rounded-2xl border border-[#DCE6F2] bg-white p-6 shadow-sm">
         <span className="inline-flex items-center gap-2 rounded-full bg-[#EDF3FB] px-4 py-2 text-sm font-medium text-[#2F80ED]">
-          <QrCode size={16} strokeWidth={2} /> Scan to join
+          <QrCode size={16} strokeWidth={2} />{" "}
+          {isSystemAdmin ? "Invite network admin" : "Scan to join"}
         </span>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#566784]">
-          Generate a code that links to your zone. New teammates scan it, enter
-          their details, and register on your account.
+          {isSystemAdmin
+            ? "Generate a code that lets someone create an Individual (user-role) account for a new network. They choose their own network ID when they register."
+            : "Generate a code that links to your zone. New teammates scan it and register as Individual (user-role) members on your network."}
         </p>
       </div>
 
@@ -152,8 +160,9 @@ export default function QrInvite() {
         <div className="rounded-[2rem] border border-[#DCE6F2] bg-white p-8 shadow-glow">
           <h2 className="text-lg font-semibold text-[#0F2C5C]">Invite link</h2>
           <p className="mt-2 text-sm text-[#566784]">
-            The QR encodes a secure invite token. New users join with your zone
-            ID from that token.
+            {isSystemAdmin
+              ? "The QR encodes a secure invite token. The invitee creates an Individual (user-role) account for a network ID they enter on the join form."
+              : "The QR encodes a secure invite token. Invitees join your zone as Individual (user-role) members."}
           </p>
 
           {loadingToken && (
@@ -214,7 +223,9 @@ export default function QrInvite() {
               {
                 step: "01",
                 title: "Share",
-                body: "Show the QR on a phone or print it for your team.",
+                body: isSystemAdmin
+                  ? "Show the QR or share the link with the person who will run a new network."
+                  : "Show the QR on a phone or print it for your team.",
               },
               {
                 step: "02",
@@ -224,7 +235,9 @@ export default function QrInvite() {
               {
                 step: "03",
                 title: "Register",
-                body: "They submit details and are attached to your zone automatically.",
+                body: isSystemAdmin
+                  ? "They set a network ID and create an Individual (user-role) account for that new network."
+                  : "They submit details and join your zone as an Individual (user-role) member.",
               },
             ].map((item) => (
               <div key={item.step} className="flex gap-4">

@@ -66,9 +66,10 @@ export type Message = {
   subtopic?: string | null;
   /** Human-readable topic path for display. */
   topic_label?: string | null;
-  /** Network id for the acceptable zone relevant to this viewer (geo messages). */
+  /** Sender home/account network id for the inbox zone heading. */
   relevant_zone_network_id?: string | null;
   relevant_zone_name?: string | null;
+  /** `{delivery zone} ({sender network id})` or `My zone and N more zones`. */
   relevant_zone_label?: string | null;
   /** Up to 5 image URLs attached to the message. */
   images?: string[];
@@ -508,9 +509,13 @@ export function normalizeMessage(raw: unknown): Message | null {
   const useGuestLogicalSender =
     senderIdValue == null && accessGuestChannel && guestSenderIdRaw != null;
 
-  const resolvedSenderId = useGuestLogicalSender
+  let resolvedSenderId = useGuestLogicalSender
     ? GUEST_LOGICAL_SENDER_ID
     : senderIdValue;
+  // Server redacts NS_PANIC sender identity (anti-retaliation); accept null sender.
+  if (resolvedSenderId == null && type === "NS_PANIC") {
+    resolvedSenderId = GUEST_LOGICAL_SENDER_ID;
+  }
 
   if (useGuestLogicalSender && guestSenderIdRaw) {
     logGuestLogicalSenderAccepted(id, guestSenderIdRaw);
@@ -637,19 +642,23 @@ export function messageFromGeoPropagation(
       ? (meta.msg as Record<string, unknown>)
       : null;
   const senderFromMeta = meta?.sender_id ?? meta?.senderId;
-  const senderId =
+  let senderId =
     typeof propagation.sender_id === "number"
       ? propagation.sender_id
       : typeof senderFromMeta === "number"
         ? senderFromMeta
         : null;
-  if (senderId == null || !Number.isFinite(senderId)) {
-    return null;
-  }
   const scopeRaw = String(propagation.scope ?? "public").toLowerCase();
   const visibility: MessageVisibility =
     scopeRaw === "private" ? "private" : "public";
   const type = toMessageType(propagation.type) ?? "UNKNOWN";
+  // Server redacts NS_PANIC sender identity; keep the realtime row.
+  if ((senderId == null || !Number.isFinite(senderId)) && type === "NS_PANIC") {
+    senderId = GUEST_LOGICAL_SENDER_ID;
+  }
+  if (senderId == null || !Number.isFinite(senderId)) {
+    return null;
+  }
   const bodyFromMeta = metadataMsg ?? null;
   const servicePa = extractServicePaFields(bodyFromMeta);
   const images = extractMessageImages(
@@ -666,6 +675,10 @@ export function messageFromGeoPropagation(
   if (id == null || !zoneId || typeof createdAt !== "string") {
     return null;
   }
+  const topBroadcast =
+    typeof (propagation as { broadcast_name?: unknown }).broadcast_name === "string"
+      ? String((propagation as { broadcast_name?: string }).broadcast_name).trim()
+      : "";
   const coordinates = extractMessagePosition(
     propagation as unknown as Record<string, unknown>,
     meta,
@@ -682,6 +695,7 @@ export function messageFromGeoPropagation(
     message: text,
     created_at: createdAt,
     msg: bodyFromMeta,
+    ...(topBroadcast ? { broadcast_name: topBroadcast } : {}),
     ...(servicePa.subject ? { subject: servicePa.subject } : {}),
     ...(servicePa.topic ? { topic: servicePa.topic } : {}),
     ...(servicePa.subtopic ? { subtopic: servicePa.subtopic } : {}),

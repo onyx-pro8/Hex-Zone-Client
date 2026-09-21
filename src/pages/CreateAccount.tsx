@@ -103,8 +103,6 @@ export default function CreateAccount() {
 
   const selectedZoneId =
     useExistingZone && existingZoneId ? existingZoneId : zoneId;
-  const userOnExclusiveAccount =
-    registrationType === "USER" && accountType === "EXCLUSIVE";
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -113,12 +111,6 @@ export default function CreateAccount() {
     if (!code) {
       setError(
         "Registration code is missing. Wait for the server to issue one, or use Retry.",
-      );
-      return;
-    }
-    if (userOnExclusiveAccount) {
-      setError(
-        "Exclusive accounts only allow 1 invited user. Ask the administrator for a QR invite instead of self-registering.",
       );
       return;
     }
@@ -313,12 +305,6 @@ export default function CreateAccount() {
                         key={option.value}
                         type="button"
                         onClick={() => {
-                          if (registrationType === "USER" && option.value === "EXCLUSIVE") {
-                            setError(
-                              "Exclusive account type is not valid for user registration.",
-                            );
-                            return;
-                          }
                           setAccountType(option.value);
                           setError("");
                         }}

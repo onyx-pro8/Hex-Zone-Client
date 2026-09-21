@@ -33,6 +33,7 @@ import { AppStateProvider } from "./state/app/AppStateContext";
 import { useMessageFeatureBootstrap } from "./hooks/useMessageFeatureBootstrap";
 import { useLocationSync } from "./hooks/useLocationSync";
 import { AlarmNotificationsHost } from "./components/AlarmNotificationsHost";
+import { UiToastHost } from "./components/UiToastHost";
 import { AlarmInboxProvider } from "./state/alarm/AlarmInboxContext";
 import { AlarmNotificationsProvider } from "./state/alarm/AlarmNotificationsContext";
 
@@ -261,6 +262,7 @@ export default function App() {
             <MessageFeatureBootstrap />
             <LocationSync />
             <AlarmNotificationsHost />
+            <UiToastHost />
             <Shell />
           </AlarmInboxProvider>
         </AlarmNotificationsProvider>

@@ -16,6 +16,7 @@ import {
   parseMessageFeatureSocketEvent,
   parseMessageSocketPayload,
 } from "../services/socket/messageSocket";
+import { toastSmartHomeWebhookOwnerResult } from "../lib/smartHomeToast";
 import { isAlarmUnread, withAlarmMarkedRead } from "../lib/alarmRead";
 import { useAuth } from "./useAuth";
 import { useAppState } from "../state/app/AppStateContext";
@@ -182,6 +183,10 @@ export function useMessageFeed(zoneIds: string[]) {
       return;
     }
     const geoEvent = parseMessageFeatureSocketEvent(lastMessage);
+    if (geoEvent?.type === "SMART_HOME_WEBHOOK") {
+      toastSmartHomeWebhookOwnerResult(geoEvent.data);
+      return;
+    }
     if (geoEvent?.type === "NEW_GEO_MESSAGE") {
       applyGeoPropagationToInbox(geoEvent.data);
       return;

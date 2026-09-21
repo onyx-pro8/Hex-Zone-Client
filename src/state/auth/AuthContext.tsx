@@ -175,6 +175,30 @@ function normalizeUser(raw: AuthUser | null): AuthUser | null {
         : true,
     zoneId,
     zone_id: raw.zone_id ?? zoneId,
+    communal_id:
+      (typeof (raw as AuthUser).communal_id === "string" &&
+        (raw as AuthUser).communal_id!.trim()) ||
+      (typeof (raw as AuthUser).communalId === "string" &&
+        (raw as AuthUser).communalId!.trim()) ||
+      null,
+    communalId:
+      (typeof (raw as AuthUser).communalId === "string" &&
+        (raw as AuthUser).communalId!.trim()) ||
+      (typeof (raw as AuthUser).communal_id === "string" &&
+        (raw as AuthUser).communal_id!.trim()) ||
+      null,
+    tier_level:
+      typeof (raw as AuthUser).tier_level === "number"
+        ? (raw as AuthUser).tier_level!
+        : typeof (raw as AuthUser).tierLevel === "number"
+          ? (raw as AuthUser).tierLevel!
+          : null,
+    tierLevel:
+      typeof (raw as AuthUser).tierLevel === "number"
+        ? (raw as AuthUser).tierLevel!
+        : typeof (raw as AuthUser).tier_level === "number"
+          ? (raw as AuthUser).tier_level!
+          : null,
   };
 }
 

@@ -29,6 +29,10 @@ export type AuthUser = {
   mapCenter?: { latitude: number; longitude: number } | null;
   map_center?: { latitude: number; longitude: number } | null;
   active?: boolean;
+  communal_id?: string | null;
+  communalId?: string | null;
+  tier_level?: number | null;
+  tierLevel?: number | null;
 };
 
 export type OwnerListItem = {

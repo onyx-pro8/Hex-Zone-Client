@@ -9,6 +9,7 @@ const mockMap = vi.fn((props?: unknown) => (
 ));
 
 const mockUseZones = vi.fn();
+const mockUseAuth = vi.fn();
 
 vi.mock("../components/HexMapperMap", () => ({
   __esModule: true,
@@ -39,27 +40,27 @@ vi.mock("../components/AddressAutocompleteInput", () => ({
 
 const mockValidateZoneReference = vi.fn();
 const mockGenerateZoneReference = vi.fn();
+const mockListCommunalIds = vi.fn();
+const mockListZonesForCommunalId = vi.fn();
 
 vi.mock("../services/api/zoneReferences", () => ({
   validateZoneReference: (...args: unknown[]) => mockValidateZoneReference(...args),
   generateZoneReference: (...args: unknown[]) => mockGenerateZoneReference(...args),
+  listCommunalIds: (...args: unknown[]) => mockListCommunalIds(...args),
+  listZonesForCommunalId: (...args: unknown[]) => mockListZonesForCommunalId(...args),
 }));
 
 vi.mock("../hooks/useAuth", () => ({
-  useAuth: () => ({
-    user: {
-      id: "u-1",
-      role: "standard",
-      zone_id: "owner-zone",
-      first_name: "Test",
-      last_name: "User",
-      email: "test@example.com",
-    },
-  }),
+  useAuth: () => mockUseAuth(),
 }));
 
 vi.mock("../hooks/useZones", () => ({
   useZones: (...args: unknown[]) => mockUseZones(...args),
+}));
+
+vi.mock("../services/api/members", () => ({
+  getMembers: vi.fn().mockResolvedValue({ data: [], error: null }),
+  updateLocation: vi.fn().mockResolvedValue({ data: null, error: null }),
 }));
 
 const communalValidationResponse = {
@@ -92,16 +93,34 @@ const baseZones = [
     zone_id: "owner-zone",
     name: "Alpha",
     h3_cells: ["a"],
-    can_edit: true,
+    creator_id: "u-1",
+    type: "grid",
   },
   {
     id: "2",
     zone_id: "owner-zone",
     name: "Beta",
     h3_cells: ["b"],
-    can_edit: true,
+    creator_id: "u-1",
+    type: "grid",
   },
 ];
+
+const standardUser = {
+  id: "u-1",
+  role: "standard",
+  zone_id: "owner-zone",
+  accountType: "PRIVATE_PLUS",
+  first_name: "Test",
+  last_name: "User",
+  email: "test@example.com",
+};
+
+const adminUser = {
+  ...standardUser,
+  role: "administrator",
+  accountType: "PRIVATE_PLUS",
+};
 
 function renderDashboard() {
   return render(
@@ -115,9 +134,19 @@ describe("Dashboard zone management", () => {
   beforeEach(() => {
     mockMap.mockClear();
     mockUseZones.mockReset();
+    mockUseAuth.mockReset();
     mockValidateZoneReference.mockReset();
     mockGenerateZoneReference.mockReset();
+    mockListCommunalIds.mockReset();
+    mockListZonesForCommunalId.mockReset();
+    mockUseAuth.mockReturnValue({ user: standardUser });
+    mockListCommunalIds.mockResolvedValue({ data: [], error: null });
+    mockListZonesForCommunalId.mockResolvedValue({ data: [], error: null });
     mockValidateZoneReference.mockResolvedValue({
+      data: communalValidationResponse,
+      error: null,
+    });
+    mockGenerateZoneReference.mockResolvedValue({
       data: communalValidationResponse,
       error: null,
     });
@@ -131,6 +160,8 @@ describe("Dashboard zone management", () => {
       error: null,
       saveZone: vi.fn(),
       updateSavedZone: vi.fn(),
+      deleteSavedZone: vi.fn(),
+      refresh: vi.fn(),
     });
 
     renderDashboard();
@@ -147,6 +178,7 @@ describe("Dashboard zone management", () => {
       expect(layers).toHaveLength(2);
     });
 
+    fireEvent.click(screen.getByRole("button", { name: "Alpha" }));
     fireEvent.click(screen.getByLabelText("Show all zones on map"));
     await waitFor(() => {
       const layers = latestProps().savedZoneCellLayers as Array<{
@@ -185,6 +217,8 @@ describe("Dashboard zone management", () => {
       error: null,
       saveZone: vi.fn(),
       updateSavedZone: vi.fn(),
+      deleteSavedZone: vi.fn(),
+      refresh: vi.fn(),
     });
 
     renderDashboard();
@@ -196,36 +230,49 @@ describe("Dashboard zone management", () => {
     ).toBeGreaterThan(0);
   });
 
-  it("persists trimmed zone name when creating a zone", async () => {
-    const saveZone = vi.fn().mockResolvedValue({});
+  it("saves a Communal ID via generate-reference for network admins", async () => {
+    mockUseAuth.mockReturnValue({ user: adminUser });
     mockUseZones.mockReturnValue({
       zones: [],
-      capabilities: { can_create_zone: true },
+      capabilities: {
+        can_create_zone: true,
+        can_create_primary: true,
+        max_primary: 2,
+        role: "administrator",
+      },
       loading: false,
       error: null,
-      saveZone,
+      saveZone: vi.fn(),
       updateSavedZone: vi.fn(),
+      deleteSavedZone: vi.fn(),
+      refresh: vi.fn(),
+    });
+    mockValidateZoneReference.mockResolvedValue({
+      data: {
+        ...communalValidationResponse,
+        valid: false,
+        exists: false,
+        message: "Available",
+      },
+      error: null,
     });
 
     renderDashboard();
 
-    fireEvent.click(screen.getByRole("button", { name: /\+ New zone/i }));
-    fireEvent.change(screen.getByLabelText("Zone name"), {
-      target: { value: "  Operations West  " },
-    });
     fireEvent.change(screen.getByLabelText("Zone type"), {
       target: { value: "communal_id" },
     });
     fireEvent.change(screen.getByLabelText("Communal ID"), {
       target: { value: "COMM-1" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /Validate ID/i }));
-    await waitFor(() => expect(mockValidateZoneReference).toHaveBeenCalled());
-    fireEvent.click(screen.getByRole("button", { name: /Create zone/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Save$/i }));
 
-    await waitFor(() => expect(saveZone).toHaveBeenCalledTimes(1));
-    const payload = saveZone.mock.calls[0][0] as { name: string };
-    expect(payload.name).toBe("Operations West");
+    await waitFor(() => expect(mockGenerateZoneReference).toHaveBeenCalled());
+    expect(mockGenerateZoneReference.mock.calls[0][0]).toMatchObject({
+      zone_type: "communal_id",
+      reference_id: "COMM-1",
+      persist: true,
+    });
   });
 
   it("shows backend quota errors when save is blocked", async () => {
@@ -239,25 +286,51 @@ describe("Dashboard zone management", () => {
       error: null,
       saveZone: vi.fn(),
       updateSavedZone,
+      deleteSavedZone: vi.fn(),
+      refresh: vi.fn(),
     });
 
     renderDashboard();
 
-    fireEvent.change(screen.getByLabelText("Zone type"), {
-      target: { value: "communal_id" },
+    fireEvent.click(screen.getByRole("button", { name: "Alpha" }));
+    fireEvent.change(screen.getByLabelText("Zone name"), {
+      target: { value: "Alpha Updated" },
     });
-    fireEvent.change(screen.getByLabelText("Communal ID"), {
-      target: { value: "COMM-2" },
-    });
-    mockValidateZoneReference.mockResolvedValueOnce({
-      data: { ...communalValidationResponse, reference_id: "COMM-2" },
-      error: null,
-    });
-    fireEvent.click(screen.getByRole("button", { name: /Validate ID/i }));
-    await waitFor(() => expect(mockValidateZoneReference).toHaveBeenCalled());
-    fireEvent.click(screen.getByRole("button", { name: /Save zone/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Save zone|Update/i }));
 
     await waitFor(() => expect(updateSavedZone).toHaveBeenCalledTimes(1));
     expect(screen.getByText(/Quota limit:/i)).toBeInTheDocument();
+  });
+
+  it("hides Communal ID tools for Individual accounts even when role is administrator", async () => {
+    mockUseAuth.mockReturnValue({
+      user: {
+        ...adminUser,
+        accountType: "EXCLUSIVE",
+      },
+    });
+    mockUseZones.mockReturnValue({
+      zones: [],
+      capabilities: {
+        can_create_zone: true,
+        can_create_primary: true,
+        max_primary: 2,
+        role: "administrator",
+      },
+      loading: false,
+      error: null,
+      saveZone: vi.fn(),
+      updateSavedZone: vi.fn(),
+      deleteSavedZone: vi.fn(),
+      refresh: vi.fn(),
+    });
+
+    renderDashboard();
+
+    const typeSelect = screen.getByLabelText("Zone type") as HTMLSelectElement;
+    expect(
+      Array.from(typeSelect.options).some((opt) => opt.value === "communal_id"),
+    ).toBe(false);
+    expect(screen.queryByText("Zone tier")).not.toBeInTheDocument();
   });
 });
