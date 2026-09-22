@@ -9,6 +9,7 @@ import {
 } from "react";
 import {
   alarmFromPropagation,
+  alarmTitle,
   isAlarmType,
   notificationPermission,
   playAlarmSound,
@@ -64,7 +65,7 @@ export function AlarmNotificationsProvider({ children }: { children: ReactNode }
       /* ignore audio failures */
     }
 
-    const title = `Hex Zone ${String(propagation.type ?? "ALARM").replace(/_/g, " ")}`;
+    const title = alarmTitle(payload);
     const body = payload.text || title;
     const createdAt = propagation.created_at ?? new Date().toISOString();
     setActiveAlarms((prev) => {
