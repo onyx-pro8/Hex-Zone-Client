@@ -120,7 +120,9 @@ export function parseInboxSocketRefetchSignal(raw: string): boolean {
       t === "unexpected_guest" ||
       t === "guest_is_here" ||
       t === "BLOCKS_CHANGED" ||
-      t === "GUEST_REQUEST_CHANGED"
+      t === "GUEST_REQUEST_CHANGED" ||
+      t === "guest_zone_message" ||
+      t === "GUEST_PRESENCE"
     );
   } catch {
     return false;

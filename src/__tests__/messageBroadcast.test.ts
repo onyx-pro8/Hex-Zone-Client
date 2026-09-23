@@ -50,4 +50,13 @@ describe("messageBroadcastLabel", () => {
       }),
     ).toBe("Sam");
   });
+
+  it("shows the guest real name instead of a generic Guest label", () => {
+    const message = baseMessage({
+      sender_id: 0,
+      guest_sender_id: "g-3",
+      raw_payload: { guest_name: "Guest 3" },
+    });
+    expect(messageBroadcastLabel(message, { selfOwnerId: 7 })).toBe("Guest 3");
+  });
 });
