@@ -27,8 +27,8 @@ export default function GuestPasses() {
   }
 
   const tabs: { key: Tab; label: string; adminOnly: boolean }[] = [
-    { key: "request", label: "Request Guest Pass", adminOnly: false },
-    { key: "list", label: "Guest Pass Requests", adminOnly: true },
+    { key: "request", label: "Create Guest Pass", adminOnly: false },
+    { key: "list", label: "Guest Passes", adminOnly: false },
   ];
 
   const visibleTabs = tabs;

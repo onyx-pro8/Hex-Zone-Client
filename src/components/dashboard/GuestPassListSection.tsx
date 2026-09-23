@@ -1,19 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  Check,
   ChevronDown,
   ChevronUp,
   RefreshCw,
   ShieldAlert,
-  X,
   Ban,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { useWebSocket } from "../../hooks/useWebSocket";
 import {
-  acceptGuestPass,
   listGuestPasses,
-  rejectGuestPass,
   revokeGuestPass,
   type GuestPass,
   type GuestPassStatus,
@@ -109,13 +105,10 @@ export function GuestPassListSection({ zoneId, isAdmin }: Props) {
     }
   }, [lastMessage, refresh]);
 
-  const runAction = async (
-    action: (id: string, zid: string) => ReturnType<typeof acceptGuestPass>,
-    passId: string,
-  ) => {
+  const runRevoke = async (passId: string) => {
     setBusyId(passId);
     setActionError("");
-    const res = await action(passId, normalizedZoneId);
+    const res = await revokeGuestPass(passId, normalizedZoneId);
     setBusyId(null);
     if (res.error) {
       setActionError(res.error);
@@ -135,10 +128,10 @@ export function GuestPassListSection({ zoneId, isAdmin }: Props) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-[#0F2C5C]">
-            Guest pass requests
+            Guest passes
           </h2>
           <p className="mt-1 max-w-2xl text-xs text-[#8694AC]">
-            All guest passes for this zone. Accept, reject, or revoke as needed.
+            New Event IDs are accepted immediately. Admins can revoke a live pass.
           </p>
         </div>
         <button
@@ -169,13 +162,11 @@ export function GuestPassListSection({ zoneId, isAdmin }: Props) {
 
       <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {passes.length === 0 && !loading && (
-          <p className="text-sm text-[#8694AC]">No guest pass requests yet.</p>
+          <p className="text-sm text-[#8694AC]">No guest passes yet.</p>
         )}
 
         {visible.map((pass) => {
           const expired = isExpired(pass);
-          const showAcceptReject =
-            pass.status === "PENDING" && !expired && isAdmin;
           const showRevoke = pass.status === "ACCEPTED" && !expired && isAdmin;
 
           return (
@@ -231,33 +222,12 @@ export function GuestPassListSection({ zoneId, isAdmin }: Props) {
                 Ref · {pass.id}
               </div>
 
-              {showAcceptReject && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={busyId === pass.id}
-                    onClick={() => void runAction(acceptGuestPass, pass.id)}
-                    className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-[#2FA24A] px-3 py-2 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-50 sm:flex-none"
-                  >
-                    <Check className="h-3.5 w-3.5" /> Accept
-                  </button>
-                  <button
-                    type="button"
-                    disabled={busyId === pass.id}
-                    onClick={() => void runAction(rejectGuestPass, pass.id)}
-                    className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg bg-[#E23B4E] px-3 py-2 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-50 sm:flex-none"
-                  >
-                    <X className="h-3.5 w-3.5" /> Reject
-                  </button>
-                </div>
-              )}
-
               {showRevoke && (
                 <div className="mt-4">
                   <button
                     type="button"
                     disabled={busyId === pass.id}
-                    onClick={() => void runAction(revokeGuestPass, pass.id)}
+                    onClick={() => void runRevoke(pass.id)}
                     className="inline-flex items-center gap-1 rounded-lg bg-[#E0992A] px-3 py-2 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-50"
                   >
                     <Ban className="h-3.5 w-3.5" /> Revoke

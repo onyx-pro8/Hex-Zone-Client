@@ -65,18 +65,18 @@ export function GuestPassRequestForm({ zoneId }: Props) {
   return (
     <div className="mx-auto max-w-7xl">
       <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-[#0F2C5C]">
-        Request guest pass
+        Create guest pass
       </h2>
       <p className="mt-1 max-w-2xl text-xs text-[#8694AC]">
-        Create a guest pass with an Event ID that you share with your guest.
-        When they arrive, they enter this ID to gain pre-approved access.
+        Create a guest pass with a new Event ID. It is accepted immediately —
+        share the ID with your guest so they can use it on arrival.
       </p>
 
       {successEventId && (
         <div className="mt-4 flex items-start gap-2 rounded-lg border border-[#2FA24A]/30 bg-[#E3F4E8] px-3 py-2.5 text-xs text-[#2FA24A]">
           <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#2FA24A]" />
           <span>
-            Guest pass created! Share this Event ID with your guest:{" "}
+            Guest pass is active. Share this Event ID with your guest:{" "}
             <span className="font-mono font-semibold text-[#2F80ED]">
               {successEventId}
             </span>
@@ -156,7 +156,7 @@ export function GuestPassRequestForm({ zoneId }: Props) {
           ) : (
             <Send className="h-4 w-4" />
           )}
-          Request Guest Pass
+          Create Guest Pass
         </button>
       </form>
     </div>
