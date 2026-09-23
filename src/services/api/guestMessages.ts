@@ -111,6 +111,8 @@ export function normalizeGuestMe(raw: unknown): GuestMe | null {
 export type GuestPeer = {
   owner_id: string;
   display_name?: string;
+  /** True when this member has a live device WebSocket session. */
+  online?: boolean;
 };
 
 /** Normalize peer list for tests and reuse; supports several backend key names. */
@@ -146,6 +148,7 @@ export function normalizeGuestPeers(raw: unknown): GuestPeer[] {
     out.push({
       owner_id,
       display_name: readString(r, ["display_name", "displayName", "name", "label"]),
+      ...(typeof r.online === "boolean" ? { online: r.online } : {}),
     });
   }
   return out;
@@ -158,12 +161,21 @@ export type GuestApiMessage = {
   text?: string;
   from_owner_id?: string;
   to_owner_id?: string;
+  from_kind?: "guest" | "owner" | "zone_broadcast";
   created_at?: string;
   /** When the backend includes a structured blob (e.g. permission_visibility). */
   raw_payload?: Record<string, unknown> | null;
   /** From `raw_payload.permission_visibility` or top-level when type is PERMISSION. */
   permission_visibility?: string | null;
 };
+
+export function isOwnGuestChatMessage(item: GuestApiMessage): boolean {
+  const t = String(item.type ?? "").toUpperCase();
+  if (t === "PERMISSION") return false;
+  if (item.from_kind === "guest") return true;
+  if (item.from_kind === "owner" || item.from_kind === "zone_broadcast") return false;
+  return t === "CHAT" && !item.from_owner_id;
+}
 
 function normalizeGuestMessages(raw: unknown): GuestApiMessage[] {
   const data = unwrapEnvelope(raw) as unknown;
@@ -215,19 +227,38 @@ function normalizeGuestMessages(raw: unknown): GuestApiMessage[] {
         permission_visibility = null;
       }
     }
+    let from_kind: GuestApiMessage["from_kind"];
+    const from = r.from;
+    if (from && typeof from === "object" && !Array.isArray(from)) {
+      const kind = (from as Record<string, unknown>).kind;
+      if (kind === "guest" || kind === "owner" || kind === "zone_broadcast") {
+        from_kind = kind;
+      }
+    }
+    const fromOwner =
+      from_kind === "guest"
+        ? undefined
+        : readString(r, ["from_owner_id", "fromOwnerId", "sender_id", "senderId"]);
     out.push({
       id,
       zone_id,
       type,
       text: readString(r, ["text", "message", "body"]),
-      from_owner_id: readString(r, ["from_owner_id", "fromOwnerId", "sender_id", "senderId", "from"]),
+      from_owner_id: fromOwner,
       to_owner_id: readString(r, ["to_owner_id", "toOwnerId", "receiver_id", "receiverId", "to"]),
+      ...(from_kind ? { from_kind } : {}),
       created_at: readString(r, ["created_at", "createdAt", "time"]),
       ...(rawPayload ? { raw_payload: rawPayload } : {}),
       ...(permission_visibility !== undefined ? { permission_visibility } : {}),
     });
   }
-  return out;
+  return out.sort((a, b) => {
+    // Newest → oldest (latest at top), matching member inbox boards.
+    const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+    if (ta !== tb) return tb - ta;
+    return b.id.localeCompare(a.id);
+  });
 }
 
 export async function fetchGuestMe(): Promise<{

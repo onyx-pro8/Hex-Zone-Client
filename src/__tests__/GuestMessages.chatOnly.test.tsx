@@ -27,6 +27,13 @@ vi.mock("../services/api/guestMessages", () => ({
     error: null,
   }),
   sendGuestMessage: vi.fn().mockResolvedValue({ data: null, error: null }),
+  isOwnGuestChatMessage: (item: { type?: string; from_kind?: string; from_owner_id?: string }) => {
+    const t = String(item.type ?? "").toUpperCase();
+    if (t === "PERMISSION") return false;
+    if (item.from_kind === "guest") return true;
+    if (item.from_kind === "owner" || item.from_kind === "zone_broadcast") return false;
+    return t === "CHAT" && !item.from_owner_id;
+  },
 }));
 
 describe("Guest messages composer", () => {

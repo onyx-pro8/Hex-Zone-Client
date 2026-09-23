@@ -53,6 +53,8 @@ export type Message = {
    * Distinct from `guest_sender_id` (logical sender when numeric sender is absent).
    */
   guest_id?: string | null;
+  /** True when the guest sender was recently active on a guest API. */
+  guest_online?: boolean;
   /** When `type === "PERMISSION"`, optional visibility hint from the backend. */
   permission_visibility?: string | null;
   /** Alarm read receipts from the server (UUID alarm rows only). */
@@ -601,6 +603,7 @@ export function normalizeMessage(raw: unknown): Message | null {
       ? { guest_sender_id: guestSenderIdRaw }
       : {}),
     ...(contractGuestId !== undefined ? { guest_id: contractGuestId } : {}),
+    ...(typeof row.guest_online === "boolean" ? { guest_online: row.guest_online } : {}),
     ...(permissionVisibility !== undefined
       ? { permission_visibility: permissionVisibility }
       : {}),

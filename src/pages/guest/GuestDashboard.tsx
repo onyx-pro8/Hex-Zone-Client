@@ -70,22 +70,31 @@ export default function GuestDashboard() {
 
   useEffect(() => {
     let alive = true;
-    (async () => {
-      setLoading(true);
-      setProfileError(null);
+    let first = true;
+    const applyMe = async () => {
+      if (first) {
+        setLoading(true);
+        setProfileError(null);
+      }
       const m = await fetchGuestMe();
       if (!alive) return;
       if (m.data) {
         setMe(m.data);
         setProfileError(null);
-      } else {
+      } else if (first) {
         setMe(null);
         setProfileError(m.error ?? "Could not refresh profile from the server.");
       }
-      setLoading(false);
-    })();
+      if (first) {
+        setLoading(false);
+        first = false;
+      }
+    };
+    void applyMe();
+    const heartbeat = window.setInterval(() => void applyMe(), 20000);
     return () => {
       alive = false;
+      window.clearInterval(heartbeat);
     };
   }, [stored?.zone_id]);
 
