@@ -4,6 +4,7 @@ import { ChevronRight, Eye, EyeOff, QrCode, RefreshCw } from "lucide-react";
 import AuthMapPanel from "../components/AuthMapPanel";
 import { AddressAutocompleteInput } from "../components/AddressAutocompleteInput";
 import { addressToMockCoords, generateZoneId, getHexGrid, H3Cell } from "../lib/h3";
+import { normalizeAccountType } from "../lib/accountLimits";
 import {
   joinWithQrToken,
   parseApiErrorBody,
@@ -42,6 +43,10 @@ export default function JoinWithQr() {
   const [loading, setLoading] = useState(false);
 
   const isNewNetworkAdmin = preview?.invite_kind === "new_network_admin";
+  const isFamilyMemberInvite =
+    !isNewNetworkAdmin &&
+    preview?.invite_kind === "member" &&
+    normalizeAccountType(preview?.account_type) === "PRIVATE_PLUS";
   const membersAtCapacity =
     !isNewNetworkAdmin && Boolean(preview?.members_at_capacity);
   const [capacityBlocked, setCapacityBlocked] = useState(false);
@@ -104,6 +109,10 @@ export default function JoinWithQr() {
       setError("Enter or generate a network ID for your new Exclusive network.");
       return;
     }
+    if (!isFamilyMemberInvite && !address.trim()) {
+      setError("Address is required.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -113,7 +122,7 @@ export default function JoinWithQr() {
         password,
         first_name: firstName,
         last_name: lastName,
-        address,
+        ...(isFamilyMemberInvite ? {} : { address }),
         phone: phone || undefined,
         ...(isNewNetworkAdmin ? { zone_id: zoneId.trim() } : {}),
       });
@@ -148,7 +157,9 @@ export default function JoinWithQr() {
           className="lg:min-h-[min(100dvh,960px)]"
           center={center}
           grid={grid}
-          addressLabel={address}
+          addressLabel={
+            isFamilyMemberInvite ? "Family home address" : address
+          }
         />
 
         <div className="flex flex-col border-t border-[#DCE6F2] bg-[#F3F7FD] lg:border-l lg:border-t-0">
@@ -323,19 +334,31 @@ export default function JoinWithQr() {
                 />
               </div>
 
-              <AddressAutocompleteInput
-                id="join-address"
-                label="Address"
-                value={address}
-                onChange={(addr, coords) => {
-                  setAddress(addr);
-                  setAddressCoords(coords);
-                }}
-                required
-                labelClassName={labelClass}
-                inputClassName={inputClass}
-                className="relative"
-              />
+              {isFamilyMemberInvite ? (
+                <div className="rounded-md border border-[#DCE6F2] bg-white p-4">
+                  <p className={labelClass}>Address</p>
+                  <p className="text-sm font-semibold text-[#0F2C5C]">
+                    Same as family administrator
+                  </p>
+                  <p className="mt-1.5 text-xs text-[#8694AC]">
+                    Family members share the administrator's home address.
+                  </p>
+                </div>
+              ) : (
+                <AddressAutocompleteInput
+                  id="join-address"
+                  label="Address"
+                  value={address}
+                  onChange={(addr, coords) => {
+                    setAddress(addr);
+                    setAddressCoords(coords);
+                  }}
+                  required
+                  labelClassName={labelClass}
+                  inputClassName={inputClass}
+                  className="relative"
+                />
+              )}
 
               <div>
                 <label htmlFor="join-password" className={labelClass}>

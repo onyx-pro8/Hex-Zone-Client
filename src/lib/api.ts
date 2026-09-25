@@ -86,7 +86,8 @@ export interface QrJoinPayload {
   password: string;
   first_name: string;
   last_name: string;
-  address: string;
+  /** Omitted for Family member invites; server copies the admin address. */
+  address?: string;
   phone?: string;
   /** Required for system-admin invites (new Individual user account). */
   zone_id?: string;

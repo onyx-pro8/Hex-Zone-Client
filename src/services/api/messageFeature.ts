@@ -26,7 +26,7 @@ export type MessageFeaturePayload = {
   hid: string;
   tt?: string;
   msg: Record<string, unknown>;
-  position: MessageFeaturePosition;
+  position?: MessageFeaturePosition;
   city?: string;
   province?: string;
   country?: string;

@@ -390,7 +390,7 @@ const ENDPOINTS: EndpointSpec[] = [
     path: "/utils/qr/join",
     group: "core",
     description:
-      "Register via QR invite. Family/Organization invitees inherit the inviter account type (user role). Individual Pro invites create an Individual user. System-admin invites create an independent Individual and require zone_id (new network).",
+      "Register via QR invite. Family/Organization invitees inherit the inviter account type (user role). Family members also inherit the administrator home address (omit address). Individual Pro invites create an Individual user. System-admin invites create an independent Individual and require zone_id (new network).",
     public: true,
     bodyJson: true,
     params: [{ name: "body", in: "body", required: true, placeholder: "JSON body" }],

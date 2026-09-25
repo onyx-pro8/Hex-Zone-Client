@@ -34,6 +34,7 @@ import { getOwners, type OwnerListItem } from "../services/api/auth";
 import { getMembers, type Member } from "../services/api/members";
 import { getZones } from "../services/api/zones";
 import { useAuth } from "../hooks/useAuth";
+import { isSystemAdministrator } from "../lib/accountLimits";
 import { useWebSocket } from "../hooks/useWebSocket";
 import {
   getMessageTypeCategory,
@@ -125,6 +126,11 @@ const MESSAGING_ACTIONS: QuickAction[] = [
 
 export default function Messages() {
   const { user, token } = useAuth();
+  const isSystemAdmin = isSystemAdministrator({
+    accountType: user?.accountType,
+    legacyAccountType: user?.account_type,
+    role: user?.role,
+  });
   const { zoneNames } = useZoneNameLookup();
   const [searchParams] = useSearchParams();
   const settings = useAppSettings();
@@ -254,7 +260,8 @@ export default function Messages() {
   const selectedZoneRecordId =
     composeZoneSelection === "all" ? null : composeZoneSelection;
   const showComposeZonePicker =
-    usesComposeZoneTargeting(composeType) && composeZones.length > 1;
+    usesComposeZoneTargeting(composeType) &&
+    (composeZones.length > 1 || (isSystemAdmin && composeZones.length > 0));
 
   const effectiveZoneForGuests = useMemo(() => {
     const z = composeZoneId?.trim();
@@ -658,21 +665,23 @@ export default function Messages() {
       setQuickStatus(`Sending ${toMessageTypeLabel(type as MessageType)}…`);
       try {
         const resolved = await resolveSenderPosition(type as MessageType);
-        if ("error" in resolved) {
+        if ("error" in resolved && !isSystemAdmin) {
           setQuickStatus(resolved.error);
           return;
         }
-        const { position, source } = resolved;
+        const position = "error" in resolved ? undefined : resolved.position;
+        const source = "error" in resolved ? undefined : resolved.source;
         const propagateResult = await propagateMessageFeatureMessage({
           type: type as MessageFeatureType,
           hid: resolveGuestBrowserDeviceId(),
           msg: {
             description: presetText,
             broadcast_name: selfBroadcastName,
-            latitude: position.latitude,
-            longitude: position.longitude,
+            ...(position
+              ? { latitude: position.latitude, longitude: position.longitude }
+              : {}),
           },
-          position,
+          ...(position ? { position } : {}),
         });
         if (propagateResult.error) {
           setQuickStatus(propagateResult.error);
@@ -689,7 +698,9 @@ export default function Messages() {
           });
         }
         setQuickStatus(
-          `${toMessageTypeLabel(type as MessageType)} sent · ${messagePositionSourceLabel(source)}.`,
+          source
+            ? `${toMessageTypeLabel(type as MessageType)} sent · ${messagePositionSourceLabel(source)}.`
+            : `${toMessageTypeLabel(type as MessageType)} sent to all zones.`,
         );
         void refreshInbox();
       } finally {
@@ -705,6 +716,7 @@ export default function Messages() {
       composeZoneId,
       refreshInbox,
       confirmEmergencySend,
+      isSystemAdmin,
     ],
   );
 
@@ -750,11 +762,12 @@ export default function Messages() {
     try {
     if (usesGeoPropagationMessageType(composeType)) {
       const resolved = await resolveSenderPosition(composeType);
-      if ("error" in resolved) {
+      if ("error" in resolved && !isSystemAdmin) {
         setComposeStatus(resolved.error);
         return;
       }
-      const { position, source } = resolved;
+      const position = "error" in resolved ? undefined : resolved.position;
+      const source = "error" in resolved ? undefined : resolved.source;
       const featureType = composeType as MessageFeatureType;
       const propagateResult = await propagateMessageFeatureMessage({
         type: featureType,
@@ -762,16 +775,18 @@ export default function Messages() {
         msg: isServicePaMessageType(composeType)
           ? buildServicePaMsgPayload(composeServicePaFields, composeText.trim(), {
               broadcast_name: selfBroadcastName,
-              latitude: position.latitude,
-              longitude: position.longitude,
+              ...(position
+                ? { latitude: position.latitude, longitude: position.longitude }
+                : {}),
             })
           : {
               description: composeText.trim(),
               broadcast_name: selfBroadcastName,
-              latitude: position.latitude,
-              longitude: position.longitude,
+              ...(position
+                ? { latitude: position.latitude, longitude: position.longitude }
+                : {}),
             },
-        position,
+        ...(position ? { position } : {}),
         ...(isPrivateMessageType(composeType)
           ? { receiver_owner_id: parsedReceiverId }
           : {}),
@@ -795,7 +810,11 @@ export default function Messages() {
             (composeZoneId ?? undefined),
         });
       }
-      setComposeStatus(`Sent · ${messagePositionSourceLabel(source)}.`);
+      setComposeStatus(
+        source
+          ? `Sent · ${messagePositionSourceLabel(source)}.`
+          : "Sent to selected zone(s).",
+      );
       setComposeText("");
       setComposeServicePaFields({ subject: "", topic: "", subtopic: "" });
       if (isPrivateMessageType(composeType)) setComposeReceiverId("");
@@ -1140,12 +1159,16 @@ export default function Messages() {
                   <p className="text-xs text-[#8694AC]">Checking zones for this message type…</p>
                 ) : composeZones.length === 0 ? (
                   <p className="text-xs text-[#8694AC]">
-                    No overlapping zones at this message type&apos;s send location.
+                    {isSystemAdmin
+                      ? "No zones on the platform."
+                      : "No overlapping zones at this message type's send location."}
                   </p>
                 ) : showComposeZonePicker ? (
                   <>
                     <p className="text-xs text-[#8694AC]">
-                      You are inside more than one zone. Choose one zone or keep all zones.
+                      {isSystemAdmin
+                        ? "Choose any zone, or send to every zone. You do not need to be inside a zone."
+                        : "You are inside more than one zone. Choose one zone or keep all zones."}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       <button
@@ -1415,7 +1438,7 @@ export default function Messages() {
             </div>
             <p className="mb-3 text-xs text-[#8694AC]">
               {composeZoneSelection === "all"
-                ? `All overlapping zones (${composeZones.length})`
+                ? `${isSystemAdmin ? "All zones" : "All overlapping zones"} (${composeZones.length})`
                 : composeZones.find((z) => z.zone_record_id === composeZoneSelection)
                     ?.label ?? "Selected zone"}
             </p>

@@ -4,7 +4,8 @@ export type PrivateLocationStatus =
   | "inside_zone"
   | "outside_zone"
   | "no_coordinates"
-  | "not_in_network";
+  | "not_in_network"
+  | "admin_all_zones";
 
 export function privateLocationStatusMessage(
   status: PrivateLocationStatus | null | undefined,
