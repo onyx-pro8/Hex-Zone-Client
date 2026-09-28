@@ -26,6 +26,7 @@ import GuestAccess from "./pages/GuestAccess";
 import GuestAccessQr from "./pages/GuestAccessQr";
 import GuestArrivalMessagesAdmin from "./pages/GuestArrivalMessagesAdmin";
 import GuestPasses from "./pages/GuestPasses";
+import GuestSchedules from "./pages/GuestSchedules";
 import GuestProtectedRoute from "./components/guest/GuestProtectedRoute";
 import GuestDashboard from "./pages/guest/GuestDashboard";
 import GuestMessages from "./pages/guest/GuestMessages";
@@ -63,6 +64,7 @@ const MEMBER_SHELL_PATHS = new Set([
   "/settings",
   "/devices",
   "/guest-passes",
+  "/guest-schedules",
   "/guest-arrival-messages",
   "/guest-access-qr",
   "/qr",
@@ -173,6 +175,14 @@ function RoutesView() {
           element={
             <ProtectedRoute>
               <GuestPasses />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/guest-schedules"
+          element={
+            <ProtectedRoute>
+              <GuestSchedules />
             </ProtectedRoute>
           }
         />

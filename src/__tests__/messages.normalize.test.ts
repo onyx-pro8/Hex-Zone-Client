@@ -200,8 +200,8 @@ describe("normalizeMessage", () => {
 });
 
 describe("sortInboxAccessMessages", () => {
-  it("pins zone_pending_broadcast PERMISSION rows to the top", () => {
-    const older: Message = {
+  it("orders by created_at newest first, including over older pending rows", () => {
+    const olderPending: Message = {
       id: "a",
       zone_id: "Z",
       sender_id: 1,
@@ -210,12 +210,12 @@ describe("sortInboxAccessMessages", () => {
       category: "Access",
       scope: "private",
       visibility: "private",
-      message: "old",
+      message: "old pending",
       created_at: "2026-01-01T00:00:00Z",
       raw_payload: null,
-      permission_visibility: "direct",
+      permission_visibility: "zone_pending_broadcast",
     };
-    const newerBroadcast: Message = {
+    const newerDirect: Message = {
       id: "b",
       zone_id: "Z",
       sender_id: 1,
@@ -224,12 +224,12 @@ describe("sortInboxAccessMessages", () => {
       category: "Access",
       scope: "private",
       visibility: "private",
-      message: "walk-in",
+      message: "today pass",
       created_at: "2026-01-02T00:00:00Z",
       raw_payload: null,
-      permission_visibility: "zone_pending_broadcast",
+      permission_visibility: "direct",
     };
-    const sorted = sortInboxAccessMessages([older, newerBroadcast]);
+    const sorted = sortInboxAccessMessages([olderPending, newerDirect]);
     expect(sorted[0]?.id).toBe("b");
     expect(sorted[1]?.id).toBe("a");
   });

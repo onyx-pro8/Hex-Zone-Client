@@ -12,10 +12,7 @@ import {
   extractServicePaFields,
   formatTopicPath,
 } from "../../lib/servicePaTopics";
-import {
-  isPermissionZonePendingBroadcastVisibility,
-  normalizePermissionVisibilityToken,
-} from "../../lib/permissionVisibility";
+import { normalizePermissionVisibilityToken } from "../../lib/permissionVisibility";
 
 export type MessageVisibility = MessageScope;
 
@@ -237,20 +234,11 @@ function extractPermissionVisibility(
   return pick(row) ?? pick(msgRecord) ?? pick(rowStructuredPayload);
 }
 
-/** Pin zone pending broadcast PERMISSION rows to the top of the Access section. */
+/** Newest first so day headers stay in order (Today, then older dates). */
 export function sortInboxAccessMessages(list: Message[]): Message[] {
-  return [...list].sort((a, b) => {
-    const pa =
-      a.type === "PERMISSION" && isPermissionZonePendingBroadcastVisibility(a.permission_visibility)
-        ? 1
-        : 0;
-    const pb =
-      b.type === "PERMISSION" && isPermissionZonePendingBroadcastVisibility(b.permission_visibility)
-        ? 1
-        : 0;
-    if (pa !== pb) return pb - pa;
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  });
+  return [...list].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
 }
 
 export function sortInboxGeneralMessages(list: Message[]): Message[] {

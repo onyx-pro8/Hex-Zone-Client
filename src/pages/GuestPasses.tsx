@@ -1,15 +1,13 @@
 import { useState } from "react";
-import { useAuth } from "../hooks/useAuth";
+import { Ticket } from "lucide-react";
+import { useGuestNetworkId } from "../hooks/useGuestNetworkId";
 import { GuestPassRequestForm } from "../components/dashboard/GuestPassRequestForm";
 import { GuestPassListSection } from "../components/dashboard/GuestPassListSection";
-import { Ticket } from "lucide-react";
 
 type Tab = "request" | "list";
 
 export default function GuestPasses() {
-  const { user } = useAuth();
-  const zoneId = String(user?.zone_id ?? user?.zoneId ?? "").trim();
-  const isAdmin = String(user?.role ?? "").toLowerCase() === "administrator";
+  const { zoneId, options, isAdmin, setPickedZoneId } = useGuestNetworkId();
   const [activeTab, setActiveTab] = useState<Tab>("request");
 
   if (!zoneId) {
@@ -26,14 +24,6 @@ export default function GuestPasses() {
     );
   }
 
-  const tabs: { key: Tab; label: string; adminOnly: boolean }[] = [
-    { key: "request", label: "Create Guest Pass", adminOnly: false },
-    { key: "list", label: "Guest Passes", adminOnly: false },
-  ];
-
-  const visibleTabs = tabs;
-  const showTabs = visibleTabs.length > 1;
-
   return (
     <section className="space-y-0">
       <div className="rounded-lg border border-[#DCE6F2] bg-white overflow-hidden shadow-sm">
@@ -42,32 +32,51 @@ export default function GuestPasses() {
             <Ticket className="h-4 w-4 text-[#2F80ED]" />
             Guest Passes
           </span>
-          <span className="rounded-full border border-[#DCE6F2] bg-[#EDF3FB] px-3 py-1.5 font-mono text-xs text-[#2F80ED]">
-            {zoneId}
-          </span>
+          {options.length > 1 ? (
+            <select
+              value={zoneId}
+              onChange={(e) => setPickedZoneId(e.target.value)}
+              className="rounded-full border border-[#DCE6F2] bg-[#EDF3FB] px-3 py-1.5 font-mono text-xs text-[#2F80ED] outline-none"
+            >
+              {options.map((zid) => (
+                <option key={zid} value={zid}>
+                  {zid}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span className="rounded-full border border-[#DCE6F2] bg-[#EDF3FB] px-3 py-1.5 font-mono text-xs text-[#2F80ED]">
+              {zoneId}
+            </span>
+          )}
         </header>
 
-        {showTabs && (
-          <div className="flex gap-4 border-b border-[#DCE6F2] px-4 sm:px-6">
-            {visibleTabs.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setActiveTab(tab.key)}
-                className={`py-3 text-xs font-bold uppercase tracking-[0.15em] transition ${
-                  activeTab === tab.key
-                    ? "border-b-2 border-[#2F80ED] text-[#2F80ED]"
-                    : "text-[#8694AC] hover:text-[#566784]"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="flex gap-4 border-b border-[#DCE6F2] px-4 sm:px-6">
+          {(
+            [
+              { key: "request" as const, label: "Create Guest Pass" },
+              { key: "list" as const, label: "Guest Passes" },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={`py-3 text-xs font-bold uppercase tracking-[0.15em] transition ${
+                activeTab === tab.key
+                  ? "border-b-2 border-[#2F80ED] text-[#2F80ED]"
+                  : "text-[#8694AC] hover:text-[#566784]"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
         <div className="px-4 py-5 sm:px-6">
-          {activeTab === "request" && <GuestPassRequestForm zoneId={zoneId} />}
+          {activeTab === "request" && (
+            <GuestPassRequestForm zoneId={zoneId} />
+          )}
           {activeTab === "list" && (
             <GuestPassListSection zoneId={zoneId} isAdmin={isAdmin} />
           )}

@@ -479,13 +479,28 @@ export async function createMessageFeatureAccessSchedule(
 }
 
 export async function listMessageFeatureAccessSchedules(zoneId: string) {
-  return requestMessageFeature<MessageFeatureAccessSchedule[]>(
+  const result = await requestMessageFeature<unknown>(
     "GET",
     "/message-feature/access/schedules",
     {
       params: { zone_id: zoneId },
     },
   );
+  if (result.error) {
+    return {
+      ...result,
+      data: [] as MessageFeatureAccessSchedule[],
+    };
+  }
+  const raw = result.data;
+  const list = Array.isArray(raw)
+    ? (raw as MessageFeatureAccessSchedule[])
+    : raw &&
+        typeof raw === "object" &&
+        Array.isArray((raw as { data?: unknown }).data)
+      ? ((raw as { data: MessageFeatureAccessSchedule[] }).data)
+      : [];
+  return { ...result, data: list };
 }
 
 export async function acceptMessageFeatureAccessSchedule(scheduleId: number | string) {

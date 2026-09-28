@@ -131,7 +131,7 @@ export function GuestPassListSection({ zoneId, isAdmin }: Props) {
             Guest passes
           </h2>
           <p className="mt-1 max-w-2xl text-xs text-[#8694AC]">
-            New Event IDs are accepted immediately. Admins can revoke a live pass.
+            Share the Event ID with the guest. They enter it on arrival to get access. Admins can revoke a live pass.
           </p>
         </div>
         <button

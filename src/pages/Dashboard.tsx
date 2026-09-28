@@ -1279,6 +1279,8 @@ export default function Dashboard() {
     null,
   );
   const [proximityLocating, setProximityLocating] = useState(false);
+  const proximityWatchIdRef = useRef<number | null>(null);
+  const proximityGpsHasFixRef = useRef(false);
   const [dynamicMinRadiusMeters, setDynamicMinRadiusMeters] = useState(200);
   const [dynamicMaxRadiusMeters, setDynamicMaxRadiusMeters] = useState(1000);
   const [dynamicDefaultRadiusMeters, setDynamicDefaultRadiusMeters] = useState<
@@ -1737,28 +1739,58 @@ export default function Dashboard() {
     return () => ac.abort();
   }, [user?.id, user?.address]);
 
-  const captureProximityLocation = useCallback(() => {
-    if (!navigator.geolocation) {
+  const stopProximityGpsWatch = useCallback(() => {
+    if (
+      proximityWatchIdRef.current != null &&
+      typeof navigator !== "undefined" &&
+      navigator.geolocation
+    ) {
+      navigator.geolocation.clearWatch(proximityWatchIdRef.current);
+    }
+    proximityWatchIdRef.current = null;
+    proximityGpsHasFixRef.current = false;
+    setProximityLocating(false);
+  }, []);
+
+  const startProximityGpsWatch = useCallback(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
       setSaveStatus("Location is not available in this browser.");
       return;
     }
+    if (proximityWatchIdRef.current != null) {
+      navigator.geolocation.clearWatch(proximityWatchIdRef.current);
+      proximityWatchIdRef.current = null;
+    }
+    proximityGpsHasFixRef.current = false;
     setProximityLocating(true);
-    navigator.geolocation.getCurrentPosition(
+    setSaveStatus("Following GPS — the circle moves as you walk.");
+    proximityWatchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
         setProximityCenter([lat, lng]);
         setMapCenter([lat, lng]);
         setProximityLocating(false);
-        setSaveStatus("Current location set as zone source.");
+        if (!proximityGpsHasFixRef.current) {
+          proximityGpsHasFixRef.current = true;
+          setSaveStatus("Following GPS — the circle moves as you walk.");
+        }
       },
       () => {
         setProximityLocating(false);
-        setSaveStatus("Could not read your location. Try Pin on map instead.");
+        if (!proximityGpsHasFixRef.current) {
+          setSaveStatus(
+            "Could not read your location. Try Pin on map instead.",
+          );
+        }
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 1000 },
     );
   }, []);
+
+  useEffect(() => {
+    return () => stopProximityGpsWatch();
+  }, [stopProximityGpsWatch]);
 
   /**
    * Monotonically incremented whenever we successfully publish the operator's
@@ -2057,6 +2089,7 @@ export default function Dashboard() {
           if (proximitySourceMode !== "map_pin") {
             setProximitySourceMode("map_pin");
           }
+          stopProximityGpsWatch();
           setProximityCenter(point);
           setSaveStatus("Source pinned. Adjust radius to resize the zone.");
           return;
@@ -2280,6 +2313,7 @@ export default function Dashboard() {
       selectedPolygonId,
       proximityRadiusMeters,
       proximitySourceMode,
+      stopProximityGpsWatch,
       usesMapGeometry,
       zoneType,
       zones.length,
@@ -2833,9 +2867,15 @@ export default function Dashboard() {
       setProximitySourceMode(proximity.sourceMode);
       setProximityCenter(proximity.center);
       setProximityRadiusMeters(proximity.radiusMeters);
+      if (proximity.sourceMode === "current_location") {
+        startProximityGpsWatch();
+      } else {
+        stopProximityGpsWatch();
+      }
     } else {
       setProximitySourceMode("map_pin");
       setProximityCenter(null);
+      stopProximityGpsWatch();
     }
     const config = zoneConfigMap(zone);
     if (normalizedType === "dynamic") {
@@ -2919,6 +2959,8 @@ export default function Dashboard() {
     dynamicMaxRadiusMeters,
     dynamicMinRadiusMeters,
     proximityRadiusMeters,
+    startProximityGpsWatch,
+    stopProximityGpsWatch,
   ]);
 
   const copyZoneId = async () => {
@@ -2986,6 +3028,7 @@ export default function Dashboard() {
     setProximitySourceMode("map_pin");
     setProximityCenter(null);
     setProximityRadiusMeters(500);
+    stopProximityGpsWatch();
     setDynamicTargetUserCount(5);
     setDynamicMinRadiusMeters(200);
     setDynamicMaxRadiusMeters(1000);
@@ -3016,7 +3059,7 @@ export default function Dashboard() {
     setDrawingActive(false);
     setHoleParentId(null);
     setSaveStatus("New zone mode: draw on the map, then Save zone.");
-  }, [canCreateZone, createBlockedReason]);
+  }, [canCreateZone, createBlockedReason, stopProximityGpsWatch]);
 
   const cancelNewZoneDraft = useCallback(() => {
     if (!isCreatingNewZone) return;
@@ -4119,6 +4162,9 @@ export default function Dashboard() {
                   }
                   if (next === "proximity") {
                     setProximitySourceMode("map_pin");
+                    stopProximityGpsWatch();
+                  } else if (zoneType === "proximity") {
+                    stopProximityGpsWatch();
                   }
                 }}
                 className={`w-full rounded-md border border-[#DCE6F2] ${panel} px-3 py-2 text-sm text-[#0F2C5C] focus:border-[#2F80ED]/60 focus:outline-none focus:ring-1 focus:ring-[#2F80ED]/25`}
@@ -4151,9 +4197,7 @@ export default function Dashboard() {
                       type="button"
                       onClick={() => {
                         setProximitySourceMode("current_location");
-                        setSaveStatus(
-                          "Tap Use current location, or switch to Pin on map.",
-                        );
+                        startProximityGpsWatch();
                       }}
                       className={`inline-flex items-center justify-center gap-1.5 rounded-md border px-2 py-2 text-xs font-medium transition ${
                         proximitySourceMode === "current_location"
@@ -4168,6 +4212,7 @@ export default function Dashboard() {
                       type="button"
                       onClick={() => {
                         setProximitySourceMode("map_pin");
+                        stopProximityGpsWatch();
                         setSaveStatus("Click the map to set the source point.");
                       }}
                       className={`inline-flex items-center justify-center gap-1.5 rounded-md border px-2 py-2 text-xs font-medium transition ${
@@ -4182,16 +4227,11 @@ export default function Dashboard() {
                   </div>
                 </div>
                 {proximitySourceMode === "current_location" ? (
-                  <button
-                    type="button"
-                    onClick={captureProximityLocation}
-                    disabled={proximityLocating}
-                    className="w-full rounded-md border border-[#E4ECF7] py-2 text-xs text-[#566784] hover:border-[#2F80ED]/50 disabled:opacity-60"
-                  >
+                  <p className="text-[10px] text-[#8694AC]">
                     {proximityLocating
-                      ? "Reading location…"
-                      : "Use current location"}
-                  </button>
+                      ? "Reading GPS…"
+                      : "Following GPS — the circle moves as you walk."}
+                  </p>
                 ) : (
                   <p className="text-[10px] text-[#8694AC]">
                     Click the map once to place the source. One circle per zone.

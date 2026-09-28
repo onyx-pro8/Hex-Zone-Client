@@ -65,11 +65,12 @@ export function GuestPassRequestForm({ zoneId }: Props) {
   return (
     <div className="mx-auto max-w-7xl">
       <h2 className="text-sm font-bold uppercase tracking-[0.2em] text-[#0F2C5C]">
-        Create guest pass
+        Create pass code
       </h2>
       <p className="mt-1 max-w-2xl text-xs text-[#8694AC]">
-        Create a guest pass with a new Event ID. It is accepted immediately —
-        share the ID with your guest so they can use it on arrival.
+        Create an Event ID and share it with the guest. They enter it on
+        arrival to get access. The pass is active immediately, used once,
+        then expires.
       </p>
 
       {successEventId && (
@@ -93,7 +94,7 @@ export function GuestPassRequestForm({ zoneId }: Props) {
       <form onSubmit={(e) => void handleSubmit(e)} className="mt-5 space-y-4">
         <div>
           <label className={labelCls} htmlFor="gp-event-id">
-            Event ID <span className="text-[#E23B4E]">*</span>
+            Event ID / pass code <span className="text-[#E23B4E]">*</span>
           </label>
           <input
             id="gp-event-id"
