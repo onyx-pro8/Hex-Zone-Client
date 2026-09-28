@@ -688,9 +688,9 @@ function zoneTypeDisplayLabel(type: ZoneTypeMode): string {
     case "communal_id":
       return "Communal ID";
     case "government_local_code":
-      return "Gov Local Code";
+      return "City Code";
     case "object":
-      return "Object";
+      return "Monument";
     default:
       return "Geofence";
   }
@@ -1688,10 +1688,10 @@ export default function Dashboard() {
           governmentValidation.referenceId,
         );
       return validated
-        ? { color: "#0EA5E9", label: "Gov Local Code" }
-        : { color: "#64748B", label: "Gov Local Code (validate first)" };
+        ? { color: "#0EA5E9", label: "City Code" }
+        : { color: "#64748B", label: "City Code (validate first)" };
     }
-    if (zoneType === "object") return { color: "#A855F7", label: "Object" };
+    if (zoneType === "object") return { color: "#A855F7", label: "Monument" };
     return { color: accent, label: "Geofence" };
   }, [
     zoneType,
@@ -2103,7 +2103,7 @@ export default function Dashboard() {
         if (zoneType === "object") {
           setObjectCenter([lat, lng]);
           setSaveStatus(
-            "Object anchor updated on map. Adjust radius if needed, then save.",
+            "Monument anchor updated on map. Adjust radius if needed, then save.",
           );
           return;
         }
@@ -4176,8 +4176,8 @@ export default function Dashboard() {
                 {canUseCommunalTools ? (
                   <option value="communal_id">Communal ID</option>
                 ) : null}
-                <option value="government_local_code">Government Local Code</option>
-                <option value="object">Object zoning</option>
+                <option value="government_local_code">City Code</option>
+                <option value="object">Monument</option>
               </select>
               <p className="mt-1 text-[10px] text-[#8694AC]">
                 Geofence/Grid: draw on map. Proximity: one source + radius. Other
@@ -5093,7 +5093,7 @@ export default function Dashboard() {
               <div className="space-y-2">
                 <AddressAutocompleteInput
                   id="zone-object-search"
-                  label="Search object / place"
+                  label="Search monument / place"
                   value={objectSearchQuery}
                   onChange={(label, coords, feature) => {
                     setObjectSearchQuery(label);
@@ -5106,7 +5106,7 @@ export default function Dashboard() {
                     );
                     setMapCenter([lat, lng]);
                     setSaveStatus(
-                      `Object set to "${label}". Set radius and save the zone.`,
+                      `Monument set to "${label}". Set radius and save the zone.`,
                     );
                   }}
                   placeholder="Building, cafe, shop, landmark…"
@@ -5116,7 +5116,7 @@ export default function Dashboard() {
                 />
                 <div>
                   <label className={labelClass} htmlFor="zone-object-id">
-                    Object ID / reference
+                    Monument ID / reference
                   </label>
                   <input
                     id="zone-object-id"
@@ -5128,7 +5128,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <label className={labelClass} htmlFor="zone-object-radius">
-                    Object radius (meters)
+                    Monument radius (meters)
                   </label>
                   <input
                     id="zone-object-radius"
