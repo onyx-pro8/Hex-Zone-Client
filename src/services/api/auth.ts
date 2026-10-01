@@ -61,6 +61,8 @@ export type RegisterPayload = {
   registrationType: RegistrationType;
   accountOwnerId?: number;
   zoneId?: string;
+  /** Required for Individual (EXCLUSIVE) signup — public Communal ID. */
+  communalId?: string;
   phone?: string;
   address?: string;
   /** From GET /utils/registration-code (or legacy); required for administrator self-registration. */
@@ -85,6 +87,7 @@ type LegacyRegisterPayload = {
   last_name: string;
   account_type: string;
   zone_id?: string;
+  communal_id?: string;
   role?: UserRole;
   account_owner_id?: number;
   phone?: string;
@@ -113,6 +116,7 @@ function mapLegacyRegisterPayload(payload: RegisterPayload): LegacyRegisterPaylo
   const [first, ...rest] = payload.name.trim().split(/\s+/);
   const last = rest.join(" ");
   const trimmedCode = payload.registrationCode?.trim();
+  const communal = payload.communalId?.trim();
   return {
     email: payload.email,
     password: payload.password,
@@ -120,6 +124,7 @@ function mapLegacyRegisterPayload(payload: RegisterPayload): LegacyRegisterPaylo
     last_name: last,
     account_type: toLegacyAccountType(payload.accountType),
     zone_id: payload.zoneId,
+    ...(communal ? { communal_id: communal.toUpperCase() } : {}),
     role: payload.registrationType === "USER" ? "user" : "administrator",
     account_owner_id: payload.accountOwnerId,
     phone: payload.phone,
@@ -253,26 +258,31 @@ export async function login(payload: LoginPayload, rememberMe = true) {
 }
 
 export async function register(payload: RegisterPayload) {
-  if (
-    payload.registrationType === "USER" &&
+  // Individual (EXCLUSIVE) is always user-role; use FREE when no code provided.
+  const communal =
     payload.accountType === "EXCLUSIVE"
-  ) {
-    return {
-      data: null,
-      error: "Exclusive accounts cannot register users.",
-      loading: false,
-    };
-  }
+      ? payload.communalId?.trim().toUpperCase()
+      : undefined;
+  const normalized: RegisterPayload =
+    payload.accountType === "EXCLUSIVE"
+      ? {
+          ...payload,
+          registrationType: "USER",
+          registrationCode: payload.registrationCode?.trim() || "FREE",
+          ...(communal ? { communalId: communal } : {}),
+        }
+      : payload;
+
   const primary = await request<{ id?: string }>({
     method: "POST",
     url: "/register",
-    data: payload,
+    data: normalized,
   });
   if (!primary.error) return primary;
   return request<{ id?: string }>({
     method: "POST",
     url: "/owners/register",
-    data: mapLegacyRegisterPayload(payload),
+    data: mapLegacyRegisterPayload(normalized),
   });
 }
 

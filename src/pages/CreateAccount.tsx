@@ -7,6 +7,11 @@ import {
   type AccountType,
   type RegistrationType,
 } from "../services/api";
+import {
+  listCommunalIdsPublic,
+  validateCommunalIdPublic,
+  type CommunalIdRow,
+} from "../services/api/zoneReferences";
 import AuthMapPanel from "../components/AuthMapPanel";
 import { AddressAutocompleteInput } from "../components/AddressAutocompleteInput";
 import {
@@ -31,8 +36,8 @@ const accountOptions: {
 }[] = [
   {
     value: "EXCLUSIVE",
-    title: "Exclusive",
-    lines: ["1 user, 1 device", "Any zone type"],
+    title: "Individual",
+    lines: ["Communal ID primary", "Up to 2 secondary zones"],
   },
   {
     value: "PRIVATE_PLUS",
@@ -72,13 +77,26 @@ export default function CreateAccount() {
   const [zoneId, setZoneId] = useState(() => generateZoneId());
   const [useExistingZone, setUseExistingZone] = useState(false);
   const [existingZoneId, setExistingZoneId] = useState("");
+  const [communalId, setCommunalId] = useState("");
+  const [communalValidated, setCommunalValidated] = useState(false);
+  const [communalRows, setCommunalRows] = useState<CommunalIdRow[]>([]);
+  const [communalStatus, setCommunalStatus] = useState("");
+  const [communalBusy, setCommunalBusy] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [registrationCode, setRegistrationCode] = useState("");
   const [regCodeLoading, setRegCodeLoading] = useState(true);
   const [regCodeError, setRegCodeError] = useState<string | null>(null);
 
+  const isIndividual = accountType === "EXCLUSIVE";
+
   const loadRegistrationCode = useCallback(async () => {
+    if (accountType === "EXCLUSIVE") {
+      setRegistrationCode("FREE");
+      setRegCodeLoading(false);
+      setRegCodeError(null);
+      return;
+    }
     setRegCodeLoading(true);
     setRegCodeError(null);
     const result = await fetchRegistrationCode();
@@ -89,11 +107,24 @@ export default function CreateAccount() {
       setRegistrationCode(result.data);
     }
     setRegCodeLoading(false);
-  }, []);
+  }, [accountType]);
 
   useEffect(() => {
     void loadRegistrationCode();
   }, [loadRegistrationCode]);
+
+  useEffect(() => {
+    if (!isIndividual) return;
+    let cancelled = false;
+    (async () => {
+      const result = await listCommunalIdsPublic();
+      if (cancelled) return;
+      setCommunalRows(result.data ?? []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isIndividual]);
 
   const center = useMemo<[number, number]>(
     () => addressCoords ?? addressToMockCoords(address),
@@ -107,15 +138,21 @@ export default function CreateAccount() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
-    const code = registrationCode.trim();
-    if (!code) {
+    const code = isIndividual ? "FREE" : registrationCode.trim();
+    if (!isIndividual && !code) {
       setError(
         "Registration code is missing. Wait for the server to issue one, or use Retry.",
       );
       return;
     }
-    if (registrationType === "USER" && !accountOwnerId.trim()) {
+    if (!isIndividual && registrationType === "USER" && !accountOwnerId.trim()) {
       setError("User registration requires a valid account owner ID.");
+      return;
+    }
+    if (isIndividual && (!communalId.trim() || !communalValidated)) {
+      setError(
+        "Select and validate a Communal ID. Its zones become your primary zone.",
+      );
       return;
     }
 
@@ -127,27 +164,57 @@ export default function CreateAccount() {
         email,
         password,
         accountType,
-        registrationType,
+        registrationType: isIndividual ? "USER" : registrationType,
         accountOwnerId:
-          registrationType === "USER"
+          !isIndividual && registrationType === "USER"
             ? Number(accountOwnerId.trim()) || undefined
             : undefined,
         address,
         phone: phone || undefined,
         zoneId: selectedZoneId,
+        ...(isIndividual
+          ? { communalId: communalId.trim().toUpperCase() }
+          : {}),
         registrationCode: code,
       });
       navigate("/login");
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "";
       setError(
-        /422|exclusive|account owner|zone/i.test(message)
+        /422|exclusive|account owner|zone|communal/i.test(message)
           ? message
           : "Could not create account. Please review your details and try again.",
       );
     } finally {
       setLoading(false);
     }
+  };
+
+  const validateCommunal = async () => {
+    const code = communalId.trim().toUpperCase();
+    if (code.length < 3) {
+      setCommunalValidated(false);
+      setCommunalStatus("Enter a Communal ID (at least 3 characters).");
+      return;
+    }
+    setCommunalBusy(true);
+    const result = await validateCommunalIdPublic(code);
+    setCommunalBusy(false);
+    if (result.error || !result.data) {
+      setCommunalValidated(false);
+      setCommunalStatus(result.error ?? "Could not validate Communal ID.");
+      return;
+    }
+    const zones = Array.isArray(result.data.zones) ? result.data.zones : [];
+    const ok = result.data.valid === true && zones.length > 0;
+    setCommunalId(result.data.reference_id || code);
+    setCommunalValidated(ok);
+    setCommunalStatus(
+      ok
+        ? result.data.message ??
+            `Ready — ${zones.length} zone(s) will become your primary.`
+        : result.data.message ?? "Communal ID not found or has no zones yet.",
+    );
   };
 
   return (
@@ -379,6 +446,80 @@ export default function CreateAccount() {
                   </div>
                 )}
               </div>
+
+              {isIndividual ? (
+                <div className="rounded-md border border-[#DCE6F2] bg-white p-4 space-y-3">
+                  <p className={labelClass}>Communal ID (required)</p>
+                  <p className="text-xs text-[#8694AC] leading-relaxed">
+                    Select a public Communal ID. Its zones are calculated into
+                    your single primary zone. You can then create up to 2
+                    secondary zones.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <input
+                      value={communalId}
+                      onChange={(e) => {
+                        setCommunalId(e.target.value.toUpperCase());
+                        setCommunalValidated(false);
+                        setCommunalStatus("");
+                      }}
+                      placeholder="Type or pick a Communal ID"
+                      className={`min-w-0 flex-1 ${inputClass}`}
+                    />
+                    <button
+                      type="button"
+                      disabled={communalBusy || !communalId.trim()}
+                      onClick={() => void validateCommunal()}
+                      className={`shrink-0 rounded-md px-4 py-2.5 text-sm font-semibold text-white ${accentBg} disabled:opacity-50`}
+                    >
+                      {communalBusy ? "…" : "Validate"}
+                    </button>
+                  </div>
+                  {communalStatus ? (
+                    <p
+                      className={`text-xs ${
+                        communalValidated ? "text-emerald-600" : "text-[#8694AC]"
+                      }`}
+                    >
+                      {communalStatus}
+                    </p>
+                  ) : null}
+                  {communalRows.length > 0 ? (
+                    <div className="max-h-40 overflow-y-auto rounded-md border border-[#E4ECF7]">
+                      {communalRows.map((row) => {
+                        const selected =
+                          communalId.trim().toUpperCase() === row.reference_id;
+                        return (
+                          <button
+                            key={row.reference_id}
+                            type="button"
+                            onClick={() => {
+                              setCommunalId(row.reference_id);
+                              setCommunalValidated(Number(row.zone_count) > 0);
+                              setCommunalStatus(
+                                Number(row.zone_count) > 0
+                                  ? `${row.zone_count} zone(s) → calculated as 1 primary`
+                                  : "This ID has no zones yet",
+                              );
+                            }}
+                            className={`flex w-full items-center justify-between gap-2 border-b border-[#E4ECF7] px-3 py-2 text-left text-sm last:border-b-0 ${
+                              selected ? "bg-[#EDF3FB]" : "bg-white hover:bg-[#F7FAFE]"
+                            }`}
+                          >
+                            <span className="font-semibold text-[#0F2C5C]">
+                              {row.reference_id}
+                            </span>
+                            <span className="text-xs text-[#8694AC]">
+                              {row.zone_count} zone
+                              {row.zone_count === 1 ? "" : "s"}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
 
               <div className="rounded-md border border-[#DCE6F2] bg-white p-4">
                 <p className={labelClass}>Network ID</p>

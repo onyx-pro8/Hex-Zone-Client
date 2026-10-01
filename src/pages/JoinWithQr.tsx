@@ -11,6 +11,11 @@ import {
   previewQrInviteToken,
   type QrInvitePreview,
 } from "../lib/api";
+import {
+  listCommunalIdsPublic,
+  validateCommunalIdPublic,
+  type CommunalIdRow,
+} from "../services/api/zoneReferences";
 
 const accent = "text-[#2F80ED]";
 const accentBorder = "border-[#2F80ED]/45";
@@ -36,6 +41,11 @@ export default function JoinWithQr() {
     null,
   );
   const [zoneId, setZoneId] = useState(() => generateZoneId());
+  const [communalId, setCommunalId] = useState("");
+  const [communalValidated, setCommunalValidated] = useState(false);
+  const [communalRows, setCommunalRows] = useState<CommunalIdRow[]>([]);
+  const [communalStatus, setCommunalStatus] = useState("");
+  const [communalBusy, setCommunalBusy] = useState(false);
   const [preview, setPreview] = useState<QrInvitePreview | null>(null);
   const [previewError, setPreviewError] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -91,11 +101,50 @@ export default function JoinWithQr() {
     };
   }, [token]);
 
+  useEffect(() => {
+    if (!isNewNetworkAdmin) return;
+    let cancelled = false;
+    void listCommunalIdsPublic().then((result) => {
+      if (cancelled) return;
+      setCommunalRows(result.data ?? []);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isNewNetworkAdmin]);
+
   const center = useMemo<[number, number]>(
     () => addressCoords ?? addressToMockCoords(address),
     [address, addressCoords],
   );
   const grid = useMemo<H3Cell[]>(() => getHexGrid(center, 13, 1), [center]);
+
+  const validateCommunal = async () => {
+    const code = communalId.trim().toUpperCase();
+    if (code.length < 3) {
+      setCommunalValidated(false);
+      setCommunalStatus("Enter a Communal ID (at least 3 characters).");
+      return;
+    }
+    setCommunalBusy(true);
+    const result = await validateCommunalIdPublic(code);
+    setCommunalBusy(false);
+    if (result.error || !result.data) {
+      setCommunalValidated(false);
+      setCommunalStatus(result.error ?? "Could not validate Communal ID.");
+      return;
+    }
+    const zones = Array.isArray(result.data.zones) ? result.data.zones : [];
+    const ok = result.data.valid === true && zones.length > 0;
+    setCommunalId(result.data.reference_id || code);
+    setCommunalValidated(ok);
+    setCommunalStatus(
+      ok
+        ? result.data.message ??
+            `Ready — ${zones.length} zone(s) will become your primary.`
+        : result.data.message ?? "Communal ID not found or has no zones yet.",
+    );
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -106,7 +155,13 @@ export default function JoinWithQr() {
       return;
     }
     if (isNewNetworkAdmin && !zoneId.trim()) {
-      setError("Enter or generate a network ID for your new Exclusive network.");
+      setError("Enter or generate a network ID for your new Individual network.");
+      return;
+    }
+    if (isNewNetworkAdmin && (!communalId.trim() || !communalValidated)) {
+      setError(
+        "Select and validate a Communal ID. Its zones become your primary zone.",
+      );
       return;
     }
     if (!isFamilyMemberInvite && !address.trim()) {
@@ -124,7 +179,12 @@ export default function JoinWithQr() {
         last_name: lastName,
         ...(isFamilyMemberInvite ? {} : { address }),
         phone: phone || undefined,
-        ...(isNewNetworkAdmin ? { zone_id: zoneId.trim() } : {}),
+        ...(isNewNetworkAdmin
+          ? {
+              zone_id: zoneId.trim(),
+              communal_id: communalId.trim().toUpperCase(),
+            }
+          : {}),
       });
       navigate("/login");
     } catch (e: unknown) {
@@ -233,33 +293,113 @@ export default function JoinWithQr() {
               </div>
 
               {isNewNetworkAdmin && (
-                <div>
-                  <label htmlFor="join-zone" className={labelClass}>
-                    Network ID
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      id="join-zone"
-                      value={zoneId}
-                      onChange={(e) => setZoneId(e.target.value)}
-                      placeholder="Network-ABC123"
-                      required
-                      className={inputClass}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setZoneId(generateZoneId())}
-                      className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md border border-[#DCE6F2] bg-white px-3 text-sm font-medium text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED]"
-                      aria-label="Generate network ID"
-                    >
-                      <RefreshCw className="h-4 w-4" strokeWidth={2} />
-                    </button>
+                <>
+                  <div className="rounded-md border border-[#DCE6F2] bg-white p-4 space-y-3">
+                    <p className={labelClass}>Communal ID (required)</p>
+                    <p className="text-xs text-[#8694AC] leading-relaxed">
+                      Select a public Communal ID. Its zones become your single
+                      primary zone. You can create up to 2 secondary zones.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <input
+                        value={communalId}
+                        onChange={(e) => {
+                          setCommunalId(e.target.value.toUpperCase());
+                          setCommunalValidated(false);
+                          setCommunalStatus("");
+                        }}
+                        placeholder="Type or pick a Communal ID"
+                        className={`min-w-0 flex-1 ${inputClass}`}
+                      />
+                      <button
+                        type="button"
+                        disabled={communalBusy || !communalId.trim()}
+                        onClick={() => void validateCommunal()}
+                        className={`shrink-0 rounded-md px-4 py-2.5 text-sm font-semibold text-white ${accentBg} disabled:opacity-50`}
+                      >
+                        {communalBusy ? "…" : "Validate"}
+                      </button>
+                    </div>
+                    {communalStatus ? (
+                      <p
+                        className={`text-xs ${
+                          communalValidated
+                            ? "text-emerald-600"
+                            : "text-[#8694AC]"
+                        }`}
+                      >
+                        {communalStatus}
+                      </p>
+                    ) : null}
+                    {communalRows.length > 0 ? (
+                      <div className="max-h-40 overflow-y-auto rounded-md border border-[#E4ECF7]">
+                        {communalRows.map((row) => {
+                          const selected =
+                            communalId.trim().toUpperCase() ===
+                            row.reference_id;
+                          return (
+                            <button
+                              key={row.reference_id}
+                              type="button"
+                              onClick={() => {
+                                setCommunalId(row.reference_id);
+                                setCommunalValidated(
+                                  Number(row.zone_count) > 0,
+                                );
+                                setCommunalStatus(
+                                  Number(row.zone_count) > 0
+                                    ? `${row.zone_count} zone(s) → calculated as 1 primary`
+                                    : "This ID has no zones yet",
+                                );
+                              }}
+                              className={`flex w-full items-center justify-between gap-2 border-b border-[#E4ECF7] px-3 py-2 text-left text-sm last:border-b-0 ${
+                                selected
+                                  ? "bg-[#EDF3FB]"
+                                  : "bg-white hover:bg-[#F7FAFE]"
+                              }`}
+                            >
+                              <span className="font-semibold text-[#0F2C5C]">
+                                {row.reference_id}
+                              </span>
+                              <span className="text-xs text-[#8694AC]">
+                                {row.zone_count} zone
+                                {row.zone_count === 1 ? "" : "s"}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : null}
                   </div>
-                  <p className="mt-1.5 text-xs text-[#8694AC]">
-                    Account type: Individual · Role: User. Up to 3 secondary
-                    zones · No member invites · No smart-home.
-                  </p>
-                </div>
+                  <div>
+                    <label htmlFor="join-zone" className={labelClass}>
+                      Network ID
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        id="join-zone"
+                        value={zoneId}
+                        onChange={(e) => setZoneId(e.target.value)}
+                        placeholder="Network-ABC123"
+                        required
+                        className={inputClass}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setZoneId(generateZoneId())}
+                        className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md border border-[#DCE6F2] bg-white px-3 text-sm font-medium text-[#566784] transition hover:border-[#2F80ED]/50 hover:text-[#2F80ED]"
+                        aria-label="Generate network ID"
+                      >
+                        <RefreshCw className="h-4 w-4" strokeWidth={2} />
+                      </button>
+                    </div>
+                    <p className="mt-1.5 text-xs text-[#8694AC]">
+                      Account type: Individual · Role: User. Communal primary ·
+                      Up to 2 secondary zones · No member invites · No
+                      smart-home.
+                    </p>
+                  </div>
+                </>
               )}
 
               {!isNewNetworkAdmin && preview && !previewError && (

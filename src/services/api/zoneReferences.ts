@@ -113,6 +113,26 @@ export async function listCommunalIds() {
   });
 }
 
+/** Unauthenticated list for Individual signup (IDs that already have zones). */
+export async function listCommunalIdsPublic() {
+  return request<CommunalIdRow[]>({
+    method: "GET",
+    url: "/zones/communal-ids/public",
+  });
+}
+
+/** Unauthenticated Communal ID validation for Individual signup. */
+export async function validateCommunalIdPublic(referenceId: string) {
+  return request<ZoneReferenceValidateResult>({
+    method: "POST",
+    url: "/zones/validate-reference/public",
+    data: {
+      zone_type: "communal_id",
+      reference_id: referenceId.trim().toUpperCase(),
+    },
+  });
+}
+
 /** Zones tagged with a Communal ID (often other networks) — map overlay only. */
 export async function listZonesForCommunalId(referenceId: string) {
   const id = referenceId.trim();

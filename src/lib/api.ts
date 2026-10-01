@@ -91,6 +91,8 @@ export interface QrJoinPayload {
   phone?: string;
   /** Required for system-admin invites (new Individual user account). */
   zone_id?: string;
+  /** Required for system-admin Individual invites — public Communal ID. */
+  communal_id?: string;
 }
 
 export type QrInvitePreview = {

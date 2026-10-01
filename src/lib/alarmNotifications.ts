@@ -100,16 +100,28 @@ export function alarmTag(payload: AlarmDisplayPayload): string {
  * Show a system notification for an alarm; no-op if permission is missing.
  */
 export function showBrowserAlarmNotification(payload: AlarmDisplayPayload): boolean {
+  return showBrowserMessageNotification({
+    title: alarmTitle(payload),
+    body: alarmBody(payload),
+    tag: alarmTag(payload),
+  });
+}
+
+/** Generic browser notification (guest arrivals, access messages, etc.). */
+export function showBrowserMessageNotification(opts: {
+  title: string;
+  body: string;
+  tag?: string;
+}): boolean {
   if (!browserSupportsNotifications()) return false;
   if (Notification.permission !== "granted") return false;
   try {
-    const notif = new Notification(alarmTitle(payload), {
-      body: alarmBody(payload),
-      tag: alarmTag(payload),
+    const notif = new Notification(opts.title, {
+      body: opts.body.slice(0, 240),
+      tag: opts.tag ?? `hexzone-${Date.now()}`,
       requireInteraction: false,
       silent: false,
     });
-    /** Bring the tab forward when the user clicks the notification. */
     notif.onclick = () => {
       try {
         window.focus();

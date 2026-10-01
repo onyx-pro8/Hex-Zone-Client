@@ -66,16 +66,17 @@ export function getMemberLimit(
   return Number.POSITIVE_INFINITY;
 }
 
-/** Individual accounts may create this many secondary zones (never primary). */
+/** Individual accounts may create this many secondary zones (never create primary). */
 export function getSecondaryZoneLimit(type: NormalizedAccountType): number {
-  if (type === "EXCLUSIVE") return 3;
+  if (type === "EXCLUSIVE") return 2;
   return Number.POSITIVE_INFINITY;
 }
 
 /**
  * Invited Individual (invited by Family/Organization account holder):
  * secondary zones follow the member workflow (typically up to 2).
- * Solo Individual (self sign-up or system-admin invite): use getSecondaryZoneLimit (3).
+ * Solo Individual (self sign-up or system-admin invite): also up to 2 secondaries
+ * after selecting a Communal ID primary.
  */
 export const INVITED_MEMBER_SECONDARY_ZONE_LIMIT = 2;
 
