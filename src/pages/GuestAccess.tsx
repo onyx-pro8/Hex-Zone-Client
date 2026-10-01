@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useRef,
   useState,
 } from "react";
 import { consumeGuestAuthExpiredNoticeFlash } from "../lib/guestSessionAuthRedirect";
@@ -20,6 +21,7 @@ import {
   pollGuestAccessSession,
   submitAnonymousGuestPermission,
 } from "../services/api/accessPermissions";
+import { persistPendingNetworkGuestChat } from "../lib/guestAccessToken";
 import {
   exchangeGuestSession,
   persistGuestSessionAfterExchange,
@@ -147,6 +149,26 @@ export default function GuestAccess() {
   const [formError, setFormError] = useState<string | null>(null);
   const [exchangeBusy, setExchangeBusy] = useState(false);
   const [exchangeError, setExchangeError] = useState<string | null>(null);
+  const openedPendingChat = useRef(false);
+
+  const openPendingNetworkChat = useCallback(
+    (token: string, guestId: string, zoneId: string) => {
+      if (openedPendingChat.current) return;
+      const accessToken = token.trim();
+      const gid = guestId.trim();
+      const zone = zoneId.trim();
+      if (!accessToken || !gid || !zone) return;
+      openedPendingChat.current = true;
+      persistPendingNetworkGuestChat({
+        access_token: accessToken,
+        guest_id: gid,
+        zone_id: zone,
+        display_name: guestName,
+      });
+      navigate(`/guest/messages?zone=${encodeURIComponent(zone)}`, { replace: true });
+    },
+    [guestName, navigate],
+  );
 
   useLayoutEffect(() => {
     if (consumeGuestAuthExpiredNoticeFlash()) {
@@ -252,6 +274,10 @@ export default function GuestAccess() {
         setPhase({ id: "rejected", message: res.message });
         return;
       }
+      if (res.status === "PENDING" && res.chat_access_token) {
+        openPendingNetworkChat(res.chat_access_token, guestId, pollZoneId);
+        return;
+      }
       if (res.message) {
         setPhase((p) =>
           p.id === "waiting"
@@ -276,6 +302,7 @@ export default function GuestAccess() {
     phase.id === "approved" && !phase.exchange_code?.trim() ? phase.guestId : "",
     phase.id === "approved" && !phase.exchange_code?.trim() ? phase.pollZoneId : "",
     phase.id === "approved" ? (phase.exchange_code ?? "").trim() : "",
+    openPendingNetworkChat,
   ]);
 
   const runGuestSessionExchange = useCallback(
@@ -449,6 +476,9 @@ export default function GuestAccess() {
       pollZoneId,
       serverMessage: result.message || "Waiting for approval…",
     });
+    if (result.chat_access_token) {
+      openPendingNetworkChat(result.chat_access_token, gid, pollZoneId);
+    }
   };
 
   const reset = () => {

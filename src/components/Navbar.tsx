@@ -27,6 +27,7 @@ import {
 import {
   clearGuestAccessSession,
   getGuestAccessToken,
+  getGuestSessionMeta,
 } from "../lib/guestAccessToken";
 
 const appRoutes = [
@@ -106,11 +107,27 @@ export default function Navbar() {
     [isAdministrator, canInviteUserMember],
   );
 
+  const [guestPendingApproval, setGuestPendingApproval] = useState(
+    () => Boolean(getGuestSessionMeta()?.pending_approval),
+  );
+
+  useEffect(() => {
+    const sync = () => setGuestPendingApproval(Boolean(getGuestSessionMeta()?.pending_approval));
+    sync();
+    window.addEventListener("hexzone-guest-meta", sync);
+    return () => window.removeEventListener("hexzone-guest-meta", sync);
+  }, [guestSessionActive, pathname]);
+
   const sessionNavRoutes: NavRouteItem[] = useMemo(() => {
-    if (guestSessionActive) return guestRoutes as NavRouteItem[];
+    if (guestSessionActive) {
+      const routes = guestPendingApproval
+        ? guestRoutes.filter((route) => route.path !== "/guest/dashboard")
+        : guestRoutes;
+      return routes as NavRouteItem[];
+    }
     if (isLoggedIn) return visibleAppRoutes;
     return [];
-  }, [guestSessionActive, isLoggedIn, visibleAppRoutes]);
+  }, [guestSessionActive, guestPendingApproval, isLoggedIn, visibleAppRoutes]);
 
   const showSessionNav = guestSessionActive || isLoggedIn;
 

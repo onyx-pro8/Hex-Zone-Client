@@ -56,6 +56,7 @@ export type GuestMe = {
   display_name: string;
   zone_ids: string[];
   allowed_message_types: string[];
+  approval_status?: "PENDING" | "APPROVED" | "REJECTED" | null;
 };
 
 function readZoneIdsLoose(value: unknown): string[] {
@@ -105,7 +106,12 @@ export function normalizeGuestMe(raw: unknown): GuestMe | null {
         .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
         .map((s) => s.trim().toUpperCase())
     : [];
-  return { guest_id, display_name, zone_ids, allowed_message_types };
+  const approvalRaw = readString(row, ["approval_status", "approvalStatus"])?.toUpperCase();
+  const approval_status =
+    approvalRaw === "PENDING" || approvalRaw === "APPROVED" || approvalRaw === "REJECTED"
+      ? approvalRaw
+      : undefined;
+  return { guest_id, display_name, zone_ids, allowed_message_types, ...(approval_status ? { approval_status } : {}) };
 }
 
 export type GuestPeer = {

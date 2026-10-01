@@ -1,9 +1,10 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { Loader2, RefreshCw, Send } from "lucide-react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Loader2, RefreshCw, Send, ShieldAlert } from "lucide-react";
 import {
   getGuestAccessToken,
   getGuestSessionMeta,
+  persistGuestSessionMeta,
 } from "../../lib/guestAccessToken";
 import {
   fetchGuestMe,
@@ -14,8 +15,15 @@ import {
   type GuestApiMessage,
   type GuestPeer,
 } from "../../services/api/guestMessages";
-import { guestApiBasePath } from "../../services/api/guestSession";
-import { mapGuestAccessErrorCode } from "../../services/api/accessPermissions";
+import {
+  exchangeGuestSession,
+  guestApiBasePath,
+  persistGuestSessionAfterExchange,
+} from "../../services/api/guestSession";
+import {
+  mapGuestAccessErrorCode,
+  pollGuestAccessSession,
+} from "../../services/api/accessPermissions";
 import {
   isPermissionDirectVisibility,
   isPermissionZonePendingBroadcastVisibility,
@@ -23,8 +31,15 @@ import {
 import { useGuestRealtime } from "../../hooks/useGuestRealtime";
 
 const POLL_MS = 4000;
+const APPROVAL_POLL_MS = 2000;
 const THREAD_LIMIT = 80;
 const CLUSTER_WINDOW_MS = 5 * 60 * 1000;
+
+function messageLooksApproved(item: GuestApiMessage): boolean {
+  if (String(item.type ?? "").toUpperCase() !== "PERMISSION") return false;
+  const text = String(item.text ?? "").toLowerCase();
+  return text.includes("approved") || text.includes("access granted");
+}
 
 function inboxDayKey(value: string | null | undefined): string {
   if (!value) return "";
@@ -122,6 +137,7 @@ function initialsFromName(name: string): string {
 }
 
 export default function GuestMessages() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const zoneFromQuery = String(searchParams.get("zone") ?? "").trim();
   const stored = useMemo(() => getGuestSessionMeta(), []);
@@ -132,6 +148,9 @@ export default function GuestMessages() {
   const [zones, setZones] = useState<string[]>(stored?.zone_ids ?? []);
   const [guestDisplayName, setGuestDisplayName] = useState(
     stored?.display_name?.trim() || "",
+  );
+  const [approvalStatus, setApprovalStatus] = useState<string | null>(
+    stored?.pending_approval ? "PENDING" : stored ? "APPROVED" : null,
   );
   const [zoneId, setZoneId] = useState(
     zoneFromQuery || stored?.zone_id || stored?.zone_ids?.[0] || "",
@@ -145,7 +164,8 @@ export default function GuestMessages() {
   const [loadingThread, setLoadingThread] = useState(false);
   const [sending, setSending] = useState(false);
   const [text, setText] = useState("");
-  const guestToken = useMemo(() => getGuestAccessToken(), []);
+  const [guestToken, setGuestToken] = useState(() => getGuestAccessToken());
+  const promotingRef = useRef(false);
 
   const peerPresenceSeed = useMemo(() => {
     const map: Record<number, boolean> = {};
@@ -164,6 +184,72 @@ export default function GuestMessages() {
     seedPresence: peerPresenceSeed,
   });
 
+  const promoteToApprovedGuest = useCallback(async (opts?: { force?: boolean }) => {
+    if (promotingRef.current) return;
+    const meta = getGuestSessionMeta();
+    // Only leave chat when we were still waiting — already-approved guests must stay on messages.
+    if (!meta?.pending_approval && approvalStatus !== "PENDING") {
+      if (opts?.force) setApprovalStatus("APPROVED");
+      return;
+    }
+    promotingRef.current = true;
+    try {
+      if (!meta?.guest_id) return;
+      const zone =
+        zoneId.trim() || meta.zone_id?.trim() || meta.zone_ids?.[0]?.trim() || "";
+      if (!zone) {
+        if (!opts?.force) return;
+        persistGuestSessionMeta({ ...meta, pending_approval: false });
+        setApprovalStatus("APPROVED");
+        navigate("/guest/dashboard", { replace: true });
+        return;
+      }
+
+      const poll = await pollGuestAccessSession(meta.guest_id, zone);
+      if (poll.status === "REJECTED") {
+        setApprovalStatus("REJECTED");
+        return;
+      }
+      if (poll.status !== "APPROVED" && !opts?.force) return;
+
+      if (poll.status === "APPROVED" && poll.exchange_code?.trim()) {
+        const ex = await exchangeGuestSession({
+          guest_id: meta.guest_id,
+          zone_id: zone,
+          exchange_code: poll.exchange_code.trim(),
+        });
+        if (ex.data?.access_token) {
+          persistGuestSessionAfterExchange(ex.data, zone);
+          setGuestToken(ex.data.access_token);
+          setApprovalStatus("APPROVED");
+          const allowed = ex.data.guest.allowed_message_types?.length
+            ? ex.data.guest.allowed_message_types
+            : ["CHAT"];
+          const zoneIds = ex.data.guest.zone_ids?.length
+            ? ex.data.guest.zone_ids
+            : [zone];
+          setAllowedTypes(allowed);
+          setZones(zoneIds);
+          setZoneId(zoneIds[0] || zone);
+          if (ex.data.guest.display_name?.trim()) {
+            setGuestDisplayName(ex.data.guest.display_name.trim());
+          }
+          navigate("/guest/dashboard", { replace: true });
+          return;
+        }
+      }
+
+      if (poll.status === "APPROVED" || opts?.force) {
+        persistGuestSessionMeta({ ...meta, pending_approval: false });
+        setApprovalStatus("APPROVED");
+        navigate("/guest/dashboard", { replace: true });
+      }
+    } finally {
+      const still = getGuestSessionMeta();
+      if (still?.pending_approval) promotingRef.current = false;
+    }
+  }, [navigate, zoneId, approvalStatus]);
+
   useEffect(() => {
     let alive = true;
     const applyMe = async () => {
@@ -175,6 +261,18 @@ export default function GuestMessages() {
       if (m.data.display_name?.trim()) {
         setGuestDisplayName(m.data.display_name.trim());
       }
+      const approval = String(m.data.approval_status ?? "").toUpperCase();
+      if (approval === "PENDING" || approval === "REJECTED") {
+        setApprovalStatus(approval);
+      }
+      if (approval === "APPROVED") {
+        const meta = getGuestSessionMeta();
+        if (meta?.pending_approval || approvalStatus === "PENDING") {
+          void promoteToApprovedGuest({ force: true });
+          return;
+        }
+        setApprovalStatus("APPROVED");
+      }
       const zs = m.data.zone_ids?.length ? m.data.zone_ids : [];
       setZones(zs);
       setZoneId((prev) => {
@@ -184,12 +282,43 @@ export default function GuestMessages() {
       });
     };
     void applyMe();
-    const heartbeat = window.setInterval(() => void applyMe(), 20000);
+    const heartbeat = window.setInterval(
+      () => void applyMe(),
+      approvalStatus === "PENDING" ? APPROVAL_POLL_MS : 20000,
+    );
     return () => {
       alive = false;
       window.clearInterval(heartbeat);
     };
-  }, [zoneFromQuery]);
+  }, [zoneFromQuery, approvalStatus, promoteToApprovedGuest]);
+
+  useEffect(() => {
+    if (approvalStatus !== "PENDING") return;
+    let alive = true;
+    const tick = async () => {
+      const meta = getGuestSessionMeta();
+      const guestId = meta?.guest_id?.trim() || "";
+      const zone =
+        zoneId.trim() ||
+        meta?.zone_id?.trim() ||
+        meta?.zone_ids?.[0]?.trim() ||
+        "";
+      if (!guestId || !zone) return;
+      const poll = await pollGuestAccessSession(guestId, zone);
+      if (!alive) return;
+      if (poll.status === "APPROVED") {
+        void promoteToApprovedGuest();
+        return;
+      }
+      if (poll.status === "REJECTED") setApprovalStatus("REJECTED");
+    };
+    void tick();
+    const handle = window.setInterval(() => void tick(), APPROVAL_POLL_MS);
+    return () => {
+      alive = false;
+      window.clearInterval(handle);
+    };
+  }, [approvalStatus, zoneId, promoteToApprovedGuest]);
 
   const guestCanChat = useMemo(() => {
     if (!allowedTypes.length) return true;
@@ -212,6 +341,10 @@ export default function GuestMessages() {
       return;
     }
     setPeers(res.data);
+    setPeerId((prev) => {
+      if (prev && res.data.some((p) => p.owner_id === prev)) return prev;
+      return res.data[0]?.owner_id ?? "";
+    });
   }, [zoneId]);
 
   useEffect(() => {
@@ -239,7 +372,10 @@ export default function GuestMessages() {
       return;
     }
     setMessages(res.data);
-  }, [zoneId, peerId]);
+    if (approvalStatus === "PENDING" && res.data.some((m) => messageLooksApproved(m))) {
+      void promoteToApprovedGuest();
+    }
+  }, [zoneId, peerId, approvalStatus, promoteToApprovedGuest]);
 
   useEffect(() => {
     void loadThread();
@@ -305,25 +441,43 @@ export default function GuestMessages() {
       : "";
 
   return (
-    <section className="mx-auto max-w-5xl space-y-6">
+    <section className="mx-auto flex max-w-5xl flex-col gap-4">
       <header>
-        <h1 className="text-2xl font-semibold text-[#0F2C5C]">Guest messages</h1>
-        <p className="text-sm text-[#8694AC]">
-          Guests can send CHAT only. Permission events are automatic. Messaging is network-level — pick any
-          member or administrator on this network.
-        </p>
-        <div className="mt-3 rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-xs text-[#8694AC]">
-          Access messaging uses your network id. Choose a zone (network), then pick a{" "}
-          <span className="font-medium text-[#566784]">member or administrator</span> to chat with. Location
-          and map zones do not limit who you can message. If the list stays empty after the backend ships{" "}
-          <span className="font-mono text-[#8694AC]">{peersPathHint || "…/peers"}</span>, ask your backend team
-          to return zone staff as documented in{" "}
-          <code className="rounded bg-[#EDF3FB] px-1 text-[10px]">docs/BACKEND_ACCESS_ZONE_FULL_CONTRACT.md</code>{" "}
-          (give them the whole file).
-        </div>
+        <h1 className="text-2xl font-semibold text-[#0F2C5C]">
+          {approvalStatus === "PENDING" ? "Waiting for approval" : "Guest messages"}
+        </h1>
+        {approvalStatus === "PENDING" ? (
+          <div className="mt-2 flex items-center gap-2 rounded-lg border border-[#E0992A]/40 bg-[#FBEFD8] px-3 py-2 text-xs font-semibold text-[#E0992A]">
+            <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
+            Message the network administrator while you wait
+          </div>
+        ) : (
+          <>
+            <p className="text-sm text-[#8694AC]">
+              Guests can send CHAT only. Permission events are automatic. Messaging is network-level — pick any
+              member or administrator on this network.
+            </p>
+            <div className="mt-3 rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-xs text-[#8694AC]">
+              Access messaging uses your network id. Choose a zone (network), then pick a{" "}
+              <span className="font-medium text-[#566784]">member or administrator</span> to chat with. Location
+              and map zones do not limit who you can message. If the list stays empty after the backend ships{" "}
+              <span className="font-mono text-[#8694AC]">{peersPathHint || "…/peers"}</span>, ask your backend team
+              to return zone staff as documented in{" "}
+              <code className="rounded bg-[#EDF3FB] px-1 text-[10px]">docs/BACKEND_ACCESS_ZONE_FULL_CONTRACT.md</code>{" "}
+              (give them the whole file).
+            </div>
+          </>
+        )}
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(260px,360px)_minmax(0,1fr)]">
+      <div
+        className={`grid gap-4 ${
+          approvalStatus === "PENDING"
+            ? "lg:grid-cols-1"
+            : "lg:grid-cols-[minmax(260px,360px)_minmax(0,1fr)]"
+        }`}
+      >
+        {approvalStatus === "PENDING" ? null : (
         <div className="space-y-3 rounded-xl border border-[#DCE6F2] bg-white p-4">
           <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-[#8694AC]">
             Zone
@@ -411,19 +565,24 @@ export default function GuestMessages() {
             </div>
           ) : null}
         </div>
+        )}
 
-        <div className="flex min-h-[280px] flex-col rounded-xl border border-[#DCE6F2] bg-white p-4">
+        <div className="flex min-h-[360px] max-h-[70vh] flex-col rounded-xl border border-[#DCE6F2] bg-white p-4">
           <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8694AC]">
             Thread
           </h2>
           {!peerId ? (
-            <p className="mt-4 text-sm text-[#8694AC]">Choose a peer to load messages.</p>
+            <p className="mt-4 text-sm text-[#8694AC]">
+              {approvalStatus === "PENDING"
+                ? "Connecting to the network administrator…"
+                : "Choose a peer to load messages."}
+            </p>
           ) : loadingThread && !messages.length ? (
             <p className="mt-4 flex items-center gap-2 text-sm text-[#8694AC]">
               <Loader2 className="h-4 w-4 animate-spin" /> Loading…
             </p>
           ) : (
-            <ul className="mt-2 flex-1 space-y-0 overflow-y-auto text-sm">
+            <ul className="mt-2 min-h-0 flex-1 space-y-0 overflow-y-auto text-sm">
               {groupGuestClusters(messages).map((group) => {
                 const first = group[0];
                 if (!first) return null;
@@ -588,15 +747,6 @@ export default function GuestMessages() {
                         {privateAudit ? (
                           <span className="rounded-full bg-[#EDF3FB] px-2 py-0.5 text-[#566784]">
                             Private
-                          </span>
-                        ) : null}
-                        {m.zone_id ? (
-                          <span
-                            className={`rounded-full px-2 py-0.5 ${
-                              isMine ? "bg-white/15 text-white" : "bg-[#EDF3FB] text-[#566784]"
-                            }`}
-                          >
-                            {m.zone_id}
                           </span>
                         ) : null}
                         <span

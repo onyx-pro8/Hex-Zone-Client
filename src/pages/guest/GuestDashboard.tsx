@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Loader2, MessageSquare } from "lucide-react";
 import { getGuestSessionMeta } from "../../lib/guestAccessToken";
 import { tryParseGuestDashboardMap, networkZonesFromGuestDashboard } from "../../lib/guestDashboardMap";
@@ -58,6 +58,7 @@ function dashboardLinks(
 }
 
 export default function GuestDashboard() {
+  const navigate = useNavigate();
   const stored = useMemo(() => getGuestSessionMeta(), []);
   const [me, setMe] = useState<GuestMe | null>(null);
   const [dashboard, setDashboard] = useState<unknown | null>(null);
@@ -79,6 +80,14 @@ export default function GuestDashboard() {
       const m = await fetchGuestMe();
       if (!alive) return;
       if (m.data) {
+        if (String(m.data.approval_status ?? "").toUpperCase() === "PENDING") {
+          const zone = m.data.zone_ids[0] || stored?.zone_id || "";
+          navigate(
+            zone ? `/guest/messages?zone=${encodeURIComponent(zone)}` : "/guest/messages",
+            { replace: true },
+          );
+          return;
+        }
         setMe(m.data);
         setProfileError(null);
       } else if (first) {
@@ -96,7 +105,7 @@ export default function GuestDashboard() {
       alive = false;
       window.clearInterval(heartbeat);
     };
-  }, [stored?.zone_id]);
+  }, [navigate, stored?.zone_id]);
 
   useEffect(() => {
     let alive = true;

@@ -13,6 +13,8 @@ export type GuestSessionMeta = {
   zone_ids: string[];
   allowed_message_types: string[];
   network_geo_messaging?: boolean;
+  /** True while a network-access request is still pending and chat is admin-only. */
+  pending_approval?: boolean;
 };
 
 function readMeta(): GuestSessionMeta | null {
@@ -47,6 +49,30 @@ export function persistGuestAccessToken(token: string): void {
 
 export function persistGuestSessionMeta(meta: GuestSessionMeta): void {
   sessionStorage.setItem(GUEST_SESSION_META_KEY, JSON.stringify(meta));
+  try {
+    window.dispatchEvent(new Event("hexzone-guest-meta"));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Store the pre-approval network chat JWT and open the existing guest Messages screen. */
+export function persistPendingNetworkGuestChat(opts: {
+  access_token: string;
+  guest_id: string;
+  zone_id: string;
+  display_name: string;
+}): void {
+  const zoneId = opts.zone_id.trim();
+  persistGuestAccessToken(opts.access_token);
+  persistGuestSessionMeta({
+    guest_id: opts.guest_id.trim(),
+    zone_id: zoneId,
+    display_name: opts.display_name.trim() || "Guest",
+    zone_ids: zoneId ? [zoneId] : [],
+    allowed_message_types: ["CHAT"],
+    pending_approval: true,
+  });
 }
 
 export function clearGuestAccessSession(): void {

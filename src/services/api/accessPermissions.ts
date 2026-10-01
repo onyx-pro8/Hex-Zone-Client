@@ -594,6 +594,8 @@ export type AnonymousGuestPermissionResult =
       /** When present, client can exchange immediately without polling session. */
       exchange_code?: string;
       exchange_expires_at?: string;
+      /** Present on pending network-access arrivals so the guest can open Messages immediately. */
+      chat_access_token?: string;
     }
   | { ok: false; errorCode?: string; message: string };
 
@@ -633,6 +635,7 @@ export async function submitAnonymousGuestPermission(
       "exchange_expires_at",
       "exchangeExpiresAt",
     ]);
+    const chat_access_token = readString(row, ["chat_access_token", "chatAccessToken"]);
     const exchangeFields =
       exchange_code && exchange_code.trim()
         ? {
@@ -642,6 +645,9 @@ export async function submitAnonymousGuestPermission(
               : {}),
           }
         : {};
+    const chatFields = chat_access_token
+      ? { chat_access_token }
+      : {};
 
     if (st === "EXPECTED") {
       return {
@@ -651,6 +657,7 @@ export async function submitAnonymousGuestPermission(
         guestId,
         zoneId: respZoneId,
         ...exchangeFields,
+        ...chatFields,
       };
     }
     if (st === "UNEXPECTED") {
@@ -661,6 +668,7 @@ export async function submitAnonymousGuestPermission(
         guestId,
         zoneId: respZoneId,
         ...exchangeFields,
+        ...chatFields,
       };
     }
 
@@ -687,6 +695,7 @@ export async function submitAnonymousGuestPermission(
         guestId,
         zoneId: respZoneId,
         ...exchangeFields,
+        ...chatFields,
       };
     }
 
@@ -746,6 +755,8 @@ export type GuestAccessSessionPollResult = {
   /** Present when backend supports one-time guest session exchange (APPROVED only). */
   exchange_code?: string;
   exchange_expires_at?: string;
+  /** Guest JWT for the existing chat screen while a network request is still pending. */
+  chat_access_token?: string;
   error: string | null;
 };
 
@@ -799,7 +810,13 @@ export async function pollGuestAccessSession(
       return { status: "REJECTED", message, error: null };
     }
     if (st === "PENDING" || st === "REVIEW" || st === "WAITING") {
-      return { status: "PENDING", message, error: null };
+      const chat_access_token = readString(row, ["chat_access_token", "chatAccessToken"]);
+      return {
+        status: "PENDING",
+        message,
+        ...(chat_access_token ? { chat_access_token } : {}),
+        error: null,
+      };
     }
     return { status: "UNKNOWN", message, error: null };
   } catch (e) {

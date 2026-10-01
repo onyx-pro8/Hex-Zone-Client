@@ -108,6 +108,56 @@ export function AlarmNotificationsProvider({ children }: { children: ReactNode }
         });
         return;
       }
+
+      if (parsed.type === "NEW_MESSAGE") {
+        const nested =
+          parsed.data != null &&
+          typeof parsed.data === "object" &&
+          !Array.isArray(parsed.data)
+            ? (parsed.data as Record<string, unknown>)
+            : null;
+        if (!nested) return;
+        const guestId = String(nested.guest_id ?? nested.guestId ?? "").trim();
+        const guestSender = String(
+          nested.guest_sender_id ?? nested.guestSenderId ?? "",
+        ).trim();
+        const senderId = nested.sender_id ?? nested.senderId;
+        const isGuestChat =
+          Boolean(guestId || guestSender) &&
+          (senderId == null || senderId === 0) &&
+          String(nested.type ?? "").toUpperCase() === "CHAT";
+        if (!isGuestChat) return;
+
+        const idKey = String(nested.id ?? `${guestId}:${nested.created_at ?? Date.now()}`);
+        if (seenIdsRef.current.has(idKey)) return;
+        seenIdsRef.current.add(idKey);
+
+        const guestName =
+          String(
+            nested.broadcast_name ??
+              nested.broadcastName ??
+              (nested.msg && typeof nested.msg === "object"
+                ? (nested.msg as Record<string, unknown>).broadcast_name
+                : "") ??
+              "Guest",
+          ).trim() || "Guest";
+        const body = String(nested.message ?? nested.text ?? "New guest message").trim();
+        const title = `${guestName} · Guest chat`;
+        showBrowserMessageNotification({ title, body, tag: idKey });
+        try {
+          playAlarmSound("SERVICE");
+        } catch {
+          /* ignore audio failures */
+        }
+        pushActiveAlarm(setActiveAlarms, {
+          id: idKey,
+          type: "CHAT",
+          title,
+          body,
+          createdAt: String(nested.created_at ?? new Date().toISOString()),
+        });
+        return;
+      }
     } catch {
       /* fall through to geo alarm handling */
     }
