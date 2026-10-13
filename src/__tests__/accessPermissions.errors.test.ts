@@ -10,6 +10,9 @@ describe("guest access error code mapping", () => {
     expect(mapGuestAccessErrorCode("INVALID_GUEST_TOKEN")).toMatch(/invalid/i);
     expect(mapGuestAccessErrorCode("TOKEN_ZONE_MISMATCH")).toMatch(/invalid/i);
     expect(mapGuestAccessErrorCode("GUEST_NOT_AUTHORIZED_FOR_ZONE")).toMatch(/access denied/i);
+    expect(mapGuestAccessErrorCode("GUEST_CHAT_QUEUE_WAITING")).toMatch(
+      /administrator to message you first/i,
+    );
   });
 });
 

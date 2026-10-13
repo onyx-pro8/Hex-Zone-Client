@@ -84,8 +84,8 @@ describe("guest /me normalization", () => {
         },
       }),
     ).toEqual([
-      { owner_id: "86", display_name: "Admin" },
-      { owner_id: "87", display_name: "User" },
+      { owner_id: "86", display_name: "Admin", role: "administrator" },
+      { owner_id: "87", display_name: "User", role: "user" },
     ]);
   });
 

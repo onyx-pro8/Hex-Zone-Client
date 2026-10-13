@@ -60,6 +60,8 @@ export type RegisterPayload = {
   accountType: AccountType;
   registrationType: RegistrationType;
   accountOwnerId?: number;
+  /** Administrator email when several administrators share the Network ID. */
+  administratorEmail?: string;
   zoneId?: string;
   /** Required for Individual (EXCLUSIVE) signup — public Communal ID. */
   communalId?: string;
@@ -90,6 +92,7 @@ type LegacyRegisterPayload = {
   communal_id?: string;
   role?: UserRole;
   account_owner_id?: number;
+  administrator_email?: string;
   phone?: string;
   address?: string;
   registration_code?: string;
@@ -127,6 +130,9 @@ function mapLegacyRegisterPayload(payload: RegisterPayload): LegacyRegisterPaylo
     ...(communal ? { communal_id: communal.toUpperCase() } : {}),
     role: payload.registrationType === "USER" ? "user" : "administrator",
     account_owner_id: payload.accountOwnerId,
+    ...(payload.administratorEmail?.trim()
+      ? { administrator_email: payload.administratorEmail.trim() }
+      : {}),
     phone: payload.phone,
     address: payload.address,
     ...(trimmedCode ? { registration_code: trimmedCode } : {}),
@@ -255,6 +261,22 @@ export async function login(payload: LoginPayload, rememberMe = true) {
     error: normalizedLoginError,
     loading: false,
   };
+}
+
+export type JoinableNetwork = {
+  network_id: string;
+  account_type?: string;
+  label?: string;
+  administrator_count?: number;
+};
+
+/** Networks whose administrator uses the same account type. Public; no login required. */
+export async function listJoinableNetworks(accountType: string) {
+  return request<JoinableNetwork[]>({
+    method: "GET",
+    url: "/owners/networks/public",
+    params: { account_type: accountType },
+  });
 }
 
 export async function register(payload: RegisterPayload) {

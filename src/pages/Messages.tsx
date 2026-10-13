@@ -58,6 +58,10 @@ import {
 } from "../lib/messageWorkflow";
 import { listGuestRequestsForZone } from "../services/api/accessPermissions";
 import {
+  defaultChatComposeGuestId,
+  filterChatComposeGuests,
+} from "../lib/chatGuestCompose";
+import {
   resolveBroadcastName,
   useAppSettings,
   type QuickMessageType,
@@ -101,6 +105,49 @@ function memberDistanceLabel(member: PrivateSearchMember): string {
     return `${Math.round(km)} km away`;
   }
   return "";
+}
+
+/** `"all"` = every matched zone; otherwise an explicit multi-select of zone record ids. */
+type ComposeZoneSelection = "all" | number[];
+
+function toggleComposeZoneSelection(
+  current: ComposeZoneSelection,
+  zoneRecordId: number,
+  totalZoneCount: number,
+): ComposeZoneSelection {
+  if (current === "all") return [zoneRecordId];
+  if (current.includes(zoneRecordId)) {
+    const next = current.filter((id) => id !== zoneRecordId);
+    return next.length === 0 ? "all" : next;
+  }
+  const next = [...current, zoneRecordId];
+  if (totalZoneCount > 0 && next.length >= totalZoneCount) return "all";
+  return next;
+}
+
+function composeZoneSelectionLabel(
+  selection: ComposeZoneSelection,
+  zones: ComposeZoneOption[],
+  allLabel: string,
+): string {
+  if (selection === "all") {
+    return `${allLabel} (${zones.length})`;
+  }
+  if (selection.length === 1) {
+    return (
+      zones.find((z) => z.zone_record_id === selection[0])?.label ??
+      "Selected zone"
+    );
+  }
+  return `${selection.length} zones selected`;
+}
+
+function zoneTargetPayload(
+  selection: ComposeZoneSelection,
+): { zone_record_id: number } | { zone_record_ids: number[] } | Record<string, never> {
+  if (selection === "all") return {};
+  if (selection.length === 1) return { zone_record_id: selection[0] };
+  return { zone_record_ids: selection };
 }
 
 type QuickAction = {
@@ -167,7 +214,8 @@ export default function Messages() {
     useState<PrivateLocationStatus | null>(null);
   const [senderZoneCheckLoading, setSenderZoneCheckLoading] = useState(false);
   const [composeZones, setComposeZones] = useState<ComposeZoneOption[]>([]);
-  const [composeZoneSelection, setComposeZoneSelection] = useState<"all" | number>("all");
+  const [composeZoneSelection, setComposeZoneSelection] =
+    useState<ComposeZoneSelection>("all");
   const [zoneRecipients, setZoneRecipients] = useState<PrivateSearchMember[]>([]);
   const [zoneRecipientGroups, setZoneRecipientGroups] = useState<
     { zoneRecordId: number; label: string; members: PrivateSearchMember[] }[]
@@ -257,11 +305,14 @@ export default function Messages() {
     () => (userZoneId == null ? null : String(userZoneId).trim()),
     [userZoneId],
   );
-  const selectedZoneRecordId =
+  const selectedZoneRecordIds =
     composeZoneSelection === "all" ? null : composeZoneSelection;
   const showComposeZonePicker =
     usesComposeZoneTargeting(composeType) &&
     (composeZones.length > 1 || (isSystemAdmin && composeZones.length > 0));
+  const showGroupedReceivers =
+    composeZoneSelection === "all" ||
+    (Array.isArray(composeZoneSelection) && composeZoneSelection.length > 1);
 
   const effectiveZoneForGuests = useMemo(() => {
     const z = composeZoneId?.trim();
@@ -352,8 +403,8 @@ export default function Messages() {
 
   /** PRIVATE: zone gate + recipient search (same position workflow as PANIC). */
   useEffect(() => {
-    if (!isPrivateMessageType(composeType) || selectedZoneRecordId != null) {
-      if (!isPrivateMessageType(composeType) && selectedZoneRecordId == null) {
+    if (!isPrivateMessageType(composeType) || selectedZoneRecordIds != null) {
+      if (!isPrivateMessageType(composeType) && selectedZoneRecordIds == null) {
         setPrivateSearchError(null);
         setSenderZoneIds([]);
         setPrivateLocationStatus(null);
@@ -404,7 +455,7 @@ export default function Messages() {
       active = false;
       window.clearTimeout(timer);
     };
-  }, [composeType, privateSearchQuery, selectedZoneRecordId, user?.mapCenter, user?.map_center]);
+  }, [composeType, privateSearchQuery, selectedZoneRecordIds, user?.mapCenter, user?.map_center]);
 
   useEffect(() => {
     if (!usesComposeZoneTargeting(composeType)) {
@@ -454,13 +505,13 @@ export default function Messages() {
       setZoneRecipientsLoading(false);
       return;
     }
-    if (isPrivateMessageType(composeType) && selectedZoneRecordId == null) {
+    if (isPrivateMessageType(composeType) && selectedZoneRecordIds == null) {
       setZoneRecipients([]);
       setZoneRecipientGroups([]);
       setZoneRecipientsLoading(false);
       return;
     }
-    if (selectedZoneRecordId == null) {
+    if (selectedZoneRecordIds == null) {
       if (loadingComposeZones) return;
       if (composeZones.length === 0) {
         setZoneRecipients([]);
@@ -471,16 +522,17 @@ export default function Messages() {
     }
 
     const zoneTargets =
-      selectedZoneRecordId != null
-        ? [
-            composeZones.find((z) => z.zone_record_id === selectedZoneRecordId) ?? {
-              zone_record_id: selectedZoneRecordId,
-              zone_id: "",
-              name: null,
-              label: "Selected zone",
-              tier: "secondary",
-            },
-          ]
+      selectedZoneRecordIds != null
+        ? selectedZoneRecordIds.map(
+            (zoneRecordId) =>
+              composeZones.find((z) => z.zone_record_id === zoneRecordId) ?? {
+                zone_record_id: zoneRecordId,
+                zone_id: "",
+                name: null,
+                label: "Selected zone",
+                tier: "secondary",
+              },
+          )
         : composeZones;
 
     let active = true;
@@ -550,7 +602,7 @@ export default function Messages() {
     };
   }, [
     composeType,
-    selectedZoneRecordId,
+    selectedZoneRecordIds,
     composeZones,
     loadingComposeZones,
     privateSearchQuery,
@@ -790,9 +842,7 @@ export default function Messages() {
         ...(isPrivateMessageType(composeType)
           ? { receiver_owner_id: parsedReceiverId }
           : {}),
-        ...(selectedZoneRecordId != null
-          ? { zone_record_id: selectedZoneRecordId }
-          : {}),
+        ...zoneTargetPayload(composeZoneSelection),
       });
       if (propagateResult.error) {
         setComposeStatus(propagateResult.error);
@@ -853,10 +903,29 @@ export default function Messages() {
     }
   };
 
-  const selectableGuests = useMemo(
-    () => guestRows.filter((r) => r.status !== "REJECTED"),
-    [guestRows],
-  );
+  const selectableGuests = useMemo(() => {
+    const mapped = guestRows.map((r) => ({
+      id: r.id,
+      name: r.guestName?.trim() || "Guest",
+      status: r.status,
+      expectation: r.expectation,
+      created_at: r.createdAt,
+      row: r,
+    }));
+    return filterChatComposeGuests(mapped);
+  }, [guestRows]);
+
+  useEffect(() => {
+    if (!isAccessGuestChannelType(composeType)) return;
+    if (
+      composeReceiverId &&
+      selectableGuests.some((g) => g.id === composeReceiverId)
+    ) {
+      return;
+    }
+    const next = defaultChatComposeGuestId(selectableGuests);
+    if (next) setComposeReceiverId(next);
+  }, [composeType, selectableGuests, composeReceiverId]);
 
   const groupedTypeOptions = useMemo(() => groupMessageTypesForUI(), []);
   /** Inbox filter: Alert + Access only (alarms are on Incoming Alarms). */
@@ -1167,8 +1236,8 @@ export default function Messages() {
                   <>
                     <p className="text-xs text-[#8694AC]">
                       {isSystemAdmin
-                        ? "Choose any zone, or send to every zone. You do not need to be inside a zone."
-                        : "You are inside more than one zone. Choose one zone or keep all zones."}
+                        ? "Select one or more zones, or send to every zone. You do not need to be inside a zone."
+                        : "You are inside more than one zone. Select one or more, or keep all zones."}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       <button
@@ -1185,23 +1254,34 @@ export default function Messages() {
                       >
                         All zones
                       </button>
-                      {composeZones.map((zone) => (
-                        <button
-                          key={zone.zone_record_id}
-                          type="button"
-                          onClick={() => {
-                            setComposeZoneSelection(zone.zone_record_id);
-                            setComposeReceiverId("");
-                          }}
-                          className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${
-                            composeZoneSelection === zone.zone_record_id
-                              ? "border-[#2F80ED] bg-[#EDF3FB] text-[#2F80ED]"
-                              : "border-[#DCE6F2] bg-[#F7FAFE] text-[#566784]"
-                          }`}
-                        >
-                          {zone.label}
-                        </button>
-                      ))}
+                      {composeZones.map((zone) => {
+                        const active =
+                          composeZoneSelection !== "all" &&
+                          composeZoneSelection.includes(zone.zone_record_id);
+                        return (
+                          <button
+                            key={zone.zone_record_id}
+                            type="button"
+                            onClick={() => {
+                              setComposeZoneSelection((prev) =>
+                                toggleComposeZoneSelection(
+                                  prev,
+                                  zone.zone_record_id,
+                                  composeZones.length,
+                                ),
+                              );
+                              setComposeReceiverId("");
+                            }}
+                            className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${
+                              active
+                                ? "border-[#2F80ED] bg-[#EDF3FB] text-[#2F80ED]"
+                                : "border-[#DCE6F2] bg-[#F7FAFE] text-[#566784]"
+                            }`}
+                          >
+                            {zone.label}
+                          </button>
+                        );
+                      })}
                     </div>
                   </>
                 ) : (
@@ -1225,8 +1305,8 @@ export default function Messages() {
             {isAccessGuestChannelType(composeType) && (
               <>
                 <p className="text-xs text-[#8694AC]">
-                  CHAT here goes to <span className="font-medium text-[#566784]">guests</span> in this zone only (not
-                  member-to-member). Zone for list:{" "}
+                  CHAT defaults to the oldest <span className="font-medium text-[#566784]">pending</span>{" "}
+                  guest; list order is pending → approved → rejected (each oldest first). Zone:{" "}
                   <span className="font-mono text-[#8694AC]">
                     {effectiveZoneForGuests || "—"}
                   </span>
@@ -1239,10 +1319,10 @@ export default function Messages() {
                   <option value="">
                     {guestsLoading ? "Loading guests…" : "Pick a guest (guest id)"}
                   </option>
-                  {selectableGuests.map((row) => (
-                    <option key={`guest-${row.id}`} value={row.id}>
-                      {row.guestName?.trim() || "Guest"} — {row.id.slice(0, 12)}
-                      {row.id.length > 12 ? "…" : ""} ({row.expectation}, {row.status})
+                  {selectableGuests.map((g) => (
+                    <option key={`guest-${g.id}`} value={g.id}>
+                      {g.name} — {g.id.slice(0, 12)}
+                      {g.id.length > 12 ? "…" : ""} ({g.expectation}, {g.status})
                     </option>
                   ))}
                 </select>
@@ -1254,8 +1334,7 @@ export default function Messages() {
                 ) : null}
                 {!guestsLoading && !guestListError && selectableGuests.length === 0 ? (
                   <p className="text-xs text-[#8694AC]">
-                    No guests in this zone yet, or approvals are still pending. You can also open the zone on the
-                    Dashboard to review guest requests.
+                    No guests available for CHAT yet. Manage all guests from Guest Management / Dashboard.
                   </p>
                 ) : null}
               </>
@@ -1285,24 +1364,24 @@ export default function Messages() {
                 ) : null}
                 {senderZoneIds.length > 0 ? (
                   <p className="text-xs text-[#8694AC]">
-                    {selectedZoneRecordId != null
-                      ? "Members reachable in the selected zone. You cannot select yourself."
+                    {selectedZoneRecordIds != null
+                      ? "Members reachable in the selected zone(s). You cannot select yourself."
                       : "Search admin and members reachable in this zone (same as PANIC). You cannot select yourself."}
                   </p>
                 ) : null}
-                {(selectedZoneRecordId != null
+                {(selectedZoneRecordIds != null
                   ? zoneRecipientsLoading
                   : privateSearchLoading) ? (
                   <p className="text-xs text-[#8694AC]">
-                    {selectedZoneRecordId != null ? "Loading receivers…" : "Searching…"}
+                    {selectedZoneRecordIds != null ? "Loading receivers…" : "Searching…"}
                   </p>
                 ) : null}
-                {(selectedZoneRecordId != null
+                {(selectedZoneRecordIds != null
                   ? zoneRecipients
                   : privateSearchResults
                 ).length > 0 ? (
                   <ul className="max-h-40 overflow-y-auto rounded-lg border border-[#DCE6F2] bg-[#F7FAFE]">
-                    {(selectedZoneRecordId != null
+                    {(selectedZoneRecordIds != null
                       ? zoneRecipients
                       : privateSearchResults
                     ).map((row) => {
@@ -1335,11 +1414,11 @@ export default function Messages() {
                   </ul>
                 ) : null}
                 {privateSearchQuery.trim().length >= 2 &&
-                !(selectedZoneRecordId != null
+                !(selectedZoneRecordIds != null
                   ? zoneRecipientsLoading
                   : privateSearchLoading) &&
                 senderZoneIds.length > 0 &&
-                (selectedZoneRecordId != null
+                (selectedZoneRecordIds != null
                   ? zoneRecipients
                   : privateSearchResults
                 ).length === 0 ? (
@@ -1437,14 +1516,15 @@ export default function Messages() {
               </button>
             </div>
             <p className="mb-3 text-xs text-[#8694AC]">
-              {composeZoneSelection === "all"
-                ? `${isSystemAdmin ? "All zones" : "All overlapping zones"} (${composeZones.length})`
-                : composeZones.find((z) => z.zone_record_id === composeZoneSelection)
-                    ?.label ?? "Selected zone"}
+              {composeZoneSelectionLabel(
+                composeZoneSelection,
+                composeZones,
+                isSystemAdmin ? "All zones" : "All overlapping zones",
+              )}
             </p>
             {zoneRecipientsLoading ? (
               <p className="text-xs text-[#8694AC]">Loading receivers…</p>
-            ) : composeZoneSelection === "all" ? (
+            ) : showGroupedReceivers ? (
               zoneRecipientGroups.length === 0 ||
               zoneRecipientGroups.every((g) => g.members.length === 0) ? (
                 <p className="text-xs text-[#8694AC]">No receivers for this selection.</p>

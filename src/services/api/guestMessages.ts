@@ -117,6 +117,8 @@ export function normalizeGuestMe(raw: unknown): GuestMe | null {
 export type GuestPeer = {
   owner_id: string;
   display_name?: string;
+  role?: string;
+  can_receive_chat?: boolean;
   /** True when this member has a live device WebSocket session. */
   online?: boolean;
 };
@@ -151,9 +153,18 @@ export function normalizeGuestPeers(raw: unknown): GuestPeer[] {
       "id",
     ]);
     if (!owner_id) continue;
+    const role = readString(r, ["role"]);
+    const can_receive_chat =
+      typeof r.can_receive_chat === "boolean"
+        ? r.can_receive_chat
+        : typeof r.canReceiveChat === "boolean"
+          ? r.canReceiveChat
+          : undefined;
     out.push({
       owner_id,
       display_name: readString(r, ["display_name", "displayName", "name", "label"]),
+      ...(role ? { role } : {}),
+      ...(typeof can_receive_chat === "boolean" ? { can_receive_chat } : {}),
       ...(typeof r.online === "boolean" ? { online: r.online } : {}),
     });
   }

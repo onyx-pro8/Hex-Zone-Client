@@ -4,7 +4,9 @@ import { ChevronRight, Eye, EyeOff, Loader2, QrCode, RefreshCw } from "lucide-re
 import { useAuth } from "../hooks/useAuth";
 import {
   fetchRegistrationCode,
+  listJoinableNetworks,
   type AccountType,
+  type JoinableNetwork,
   type RegistrationType,
 } from "../services/api";
 import {
@@ -68,7 +70,9 @@ export default function CreateAccount() {
   const [accountType, setAccountType] = useState<AccountType>("EXCLUSIVE");
   const [registrationType, setRegistrationType] =
     useState<RegistrationType>("ADMINISTRATOR");
-  const [accountOwnerId, setAccountOwnerId] = useState("");
+  const [administratorEmail, setAdministratorEmail] = useState("");
+  const [needsAdministratorEmail, setNeedsAdministratorEmail] = useState(false);
+  const [joinableNetworks, setJoinableNetworks] = useState<JoinableNetwork[]>([]);
   const [address, setAddress] = useState("350 Fifth Avenue, New York");
   /** Set when user picks a suggestion — map uses real [lat, lng] */
   const [addressCoords, setAddressCoords] = useState<[number, number] | null>(
@@ -97,6 +101,12 @@ export default function CreateAccount() {
       setRegCodeError(null);
       return;
     }
+    if (registrationType === "USER") {
+      setRegistrationCode("");
+      setRegCodeLoading(false);
+      setRegCodeError(null);
+      return;
+    }
     setRegCodeLoading(true);
     setRegCodeError(null);
     const result = await fetchRegistrationCode();
@@ -107,7 +117,7 @@ export default function CreateAccount() {
       setRegistrationCode(result.data);
     }
     setRegCodeLoading(false);
-  }, [accountType]);
+  }, [accountType, registrationType]);
 
   useEffect(() => {
     void loadRegistrationCode();
@@ -132,21 +142,45 @@ export default function CreateAccount() {
   );
   const grid = useMemo<H3Cell[]>(() => getHexGrid(center, 9, 1), [center]);
 
-  const selectedZoneId =
-    useExistingZone && existingZoneId ? existingZoneId : zoneId;
+  const joiningNetwork = !isIndividual && registrationType === "USER";
+
+  useEffect(() => {
+    if (!joiningNetwork) return;
+    let cancelled = false;
+    (async () => {
+      const result = await listJoinableNetworks(accountType);
+      if (cancelled) return;
+      setJoinableNetworks(result.data ?? []);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [joiningNetwork, accountType]);
+
+  const selectedZoneId = joiningNetwork
+    ? existingZoneId.trim()
+    : useExistingZone && existingZoneId.trim()
+      ? existingZoneId.trim()
+      : zoneId;
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError("");
     const code = isIndividual ? "FREE" : registrationCode.trim();
-    if (!isIndividual && !code) {
+    if (!isIndividual && !joiningNetwork && !code) {
       setError(
         "Registration code is missing. Wait for the server to issue one, or use Retry.",
       );
       return;
     }
-    if (!isIndividual && registrationType === "USER" && !accountOwnerId.trim()) {
-      setError("User registration requires a valid account owner ID.");
+    if (joiningNetwork && !selectedZoneId) {
+      setError("Enter the Network ID of the account you are joining.");
+      return;
+    }
+    if (joiningNetwork && needsAdministratorEmail && !administratorEmail.trim()) {
+      setError(
+        "Several administrators share this Network ID. Enter the administrator email.",
+      );
       return;
     }
     if (isIndividual && (!communalId.trim() || !communalValidated)) {
@@ -165,25 +199,31 @@ export default function CreateAccount() {
         password,
         accountType,
         registrationType: isIndividual ? "USER" : registrationType,
-        accountOwnerId:
-          !isIndividual && registrationType === "USER"
-            ? Number(accountOwnerId.trim()) || undefined
-            : undefined,
+        ...(joiningNetwork &&
+        needsAdministratorEmail &&
+        administratorEmail.trim()
+          ? { administratorEmail: administratorEmail.trim() }
+          : {}),
         address,
         phone: phone || undefined,
         zoneId: selectedZoneId,
         ...(isIndividual
           ? { communalId: communalId.trim().toUpperCase() }
           : {}),
-        registrationCode: code,
+        ...(joiningNetwork ? {} : { registrationCode: code }),
       });
       navigate("/login");
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "";
       setError(
-        /422|exclusive|account owner|zone|communal/i.test(message)
+        /422|exclusive|account owner|zone|communal|network|administrator/i.test(
+          message,
+        )
           ? message
           : "Could not create account. Please review your details and try again.",
+      );
+      if (/administrator email/i.test(message)) {
+        setNeedsAdministratorEmail(true);
       );
     } finally {
       setLoading(false);
@@ -241,6 +281,7 @@ export default function CreateAccount() {
             </h1>
 
             <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+              {joiningNetwork ? null : (
               <div className="rounded-md border border-[#DCE6F2] bg-white p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <label htmlFor="reg-code" className={labelClass}>
@@ -285,6 +326,7 @@ export default function CreateAccount() {
                   create your account, then you can sign in at Login.
                 </p>
               </div>
+              )}
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
@@ -373,6 +415,7 @@ export default function CreateAccount() {
                         type="button"
                         onClick={() => {
                           setAccountType(option.value);
+                          setExistingZoneId("");
                           setError("");
                         }}
                         className={`rounded-md border px-4 py-4 text-left transition ${
@@ -414,7 +457,10 @@ export default function CreateAccount() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setRegistrationType("USER")}
+                    onClick={() => {
+                      setRegistrationType("USER");
+                      setUseExistingZone(true);
+                    }}
                     className={`rounded-md border px-4 py-3 text-left transition ${
                       registrationType === "USER"
                         ? "border-[#2F80ED] bg-[#EDF3FB] text-[#0F2C5C]"
@@ -424,26 +470,11 @@ export default function CreateAccount() {
                     User
                   </button>
                 </div>
-                {registrationType === "USER" && (
-                  <div className="mt-4">
-                    <label htmlFor="reg-owner-id" className={labelClass}>
-                      Account owner ID
-                    </label>
-                    <input
-                      id="reg-owner-id"
-                      type="number"
-                      min={1}
-                      required
-                      value={accountOwnerId}
-                      onChange={(e) => setAccountOwnerId(e.target.value)}
-                      placeholder="101"
-                      className={inputClass}
-                    />
-                    <p className="mt-2 text-xs text-[#8694AC]">
-                      Linked users must use the admin account owner ID and matching
-                      account type/zone scope.
-                    </p>
-                  </div>
+                {!isIndividual && registrationType === "USER" && (
+                  <p className="mt-3 text-xs leading-relaxed text-[#8694AC]">
+                    Enter the network name below. Your plan follows that network,
+                    so you do not need an account owner ID.
+                  </p>
                 )}
               </div>
 
@@ -523,54 +554,119 @@ export default function CreateAccount() {
 
               <div className="rounded-md border border-[#DCE6F2] bg-white p-4">
                 <p className={labelClass}>Network ID</p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setUseExistingZone(false)}
-                    className={`rounded-md px-4 py-2 text-sm font-medium transition ${
-                      !useExistingZone
-                        ? `${accentBg} text-white`
-                        : "bg-[#EDF3FB] text-[#566784] hover:bg-[#EDF3FB]"
-                    }`}
-                  >
-                    Generate New
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUseExistingZone(true)}
-                    className={`rounded-md px-4 py-2 text-sm font-medium transition ${
-                      useExistingZone
-                        ? `${accentBg} text-white`
-                        : "bg-[#EDF3FB] text-[#566784] hover:bg-[#EDF3FB]"
-                    }`}
-                  >
-                    Enter Existing
-                  </button>
-                </div>
+                {joiningNetwork ? (
+                  <div className="space-y-3">
+                    <p className="text-xs leading-relaxed text-[#8694AC]">
+                      Networks for the account type you selected.
+                    </p>
+                    <select
+                      id="reg-network-select"
+                      value={
+                        joinableNetworks.some(
+                          (row) => row.network_id === existingZoneId,
+                        )
+                          ? existingZoneId
+                          : ""
+                      }
+                      onChange={(e) => {
+                        setExistingZoneId(e.target.value);
+                        setNeedsAdministratorEmail(false);
+                        setAdministratorEmail("");
+                      }}
+                      className={inputClass}
+                    >
+                      <option value="">Select a network</option>
+                      {joinableNetworks.map((row) => (
+                        <option key={row.network_id} value={row.network_id}>
+                          {row.network_id}
+                          {row.label ? ` · ${row.label}` : ""}
+                          {(row.administrator_count ?? 1) > 1
+                            ? " · several administrators"
+                            : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setUseExistingZone(false)}
+                      className={`rounded-md px-4 py-2 text-sm font-medium transition ${
+                        !useExistingZone
+                          ? `${accentBg} text-white`
+                          : "bg-[#EDF3FB] text-[#566784] hover:bg-[#EDF3FB]"
+                      }`}
+                    >
+                      Generate New
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setUseExistingZone(true)}
+                      className={`rounded-md px-4 py-2 text-sm font-medium transition ${
+                        useExistingZone
+                          ? `${accentBg} text-white`
+                          : "bg-[#EDF3FB] text-[#566784] hover:bg-[#EDF3FB]"
+                      }`}
+                    >
+                      Enter Existing
+                    </button>
+                  </div>
+                )}
 
+                {joiningNetwork ? null : (
                 <div className="mt-4 flex flex-wrap items-stretch gap-2 sm:flex-nowrap">
                   <input
-                    readOnly={!useExistingZone}
-                    value={useExistingZone ? existingZoneId : zoneId}
+                    readOnly={!joiningNetwork && !useExistingZone}
+                    value={
+                      joiningNetwork || useExistingZone ? existingZoneId : zoneId
+                    }
                     onChange={(e) => {
-                      if (useExistingZone) setExistingZoneId(e.target.value);
+                      if (joiningNetwork || useExistingZone) {
+                        setExistingZoneId(e.target.value);
+                        setNeedsAdministratorEmail(false);
+                        setAdministratorEmail("");
+                      }
                     }}
                     placeholder="Network-XXXXXXXX"
                     className={`min-w-0 flex-1 rounded-md border border-[#DCE6F2] px-3 py-2.5 font-mono text-sm focus:border-[#2F80ED]/60 focus:outline-none focus:ring-1 focus:ring-[#2F80ED]/25 ${
-                      useExistingZone
+                      joiningNetwork || useExistingZone
                         ? `${panelBg} text-[#0F2C5C]`
                         : `${panelBg} ${accent}`
                     }`}
                   />
-                  <button
-                    type="button"
-                    disabled={useExistingZone}
-                    onClick={() => setZoneId(generateZoneId())}
-                    className="shrink-0 rounded-md border border-[#E4ECF7] bg-[#EDF3FB] px-4 py-2.5 text-sm font-medium text-[#566784] transition hover:bg-[#EDF3FB] disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Regenerate
-                  </button>
+                  {!joiningNetwork ? (
+                    <button
+                      type="button"
+                      disabled={useExistingZone}
+                      onClick={() => setZoneId(generateZoneId())}
+                      className="shrink-0 rounded-md border border-[#E4ECF7] bg-[#EDF3FB] px-4 py-2.5 text-sm font-medium text-[#566784] transition hover:bg-[#EDF3FB] disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Regenerate
+                    </button>
+                  ) : null}
                 </div>
+                )}
+                {joiningNetwork && needsAdministratorEmail ? (
+                  <div className="mt-4">
+                    <label htmlFor="reg-admin-email" className={labelClass}>
+                      Administrator email
+                    </label>
+                    <input
+                      id="reg-admin-email"
+                      type="email"
+                      value={administratorEmail}
+                      onChange={(e) => setAdministratorEmail(e.target.value)}
+                      placeholder="admin@example.com"
+                      autoComplete="off"
+                      className={inputClass}
+                    />
+                    <p className="mt-2 text-xs leading-relaxed text-[#8694AC]">
+                      More than one administrator uses this network. Enter their
+                      email so we can link the right account.
+                    </p>
+                  </div>
+                ) : null}
               </div>
 
               <div>
@@ -616,9 +712,10 @@ export default function CreateAccount() {
                 type="submit"
                 disabled={
                   loading ||
-                  regCodeLoading ||
-                  Boolean(regCodeError) ||
-                  !registrationCode.trim()
+                  (!joiningNetwork &&
+                    (regCodeLoading ||
+                      Boolean(regCodeError) ||
+                      !registrationCode.trim()))
                 }
                 className={`flex w-full items-center justify-center gap-2 rounded-md ${accentBg} py-3.5 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60`}
               >

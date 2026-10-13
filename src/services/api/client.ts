@@ -101,6 +101,23 @@ function normalizeEnvelopeError(raw: unknown): string | null {
   return topMsg || nested || "Request failed";
 }
 
+function readResponseDetail(data: unknown): string {
+  if (!data || typeof data !== "object") return "";
+  const detail = (data as { detail?: unknown }).detail;
+  if (typeof detail === "string") return detail.trim();
+  if (!Array.isArray(detail)) return "";
+  return detail
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      if (item && typeof item === "object" && "msg" in item) {
+        return String((item as { msg?: unknown }).msg ?? "").trim();
+      }
+      return "";
+    })
+    .filter(Boolean)
+    .join(" ");
+}
+
 function toErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     const status = error.response?.status;
@@ -110,6 +127,7 @@ function toErrorMessage(error: unknown): string {
       return envelopeError;
     }
     const message =
+      readResponseDetail(error.response?.data) ||
       (error.response?.data as { message?: string } | undefined)?.message ||
       error.message;
     const base = message || "Request failed";

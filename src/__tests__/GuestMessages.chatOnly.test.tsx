@@ -6,10 +6,19 @@ import { MemoryRouter } from "react-router-dom";
 import GuestMessages from "../pages/guest/GuestMessages";
 
 vi.mock("../lib/guestAccessToken", () => ({
+  getGuestAccessToken: () => "guest-token",
   getGuestSessionMeta: () => ({
     zone_id: "ZONE-1",
     zone_ids: ["ZONE-1"],
     allowed_message_types: ["CHAT", "PERMISSION"],
+  }),
+  persistGuestSessionMeta: vi.fn(),
+}));
+
+vi.mock("../hooks/useGuestRealtime", () => ({
+  useGuestRealtime: () => ({
+    isPeerOnline: () => false,
+    lastMessage: null,
   }),
 }));
 
@@ -19,7 +28,10 @@ vi.mock("../services/api/guestMessages", () => ({
     error: null,
   }),
   fetchGuestPeers: vi.fn().mockResolvedValue({
-    data: [{ owner_id: "owner-1", display_name: "Admin" }],
+    data: [
+      { owner_id: "owner-1", display_name: "Admin", role: "administrator" },
+      { owner_id: "owner-2", display_name: "Member", role: "user" },
+    ],
     error: null,
   }),
   listGuestThreadMessages: vi.fn().mockResolvedValue({
@@ -41,7 +53,7 @@ describe("Guest messages composer", () => {
     vi.clearAllMocks();
   });
 
-  it("sends CHAT only while still rendering PERMISSION thread rows", async () => {
+  it("sends CHAT only to the administrator while still rendering PERMISSION thread rows", async () => {
     const { sendGuestMessage } = await import("../services/api/guestMessages");
     const user = userEvent.setup();
     render(
@@ -50,18 +62,18 @@ describe("Guest messages composer", () => {
       </MemoryRouter>,
     );
 
-    await waitFor(() => expect(screen.getByText(/guests can send chat only/i)).toBeInTheDocument());
-    expect(screen.getByRole("option", { name: /admin/i })).toBeInTheDocument();
-    const selects = screen.getAllByRole("combobox");
-    await user.selectOptions(selects[1], "owner-1");
+    await waitFor(() =>
+      expect(screen.getByText(/guests can send chat only to the network administrator/i)).toBeInTheDocument(),
+    );
+    expect(screen.getByText("Admin")).toBeInTheDocument();
+    expect(screen.queryByText("Member")).not.toBeInTheDocument();
     await user.type(screen.getByPlaceholderText(/write a message/i), "hello");
     await user.click(screen.getByRole("button", { name: /send/i }));
 
     await waitFor(() => {
       expect(vi.mocked(sendGuestMessage)).toHaveBeenCalledWith(
-        expect.objectContaining({ type: "CHAT" }),
+        expect.objectContaining({ type: "CHAT", to_owner_id: "owner-1" }),
       );
     });
   });
 });
-
