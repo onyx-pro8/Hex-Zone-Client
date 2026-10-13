@@ -37,6 +37,8 @@ import { AlarmNotificationsHost } from "./components/AlarmNotificationsHost";
 import { UiToastHost } from "./components/UiToastHost";
 import { AlarmInboxProvider } from "./state/alarm/AlarmInboxContext";
 import { AlarmNotificationsProvider } from "./state/alarm/AlarmNotificationsContext";
+import { GuestCallProvider } from "./context/GuestCallContext";
+import { CallOverlay } from "./components/calls/CallOverlay";
 
 function MessageFeatureBootstrap() {
   const { token } = useAuth();
@@ -269,11 +271,14 @@ export default function App() {
       <AppStateProvider>
         <AlarmNotificationsProvider>
           <AlarmInboxProvider>
-            <MessageFeatureBootstrap />
-            <LocationSync />
-            <AlarmNotificationsHost />
-            <UiToastHost />
-            <Shell />
+            <GuestCallProvider>
+              <MessageFeatureBootstrap />
+              <LocationSync />
+              <AlarmNotificationsHost />
+              <UiToastHost />
+              <CallOverlay />
+              <Shell />
+            </GuestCallProvider>
           </AlarmInboxProvider>
         </AlarmNotificationsProvider>
       </AppStateProvider>

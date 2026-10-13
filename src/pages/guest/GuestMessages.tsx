@@ -1,6 +1,7 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Loader2, RefreshCw, Send, ShieldAlert } from "lucide-react";
+import { Loader2, Phone, RefreshCw, Send, ShieldAlert } from "lucide-react";
+import { useGuestCallOptional } from "../../context/GuestCallContext";
 import {
   getGuestAccessToken,
   getGuestSessionMeta,
@@ -29,6 +30,7 @@ import {
   isPermissionZonePendingBroadcastVisibility,
 } from "../../lib/permissionVisibility";
 import { useGuestRealtime } from "../../hooks/useGuestRealtime";
+import { isAdminGuestPeer } from "../../lib/chatGuestCompose";
 
 const POLL_MS = 4000;
 const APPROVAL_POLL_MS = 2000;
@@ -137,6 +139,7 @@ function initialsFromName(name: string): string {
 }
 
 export default function GuestMessages() {
+  const guestCall = useGuestCallOptional();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const zoneFromQuery = String(searchParams.get("zone") ?? "").trim();
@@ -340,10 +343,13 @@ export default function GuestMessages() {
       setPeers([]);
       return;
     }
-    setPeers(res.data);
+    const raw = res.data;
+    const adminPeers = raw.filter((p) => isAdminGuestPeer(p));
+    const nextPeers = adminPeers.length ? adminPeers : raw.slice(0, 1);
+    setPeers(nextPeers);
     setPeerId((prev) => {
-      if (prev && res.data.some((p) => p.owner_id === prev)) return prev;
-      return res.data[0]?.owner_id ?? "";
+      if (prev && nextPeers.some((p) => p.owner_id === prev)) return prev;
+      return nextPeers[0]?.owner_id ?? "";
     });
   }, [zoneId]);
 
@@ -431,13 +437,9 @@ export default function GuestMessages() {
     void loadThread();
   };
 
-  const peersPathHint =
-    zoneId.trim().length > 0
-      ? `${guestApiBasePath()}/zones/${encodeURIComponent(zoneId.trim())}/peers`
-      : "";
   const noHostsHint =
     zoneId.trim().length > 0
-      ? `No members available — backend GET ${guestApiBasePath()}/zones/${encodeURIComponent(zoneId.trim())}/peers must return network members.`
+      ? `No administrator available — backend GET ${guestApiBasePath()}/zones/${encodeURIComponent(zoneId.trim())}/peers must return the network administrator.`
       : "";
 
   return (
@@ -447,66 +449,30 @@ export default function GuestMessages() {
           {approvalStatus === "PENDING" ? "Waiting for approval" : "Guest messages"}
         </h1>
         {approvalStatus === "PENDING" ? (
-          <div className="mt-2 flex items-center gap-2 rounded-lg border border-[#E0992A]/40 bg-[#FBEFD8] px-3 py-2 text-xs font-semibold text-[#E0992A]">
+          <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-[#E0992A]/40 bg-[#FBEFD8] px-3 py-2 text-xs font-semibold text-[#E0992A]">
             <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
-            Message the network administrator while you wait
+            <span className="flex-1">Message the network administrator while you wait</span>
+            <button
+              type="button"
+              disabled={Boolean(guestCall?.session)}
+              onClick={() => guestCall?.startGuestCall()}
+              className="inline-flex items-center gap-1 rounded-md border border-[#E0992A]/50 bg-white px-2.5 py-1 text-[11px] font-bold text-[#E0992A] disabled:opacity-50"
+            >
+              <Phone className="h-3.5 w-3.5" /> Call
+            </button>
           </div>
         ) : (
-          <>
-            <p className="text-sm text-[#8694AC]">
-              Guests can send CHAT only. Permission events are automatic. Messaging is network-level — pick any
-              member or administrator on this network.
-            </p>
-            <div className="mt-3 rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-xs text-[#8694AC]">
-              Access messaging uses your network id. Choose a zone (network), then pick a{" "}
-              <span className="font-medium text-[#566784]">member or administrator</span> to chat with. Location
-              and map zones do not limit who you can message. If the list stays empty after the backend ships{" "}
-              <span className="font-mono text-[#8694AC]">{peersPathHint || "…/peers"}</span>, ask your backend team
-              to return zone staff as documented in{" "}
-              <code className="rounded bg-[#EDF3FB] px-1 text-[10px]">docs/BACKEND_ACCESS_ZONE_FULL_CONTRACT.md</code>{" "}
-              (give them the whole file).
-            </div>
-          </>
+          <p className="text-sm text-[#8694AC]">
+            Guests can send CHAT only to the network administrator. Permission events are automatic.
+          </p>
         )}
       </header>
 
-      <div
-        className={`grid gap-4 ${
-          approvalStatus === "PENDING"
-            ? "lg:grid-cols-1"
-            : "lg:grid-cols-[minmax(260px,360px)_minmax(0,1fr)]"
-        }`}
-      >
-        {approvalStatus === "PENDING" ? null : (
-        <div className="space-y-3 rounded-xl border border-[#DCE6F2] bg-white p-4">
-          <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-[#8694AC]">
-            Zone
-          </label>
-          <select
-            value={zoneId}
-            onChange={(ev) => {
-              setZoneId(ev.target.value);
-              setPeerId("");
-            }}
-            className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
-          >
-            {(zones.length ? zones : zoneId ? [zoneId] : [""]).map((z) => (
-              <option key={z || "empty"} value={z}>
-                {z || "—"}
-              </option>
-            ))}
-          </select>
-          {loadingPeers ? (
-            <p className="flex items-center gap-2 text-xs text-[#8694AC]">
-              <Loader2 className="h-3 w-3 animate-spin" /> Loading peers…
-            </p>
-          ) : null}
-          {peersError ? (
-            <p className="text-xs text-rose-600">{peersError}</p>
-          ) : null}
+      <div className="grid gap-4 lg:grid-cols-1">
+        <div className="space-y-2 rounded-xl border border-[#DCE6F2] bg-white p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-[#8694AC]">
-              Members in this network
+              Network administrator
             </label>
             <button
               type="button"
@@ -515,57 +481,26 @@ export default function GuestMessages() {
               className="inline-flex items-center gap-1 rounded-md border border-[#DCE6F2] px-2 py-1 text-[11px] text-[#566784] hover:border-[#2F80ED]/50 disabled:opacity-50"
             >
               <RefreshCw className={`h-3 w-3 ${loadingPeers ? "animate-spin" : ""}`} />
-              Refresh peers
+              Refresh
             </button>
           </div>
-
-          {peers.length > 0 ? (
-            <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-              {peers.map((p) => {
-                const selected = peerId === p.owner_id;
-                return (
-                  <li key={p.owner_id}>
-                    <button
-                      type="button"
-                      onClick={() => setPeerId(p.owner_id)}
-                      className={`w-full rounded-lg border px-3 py-2 text-left text-xs transition ${
-                        selected
-                          ? "border-[#2F80ED]/45 bg-[#EDF3FB] text-[#0F2C5C]"
-                          : "border-[#DCE6F2] bg-[#F7FAFE] text-[#566784] hover:border-[#2F80ED]/50"
-                      }`}
-                    >
-                      <p className="font-medium text-[#0F2C5C]">{p.display_name || "Host"}</p>
-                      <p className="mt-0.5 font-mono text-[10px] text-[#8694AC]">{p.owner_id}</p>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+          {loadingPeers ? (
+            <p className="flex items-center gap-2 text-xs text-[#8694AC]">
+              <Loader2 className="h-3 w-3 animate-spin" /> Connecting…
+            </p>
           ) : null}
-
-          <select
-            value={peerId}
-            onChange={(ev) => setPeerId(ev.target.value)}
-            className="w-full rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2 text-sm text-[#0F2C5C]"
-          >
-            <option value="">Select a peer…</option>
-            {peers.map((p) => (
-              <option key={p.owner_id} value={p.owner_id}>
-                {p.display_name ? `${p.display_name} (${p.owner_id})` : p.owner_id}
-              </option>
-            ))}
-          </select>
+          {peersError ? <p className="text-xs text-rose-600">{peersError}</p> : null}
+          {!loadingPeers && !peersError && peers[0] ? (
+            <p className="text-sm font-medium text-[#0F2C5C]">
+              {peers[0].display_name || "Administrator"}
+            </p>
+          ) : null}
           {!loadingPeers && !peersError && zoneId.trim() && peers.length === 0 ? (
             <div className="space-y-1 rounded-md border border-[#E0992A]/30 bg-[#FBEFD8] px-3 py-2 text-xs text-[#E0992A]">
               <p>{noHostsHint}</p>
-              <p className="text-[11px] text-[#E0992A]">
-                Full contract:{" "}
-                <span className="font-mono text-[#E0992A]">docs/BACKEND_ACCESS_ZONE_FULL_CONTRACT.md</span> (section 4.3).
-              </p>
             </div>
           ) : null}
         </div>
-        )}
 
         <div className="flex min-h-[360px] max-h-[70vh] flex-col rounded-xl border border-[#DCE6F2] bg-white p-4">
           <h2 className="text-xs font-semibold uppercase tracking-[0.16em] text-[#8694AC]">
@@ -573,9 +508,7 @@ export default function GuestMessages() {
           </h2>
           {!peerId ? (
             <p className="mt-4 text-sm text-[#8694AC]">
-              {approvalStatus === "PENDING"
-                ? "Connecting to the network administrator…"
-                : "Choose a peer to load messages."}
+              Connecting to the network administrator…
             </p>
           ) : loadingThread && !messages.length ? (
             <p className="mt-4 flex items-center gap-2 text-sm text-[#8694AC]">

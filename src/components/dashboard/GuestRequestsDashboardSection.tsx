@@ -13,7 +13,8 @@ import {
   denyGuestPermissionRequestRemote,
   listGuestRequestsForZone,
 } from "../../services/api/accessPermissions";
-import { Check, ChevronDown, ChevronUp, MessageCircle, RefreshCw, ShieldAlert, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, MessageCircle, Phone, RefreshCw, ShieldAlert, X } from "lucide-react";
+import { useGuestCallOptional } from "../../context/GuestCallContext";
 
 /** Visible cards while collapsed; “Show more” when there are additional rows above this count. */
 const GUEST_REQUESTS_COLLAPSED_COUNT = 2;
@@ -42,6 +43,7 @@ type Props = {
 export function GuestRequestsDashboardSection({ zoneId }: Props) {
   const navigate = useNavigate();
   const { token } = useAuth();
+  const guestCall = useGuestCallOptional();
   const normalizedZoneId = zoneId.trim();
   const [rows, setRows] = useState<GuestRequestRow[]>([]);
   const [listError, setListError] = useState("");
@@ -313,6 +315,22 @@ export function GuestRequestsDashboardSection({ zoneId }: Props) {
                     className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-[#DCE6F2] px-3 py-2 text-xs font-semibold text-[#566784] transition hover:border-[#2F80ED]/40 hover:text-[#2F80ED] disabled:opacity-50 sm:flex-none"
                   >
                     <MessageCircle className="h-3.5 w-3.5" /> Chat
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busyId === row.id || Boolean(guestCall?.session)}
+                    onClick={() => {
+                      const gid = (row.guestId || "").trim();
+                      if (!gid) return;
+                      guestCall?.startAdminCall({
+                        guestId: gid,
+                        zoneId: normalizedZoneId,
+                        guestName: row.guestName,
+                      });
+                    }}
+                    className="inline-flex flex-1 items-center justify-center gap-1 rounded-lg border border-[#2F80ED]/40 px-3 py-2 text-xs font-semibold text-[#2F80ED] transition hover:bg-[#2F80ED]/10 disabled:opacity-50 sm:flex-none"
+                  >
+                    <Phone className="h-3.5 w-3.5" /> Call
                   </button>
                 </div>
               ) : row.status === "APPROVED" ? (

@@ -15,6 +15,7 @@ import {
   QrCode,
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useGuestCallOptional } from "../context/GuestCallContext";
 import { resolveGuestBrowserDeviceId } from "../lib/guestDeviceId";
 import {
   mapGuestAccessErrorCode,
@@ -37,6 +38,8 @@ type Phase =
       pollZoneId: string;
       serverMessage: string;
       pollMessage?: string;
+      chatQueueWaiting?: boolean;
+      callFullscreen?: boolean;
     }
   | {
       id: "approved";
@@ -125,6 +128,7 @@ function pollMessageIfDistinct(
 }
 
 export default function GuestAccess() {
+  const guestCall = useGuestCallOptional();
   const navigate = useNavigate();
   const [authExpiredNotice, setAuthExpiredNotice] = useState(false);
   const [searchParams] = useSearchParams();
@@ -278,13 +282,23 @@ export default function GuestAccess() {
         openPendingNetworkChat(res.chat_access_token, guestId, pollZoneId);
         return;
       }
-      if (res.message) {
+      if (res.status === "PENDING") {
         setPhase((p) =>
           p.id === "waiting"
+            ? {
+                ...p,
+                chatQueueWaiting: Boolean(res.chat_queue_waiting),
+                ...(res.message ? { pollMessage: res.message } : {}),
+              }
+            : p,
+        );
+        return;
+      }
+      if (res.message) {
+        setPhase((p) =>
+          p.id === "approved" && !p.exchange_code
             ? { ...p, pollMessage: res.message }
-            : p.id === "approved" && !p.exchange_code
-              ? { ...p, pollMessage: res.message }
-              : p,
+            : p,
         );
       }
     };
@@ -475,6 +489,8 @@ export default function GuestAccess() {
       guestId: gid,
       pollZoneId,
       serverMessage: result.message || "Waiting for approval…",
+      chatQueueWaiting: Boolean(result.chat_queue_waiting),
+      callFullscreen: Boolean(result.call_fullscreen),
     });
     if (result.chat_access_token) {
       openPendingNetworkChat(result.chat_access_token, gid, pollZoneId);
@@ -681,18 +697,35 @@ export default function GuestAccess() {
             <ShieldAlert className="h-5 w-5 text-[#E0992A]" /> Waiting for
             approval
           </p>
-          <p className="text-sm text-[#566784]">{phase.serverMessage}</p>
+          <p className="text-sm text-[#566784]">
+            {phase.chatQueueWaiting
+              ? "Please wait — you can chat after the administrator messages you, or after earlier guests are approved or rejected."
+              : phase.serverMessage}
+          </p>
           {(() => {
+            if (phase.chatQueueWaiting) return null;
             const line = pollMessageIfDistinct(phase.serverMessage, phase.pollMessage);
             return line ? <p className="text-sm text-[#8694AC]">{line}</p> : null;
           })()}
           <div className="flex items-center gap-2 text-sm text-[#8694AC]">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-            Checking status…
+            {phase.chatQueueWaiting ? "Waiting for chat…" : "Checking status…"}
           </div>
           <p className="break-all font-mono text-[10px] text-[#8694AC]">
             Reference: {phase.guestId}
           </p>
+          <button
+            type="button"
+            disabled={Boolean(guestCall?.session)}
+            onClick={() =>
+              guestCall?.startGuestCall({
+                fullscreen: Boolean(phase.callFullscreen),
+              })
+            }
+            className="inline-flex items-center gap-1 rounded-lg border border-[#E0992A]/50 bg-white px-3 py-2 text-xs font-bold text-[#E0992A] disabled:opacity-50"
+          >
+            Call host
+          </button>
           <button
             type="button"
             onClick={reset}

@@ -476,6 +476,7 @@ export async function listGuestRequestsForZone(zoneId: string): Promise<{
     else if (statusRaw === "REJECTED" || statusRaw === "DENIED") status = "REJECTED";
     rows.push({
       id,
+      guestId: readString(r, ["guest_id", "guestId"]) ?? undefined,
       zoneId:
         readString(r, ["zone_id", "zoneId"]) ??
         zoneId,
@@ -559,6 +560,9 @@ export function mapGuestAccessErrorCode(code?: string, fallback?: string): strin
   if (c === "GUEST_MESSAGE_TYPE_NOT_ALLOWED") {
     return "Guests can send CHAT only";
   }
+  if (c === "GUEST_CHAT_QUEUE_WAITING") {
+    return "Wait for the administrator to message you first, or for earlier guests to be approved or rejected.";
+  }
   if (c === "INVALID_GUEST_TOKEN" || c === "TOKEN_ZONE_MISMATCH") {
     return "This invite link is invalid. Ask your host for a new guest invite.";
   }
@@ -596,6 +600,8 @@ export type AnonymousGuestPermissionResult =
       exchange_expires_at?: string;
       /** Present on pending network-access arrivals so the guest can open Messages immediately. */
       chat_access_token?: string;
+      chat_queue_waiting?: boolean;
+      call_fullscreen?: boolean;
     }
   | { ok: false; errorCode?: string; message: string };
 
@@ -636,6 +642,10 @@ export async function submitAnonymousGuestPermission(
       "exchangeExpiresAt",
     ]);
     const chat_access_token = readString(row, ["chat_access_token", "chatAccessToken"]);
+    const chat_queue_waiting =
+      row.chat_queue_waiting === true || row.chatQueueWaiting === true;
+    const call_fullscreen =
+      row.call_fullscreen === true || row.callFullscreen === true;
     const exchangeFields =
       exchange_code && exchange_code.trim()
         ? {
@@ -645,9 +655,11 @@ export async function submitAnonymousGuestPermission(
               : {}),
           }
         : {};
-    const chatFields = chat_access_token
-      ? { chat_access_token }
-      : {};
+    const chatFields = {
+      ...(chat_access_token ? { chat_access_token } : {}),
+      ...(chat_queue_waiting ? { chat_queue_waiting: true } : {}),
+      ...(call_fullscreen ? { call_fullscreen: true } : {}),
+    };
 
     if (st === "EXPECTED") {
       return {
@@ -757,6 +769,8 @@ export type GuestAccessSessionPollResult = {
   exchange_expires_at?: string;
   /** Guest JWT for the existing chat screen while a network request is still pending. */
   chat_access_token?: string;
+  /** True when another earlier pending guest currently holds the chat slot. */
+  chat_queue_waiting?: boolean;
   error: string | null;
 };
 
@@ -811,10 +825,13 @@ export async function pollGuestAccessSession(
     }
     if (st === "PENDING" || st === "REVIEW" || st === "WAITING") {
       const chat_access_token = readString(row, ["chat_access_token", "chatAccessToken"]);
+      const chat_queue_waiting =
+        row.chat_queue_waiting === true || row.chatQueueWaiting === true;
       return {
         status: "PENDING",
         message,
         ...(chat_access_token ? { chat_access_token } : {}),
+        ...(chat_queue_waiting ? { chat_queue_waiting: true } : {}),
         error: null,
       };
     }

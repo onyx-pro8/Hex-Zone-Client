@@ -47,6 +47,8 @@ export function parseGuestArrivalSocketEvent(raw: string): GuestArrivalSocketEve
 
 export type GuestRequestRow = {
   id: string;
+  /** Opaque guest session id used for call signaling / approve paths. */
+  guestId?: string;
   zoneId?: string;
   guestName?: string;
   hid?: string;
