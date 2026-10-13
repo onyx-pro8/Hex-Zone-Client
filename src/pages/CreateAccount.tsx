@@ -224,7 +224,7 @@ export default function CreateAccount() {
       );
       if (/administrator email/i.test(message)) {
         setNeedsAdministratorEmail(true);
-      );
+      }
     } finally {
       setLoading(false);
     }

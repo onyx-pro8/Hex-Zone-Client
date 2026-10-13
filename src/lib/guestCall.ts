@@ -57,9 +57,9 @@ export function parseGuestCallSocketMessage(
 
 export function sessionFromCallPayload(
   data: Record<string, unknown>,
-  *,
-  localRole: GuestCallRole,
+  options: { localRole: GuestCallRole },
 ): GuestCallSession | null {
+  const { localRole } = options;
   const callId = String(data.call_id ?? "").trim();
   const guestId = String(data.guest_id ?? "").trim();
   const zoneId = String(data.zone_id ?? "").trim();
