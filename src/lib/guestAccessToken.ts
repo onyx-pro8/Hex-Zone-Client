@@ -45,6 +45,11 @@ export function getGuestSessionMeta(): GuestSessionMeta | null {
 export function persistGuestAccessToken(token: string): void {
   sessionStorage.setItem(GUEST_ACCESS_TOKEN_KEY, token.trim());
   resetGuestSession401RedirectGuard();
+  try {
+    window.dispatchEvent(new Event("hexzone-guest-meta"));
+  } catch {
+    /* ignore */
+  }
 }
 
 export function persistGuestSessionMeta(meta: GuestSessionMeta): void {

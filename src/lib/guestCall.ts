@@ -1,4 +1,4 @@
-export type GuestCallState = "idle" | "ringing" | "connected";
+export type GuestCallState = "idle" | "queued" | "ringing" | "connected";
 
 export type GuestCallRole = "guest" | "admin";
 
@@ -16,10 +16,19 @@ export type GuestCallSession = {
   acceptedAt: string | null;
   /** True when this device initiated the invite. */
   isCaller: boolean;
+  adminAvatarUrl: string | null;
+  guestAvatarUrl: string | null;
+  /** 1-based place while state is queued. */
+  queuePosition?: number | null;
+  /** When the server started ringing. */
+  createdAt?: string | null;
+  /** Unanswered ring limit. Connected calls are not limited by this. */
+  ringTimeoutSeconds?: number | null;
 };
 
 export type GuestCallSocketEvent =
   | "CALL_INVITE"
+  | "CALL_QUEUED"
   | "CALL_ACCEPT"
   | "CALL_REJECT"
   | "CALL_CANCEL"
@@ -29,6 +38,7 @@ export type GuestCallSocketEvent =
 
 const CALL_TYPES = new Set<string>([
   "CALL_INVITE",
+  "CALL_QUEUED",
   "CALL_ACCEPT",
   "CALL_REJECT",
   "CALL_CANCEL",
@@ -69,7 +79,8 @@ export function sessionFromCallPayload(
     callerRoleRaw === "guest" ? "guest" : "admin";
   const stateRaw = String(data.state ?? "ringing").toLowerCase();
   const state: GuestCallState =
-    stateRaw === "connected" ? "connected" : "ringing";
+    stateRaw === "connected" ? "connected" : stateRaw === "queued" ? "queued" : "ringing";
+  const queuePosition = Number(data.queue_position);
   const adminOwnerId = Number(data.admin_owner_id);
   return {
     callId,
@@ -86,7 +97,41 @@ export function sessionFromCallPayload(
         ? data.accepted_at.trim()
         : null,
     isCaller: callerRole === localRole,
+    adminAvatarUrl: readAvatar(data.admin_avatar_url),
+    guestAvatarUrl: readAvatar(data.guest_avatar_url),
+    queuePosition: Number.isFinite(queuePosition) ? queuePosition : null,
+    createdAt:
+      typeof data.created_at === "string" && data.created_at.trim()
+        ? data.created_at.trim()
+        : null,
+    ringTimeoutSeconds: Number.isFinite(Number(data.ring_timeout_seconds))
+      ? Number(data.ring_timeout_seconds)
+      : null,
   };
+}
+
+function readAvatar(value: unknown): string | null {
+  const raw = typeof value === "string" ? value.trim() : "";
+  return raw || null;
+}
+
+/** True when the visible call card should stay put (no hide/show flash). */
+export function sameVisibleCall(
+  prev: GuestCallSession | null,
+  next: GuestCallSession,
+): boolean {
+  if (!prev) return false;
+  return (
+    prev.callId === next.callId &&
+    prev.state === next.state &&
+    prev.isCaller === next.isCaller &&
+    prev.fullscreen === next.fullscreen &&
+    prev.acceptedAt === next.acceptedAt &&
+    prev.guestName === next.guestName &&
+    prev.adminAvatarUrl === next.adminAvatarUrl &&
+    prev.guestAvatarUrl === next.guestAvatarUrl &&
+    (prev.queuePosition ?? null) === (next.queuePosition ?? null)
+  );
 }
 
 export function formatCallDuration(seconds: number): string {
@@ -94,4 +139,12 @@ export function formatCallDuration(seconds: number): string {
   const mm = String(Math.floor(s / 60)).padStart(2, "0");
   const ss = String(s % 60).padStart(2, "0");
   return `${mm}:${ss}`;
+}
+
+export function zoneIdsEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
 }

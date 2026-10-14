@@ -155,23 +155,41 @@ export default function GuestAccess() {
   const [exchangeError, setExchangeError] = useState<string | null>(null);
   const openedPendingChat = useRef(false);
 
-  const openPendingNetworkChat = useCallback(
-    (token: string, guestId: string, zoneId: string) => {
-      if (openedPendingChat.current) return;
+  const attachPendingGuestSession = useCallback(
+    (
+      token: string,
+      guestId: string,
+      zoneId: string,
+      opts?: { openChat?: boolean; callFullscreen?: boolean },
+    ) => {
       const accessToken = token.trim();
       const gid = guestId.trim();
       const zone = zoneId.trim();
-      if (!accessToken || !gid || !zone) return;
-      openedPendingChat.current = true;
-      persistPendingNetworkGuestChat({
-        access_token: accessToken,
-        guest_id: gid,
-        zone_id: zone,
-        display_name: guestName,
-      });
-      navigate(`/guest/messages?zone=${encodeURIComponent(zone)}`, { replace: true });
+      if (!gid || !zone) return;
+      // Sender sees the call card first — before token/socket attach.
+      if (opts?.callFullscreen) {
+        guestCall?.presentLocalOutgoingCall({
+          zoneId: zone,
+          guestId: gid,
+          guestName: guestName.trim() || "Guest",
+          fullscreen: true,
+        });
+      }
+      if (accessToken) {
+        persistPendingNetworkGuestChat({
+          access_token: accessToken,
+          guest_id: gid,
+          zone_id: zone,
+          display_name: guestName,
+        });
+      }
+      if (opts?.openChat && accessToken) {
+        if (openedPendingChat.current) return;
+        openedPendingChat.current = true;
+        navigate(`/guest/messages?zone=${encodeURIComponent(zone)}`, { replace: true });
+      }
     },
-    [guestName, navigate],
+    [guestCall, guestName, navigate],
   );
 
   useLayoutEffect(() => {
@@ -278,9 +296,11 @@ export default function GuestAccess() {
         setPhase({ id: "rejected", message: res.message });
         return;
       }
-      if (res.status === "PENDING" && res.chat_access_token) {
-        openPendingNetworkChat(res.chat_access_token, guestId, pollZoneId);
-        return;
+      if (res.status === "PENDING" && (res.chat_access_token || res.call_fullscreen)) {
+        attachPendingGuestSession(res.chat_access_token || "", guestId, pollZoneId, {
+          callFullscreen: Boolean(res.call_fullscreen),
+          openChat: false,
+        });
       }
       if (res.status === "PENDING") {
         setPhase((p) =>
@@ -288,6 +308,7 @@ export default function GuestAccess() {
             ? {
                 ...p,
                 chatQueueWaiting: Boolean(res.chat_queue_waiting),
+                callFullscreen: Boolean(res.call_fullscreen) || Boolean(p.callFullscreen),
                 ...(res.message ? { pollMessage: res.message } : {}),
               }
             : p,
@@ -316,7 +337,7 @@ export default function GuestAccess() {
     phase.id === "approved" && !phase.exchange_code?.trim() ? phase.guestId : "",
     phase.id === "approved" && !phase.exchange_code?.trim() ? phase.pollZoneId : "",
     phase.id === "approved" ? (phase.exchange_code ?? "").trim() : "",
-    openPendingNetworkChat,
+    attachPendingGuestSession,
   ]);
 
   const runGuestSessionExchange = useCallback(
@@ -492,8 +513,14 @@ export default function GuestAccess() {
       chatQueueWaiting: Boolean(result.chat_queue_waiting),
       callFullscreen: Boolean(result.call_fullscreen),
     });
-    if (result.chat_access_token) {
-      openPendingNetworkChat(result.chat_access_token, gid, pollZoneId);
+    if (result.chat_access_token || result.call_fullscreen) {
+      attachPendingGuestSession(result.chat_access_token || "", gid, pollZoneId, {
+        callFullscreen: Boolean(result.call_fullscreen),
+        openChat:
+          Boolean(result.chat_access_token) &&
+          !result.chat_queue_waiting &&
+          !result.call_fullscreen,
+      });
     }
   };
 

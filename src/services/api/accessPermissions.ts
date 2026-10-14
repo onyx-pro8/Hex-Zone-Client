@@ -771,6 +771,8 @@ export type GuestAccessSessionPollResult = {
   chat_access_token?: string;
   /** True when another earlier pending guest currently holds the chat slot. */
   chat_queue_waiting?: boolean;
+  /** Escalated access-reject call: guest should show fullscreen outgoing card. */
+  call_fullscreen?: boolean;
   error: string | null;
 };
 
@@ -827,11 +829,14 @@ export async function pollGuestAccessSession(
       const chat_access_token = readString(row, ["chat_access_token", "chatAccessToken"]);
       const chat_queue_waiting =
         row.chat_queue_waiting === true || row.chatQueueWaiting === true;
+      const call_fullscreen =
+        row.call_fullscreen === true || row.callFullscreen === true;
       return {
         status: "PENDING",
         message,
         ...(chat_access_token ? { chat_access_token } : {}),
         ...(chat_queue_waiting ? { chat_queue_waiting: true } : {}),
+        ...(call_fullscreen ? { call_fullscreen: true } : {}),
         error: null,
       };
     }
