@@ -602,6 +602,7 @@ export type AnonymousGuestPermissionResult =
       chat_access_token?: string;
       chat_queue_waiting?: boolean;
       call_fullscreen?: boolean;
+      admin_avatar_url?: string;
     }
   | { ok: false; errorCode?: string; message: string };
 
@@ -646,6 +647,7 @@ export async function submitAnonymousGuestPermission(
       row.chat_queue_waiting === true || row.chatQueueWaiting === true;
     const call_fullscreen =
       row.call_fullscreen === true || row.callFullscreen === true;
+    const admin_avatar_url = readString(row, ["admin_avatar_url", "adminAvatarUrl"]);
     const exchangeFields =
       exchange_code && exchange_code.trim()
         ? {
@@ -659,6 +661,7 @@ export async function submitAnonymousGuestPermission(
       ...(chat_access_token ? { chat_access_token } : {}),
       ...(chat_queue_waiting ? { chat_queue_waiting: true } : {}),
       ...(call_fullscreen ? { call_fullscreen: true } : {}),
+      ...(admin_avatar_url ? { admin_avatar_url } : {}),
     };
 
     if (st === "EXPECTED") {

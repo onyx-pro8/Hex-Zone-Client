@@ -9,8 +9,9 @@ import {
   type ReactNode,
 } from "react";
 import { useAuth } from "../hooks/useAuth";
-import { useWebSocket } from "../hooks/useWebSocket";
+import { subscribeRealtimeMessages, useWebSocket } from "../hooks/useWebSocket";
 import {
+  emitEscalatedAccessClosed,
   formatCallDuration,
   parseGuestCallSocketMessage,
   sameVisibleCall,
@@ -22,6 +23,7 @@ import {
 import {
   handleGuestCallSignal,
   startGuestCallMedia,
+  primeLocalVoiceContext,
   stopGuestCallMedia,
 } from "../lib/guestCallMedia";
 import { getGuestAccessToken, getGuestSessionMeta } from "../lib/guestAccessToken";
@@ -46,13 +48,21 @@ type GuestCallContextValue = {
   session: GuestCallSession | null;
   elapsedLabel: string;
   callBusy: boolean;
+  callRequesting: boolean;
   startAdminCall: (args: StartAdminCallArgs) => boolean;
-  startGuestCall: (opts?: { fullscreen?: boolean }) => boolean;
+  startGuestCall: (opts?: {
+    fullscreen?: boolean;
+    guestId?: string;
+    zoneId?: string;
+    adminAvatarUrl?: string | null;
+  }) => boolean;
   presentLocalOutgoingCall: (args: PresentLocalOutgoingArgs) => void;
   acceptCall: () => void;
   rejectCall: () => void;
   cancelCall: () => void;
   endCall: () => void;
+  /** Guest card is on screen; the admin invite can go out now. */
+  notifyCardVisible: () => void;
 };
 
 const GuestCallContext = createContext<GuestCallContextValue | null>(null);
@@ -96,12 +106,14 @@ export function GuestCallProvider({ children }: { children: ReactNode }) {
     return meta?.zone_ids?.length ? meta.zone_ids : meta?.zone_id ? [meta.zone_id] : [];
   });
   const [session, setSession] = useState<GuestCallSession | null>(null);
+  const [callRequesting, setCallRequesting] = useState(false);
   const sessionRef = useRef<GuestCallSession | null>(null);
   sessionRef.current = session;
 
   const guestTokenRef = useRef<string | null>(guestToken);
   guestTokenRef.current = guestToken;
   const guestWsRef = useRef<WebSocket | null>(null);
+  const answerTimerRef = useRef<number | null>(null);
   const [guestWsOpen, setGuestWsOpen] = useState(false);
   const lastHandledRef = useRef<{ admin: string | null; guest: string | null }>({
     admin: null,
@@ -109,6 +121,10 @@ export function GuestCallProvider({ children }: { children: ReactNode }) {
   });
 
   const putSession = useCallback((next: GuestCallSession) => {
+    if (answerTimerRef.current) {
+      window.clearTimeout(answerTimerRef.current);
+      answerTimerRef.current = null;
+    }
     setSession((prev) => {
       if (sameVisibleCall(prev, next)) return prev;
       const placeholder =
@@ -127,8 +143,10 @@ export function GuestCallProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const armedCallRef = useRef<string | null>(null);
   const clearSession = useCallback(async () => {
     sessionRef.current = null;
+    armedCallRef.current = null;
     setSession(null);
     await stopGuestCallMedia();
   }, []);
@@ -160,10 +178,12 @@ export function GuestCallProvider({ children }: { children: ReactNode }) {
     () => (user?.zone_id ? [String(user.zone_id)] : []),
     [user?.zone_id],
   );
-  const { lastMessage, sendMessage, status } = useWebSocket({
+  const { sendMessage, status } = useWebSocket({
     token: memberToken,
     zoneIds: memberZoneIds,
   });
+  const memberStatusRef = useRef(status);
+  memberStatusRef.current = status;
 
   const sendCallAs = useCallback(
     (asRole: GuestCallRole, payload: Record<string, unknown>) => {
@@ -204,6 +224,29 @@ export function GuestCallProvider({ children }: { children: ReactNode }) {
     async (raw: string | null, asRole: GuestCallRole) => {
       if (!raw) return;
       if (lastHandledRef.current[asRole] === raw) return;
+      try {
+        const envelope = JSON.parse(raw) as {
+          type?: string;
+          error?: { message?: string; error_code?: string };
+        };
+        if (String(envelope.type || "").toUpperCase() === "ERROR") {
+          lastHandledRef.current[asRole] = raw;
+          if (answerTimerRef.current) {
+            window.clearTimeout(answerTimerRef.current);
+            answerTimerRef.current = null;
+          }
+          setCallRequesting(false);
+          const code = String(envelope.error?.error_code || "");
+          if (code === "RECEIVER_OFFLINE" || code === "CALL_FAILED" || code === "CALL_ALREADY_ACTIVE") {
+            uiToast.error(envelope.error?.message || "The call could not be started.", {
+              title: "Call",
+            });
+          }
+          return;
+        }
+      } catch {
+        return;
+      }
       const ev = parseGuestCallSocketMessage(raw);
       if (!ev) return;
       lastHandledRef.current[asRole] = raw;
@@ -234,16 +277,31 @@ export function GuestCallProvider({ children }: { children: ReactNode }) {
       ) {
         const endedId = String(ev.data.call_id ?? "").trim();
         const cur = sessionRef.current;
+        const endedGuest = String(ev.data.guest_id ?? "").trim();
         if (
           cur &&
           endedId &&
           cur.callId !== endedId &&
           !cur.callId.startsWith("pending-") &&
-          !cur.callId.startsWith("queue-")
+          !cur.callId.startsWith("queue-") &&
+          !(endedGuest && cur.guestId === endedGuest)
         ) {
           return;
         }
+        if (ev.data.auto_close_access === true) {
+          emitEscalatedAccessClosed();
+        }
         await clearSession();
+        return;
+      }
+
+      if (ev.type === "CALL_STARTED" || (ev.type === "CALL_INVITE" && sessionRef.current?.isCaller && sessionRef.current.callerRole === asRole)) {
+        const next = sessionFromCallPayload(ev.data, { localRole: asRole });
+        if (!next) return;
+        next.isCaller = true;
+        if (sessionRef.current?.state === "connected") next.state = "connected";
+        setCallRequesting(false);
+        putSession(next);
         return;
       }
 
@@ -254,6 +312,7 @@ export function GuestCallProvider({ children }: { children: ReactNode }) {
         const alreadyQueued =
           sessionRef.current?.state === "queued" &&
           sessionRef.current.callId === next.callId;
+        setCallRequesting(false);
         putSession(next);
         if (!alreadyQueued) {
           const place =
@@ -274,6 +333,7 @@ export function GuestCallProvider({ children }: { children: ReactNode }) {
             next.acceptedAt =
               sessionRef.current?.acceptedAt || new Date().toISOString();
           }
+          setCallRequesting(false);
           putSession(next);
           await beginMedia(next);
           return;
@@ -285,6 +345,7 @@ export function GuestCallProvider({ children }: { children: ReactNode }) {
           sessionRef.current?.callId === next.callId &&
           sessionRef.current?.state === "ringing";
         const fromQueue = ev.data.from_queue === true || wasQueued;
+        setCallRequesting(false);
         putSession(next);
         if (fromQueue && next.state === "ringing" && !alreadyLive) {
           const message = next.isCaller
@@ -305,9 +366,10 @@ export function GuestCallProvider({ children }: { children: ReactNode }) {
   applyEventRef.current = applyEvent;
 
   useEffect(() => {
-    if (!lastMessage) return;
-    void applyEventRef.current(lastMessage, "admin");
-  }, [lastMessage]);
+    return subscribeRealtimeMessages((raw) => {
+      void applyEventRef.current(raw, "admin");
+    });
+  }, []);
 
   useEffect(() => {
     if (!guestToken) {
@@ -324,34 +386,47 @@ export function GuestCallProvider({ children }: { children: ReactNode }) {
     }
 
     let closed = false;
+    let attempt = 0;
+    let retry: number | null = null;
     const url = `${defaultRealtimeWsBase()}?token=${encodeURIComponent(guestToken)}`;
-    const ws = new WebSocket(url);
-    guestWsRef.current = ws;
-    ws.onopen = () => {
+    const connect = () => {
       if (closed) return;
-      setGuestWsOpen(true);
-      if (guestZoneIds.length) {
-        ws.send(JSON.stringify({ type: "SUBSCRIBE", zoneIds: guestZoneIds }));
-      }
+      const ws = new WebSocket(url);
+      guestWsRef.current = ws;
+      ws.onopen = () => {
+        if (closed) return;
+        attempt = 0;
+        setGuestWsOpen(true);
+        if (guestZoneIds.length) {
+          ws.send(JSON.stringify({ type: "SUBSCRIBE", zoneIds: guestZoneIds }));
+        }
+      };
+      ws.onclose = () => {
+        if (guestWsRef.current === ws) guestWsRef.current = null;
+        if (closed) return;
+        setGuestWsOpen(false);
+        const delay = Math.min(8000, 400 * 2 ** attempt);
+        attempt += 1;
+        retry = window.setTimeout(connect, delay);
+      };
+      ws.onmessage = (ev) => {
+        if (closed) return;
+        const raw = typeof ev.data === "string" ? ev.data : "";
+        if (raw) void applyEventRef.current(raw, "guest");
+      };
     };
-    ws.onclose = () => {
-      if (closed) return;
-      setGuestWsOpen(false);
-    };
-    ws.onmessage = (ev) => {
-      if (closed) return;
-      const raw = typeof ev.data === "string" ? ev.data : "";
-      if (raw) void applyEventRef.current(raw, "guest");
-    };
+    connect();
     return () => {
       closed = true;
+      if (retry) window.clearTimeout(retry);
       setGuestWsOpen(false);
+      const ws = guestWsRef.current;
+      guestWsRef.current = null;
       try {
-        ws.close();
+        ws?.close();
       } catch {
         /* ignore */
       }
-      if (guestWsRef.current === ws) guestWsRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [guestToken]);
@@ -362,6 +437,17 @@ export function GuestCallProvider({ children }: { children: ReactNode }) {
     ws.send(JSON.stringify({ type: "SUBSCRIBE", zoneIds: guestZoneIds }));
   }, [guestZoneIds]);
 
+  const armServerAnswerWait = useCallback(() => {
+    if (answerTimerRef.current) window.clearTimeout(answerTimerRef.current);
+    answerTimerRef.current = window.setTimeout(() => {
+      answerTimerRef.current = null;
+      setCallRequesting(false);
+      if (!sessionRef.current) {
+        uiToast.error("The server did not answer the call.", { title: "Call" });
+      }
+    }, 20000);
+  }, []);
+
   const elapsedLabel = useElapsed(
     session?.acceptedAt ?? null,
     session?.state === "connected",
@@ -369,39 +455,34 @@ export function GuestCallProvider({ children }: { children: ReactNode }) {
 
   const startAdminCall = useCallback(
     (args: StartAdminCallArgs) => {
+      primeLocalVoiceContext();
       if (sessionRef.current) return false;
-      const optimistic: GuestCallSession = {
-        callId: pendingCallId(),
-        zoneId: args.zoneId,
-        guestId: args.guestId,
-        guestName: args.guestName || "Guest",
-        adminOwnerId: 0,
-        callerRole: "admin",
-        fullscreen: Boolean(args.fullscreen),
-        accessRejectEscalation: false,
-        state: "ringing",
-        acceptedAt: null,
-        isCaller: true,
-        adminAvatarUrl:
-          String((user as { avatar_url?: string } | null)?.avatar_url || "").trim() ||
-          null,
-        guestAvatarUrl: null,
-      };
-      sessionRef.current = optimistic;
-      setSession(optimistic);
-      const ok = sendCallAs("admin", {
-        type: "CALL_INVITE",
-        data: {
-          guest_id: args.guestId,
-          zone_id: args.zoneId,
-          guest_name: args.guestName || "Guest",
-          fullscreen: Boolean(args.fullscreen),
-        },
-      });
-      if (!ok) void clearSession();
-      return ok;
+      if (callRequesting) return true;
+      setCallRequesting(true);
+      void (async () => {
+        const started = Date.now();
+        while (memberStatusRef.current !== "open" && Date.now() - started < 8000) {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        }
+        const sent = sendCallAs("admin", {
+          type: "CALL_INVITE",
+          data: {
+            guest_id: args.guestId,
+            zone_id: args.zoneId,
+            guest_name: args.guestName || "Guest",
+            fullscreen: Boolean(args.fullscreen),
+          },
+        });
+        if (!sent) {
+          setCallRequesting(false);
+          uiToast.error("Could not reach the server. Try again.", { title: "Call" });
+          return;
+        }
+        armServerAnswerWait();
+      })();
+      return true;
     },
-    [clearSession, sendCallAs],
+    [armServerAnswerWait, callRequesting, sendCallAs],
   );
 
   const presentLocalOutgoingCall = useCallback(
@@ -435,65 +516,49 @@ export function GuestCallProvider({ children }: { children: ReactNode }) {
   );
 
   const startGuestCall = useCallback(
-    (opts?: { fullscreen?: boolean }) => {
+    (opts?: {
+      fullscreen?: boolean;
+      guestId?: string;
+      zoneId?: string;
+      adminAvatarUrl?: string | null;
+    }) => {
+      primeLocalVoiceContext();
       if (sessionRef.current && !sessionRef.current.callId.startsWith("pending-")) {
         return false;
       }
-      if (!guestTokenRef.current) return false;
-      const optimistic: GuestCallSession = {
-        callId: pendingCallId(),
-        zoneId: guestZoneIds[0] || "",
-        guestId: "",
-        guestName: "Administrator",
-        adminOwnerId: 0,
-        callerRole: "guest",
-        fullscreen: Boolean(opts?.fullscreen),
-        accessRejectEscalation: Boolean(opts?.fullscreen),
-        state: "ringing",
-        acceptedAt: null,
-        isCaller: true,
-        adminAvatarUrl: null,
-        guestAvatarUrl:
-          String((user as { avatar_url?: string } | null)?.avatar_url || "").trim() ||
-          null,
-      };
-      sessionRef.current = optimistic;
-      setSession(optimistic);
-      const guestAvatar = String(
-        (user as { avatar_url?: string } | null)?.avatar_url || "",
-      ).trim();
-      const payload = {
-        type: "CALL_INVITE",
-        data: {
-          fullscreen: Boolean(opts?.fullscreen),
-          access_reject_escalation: Boolean(opts?.fullscreen),
-          ...(guestAvatar ? { guest_avatar_url: guestAvatar } : {}),
-        },
-      };
-      if (sendCallAs("guest", payload)) return true;
-      let attempts = 0;
-      const timer = window.setInterval(() => {
-        attempts += 1;
-        if (!sessionRef.current || sessionRef.current.callId !== optimistic.callId) {
-          window.clearInterval(timer);
+      if (callRequesting) return false;
+      setCallRequesting(true);
+      void (async () => {
+        const started = Date.now();
+        while (guestWsRef.current?.readyState !== WebSocket.OPEN && Date.now() - started < 8000) {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        }
+        const avatar = String((user as { avatar_url?: string } | null)?.avatar_url || "").trim();
+        const sent = sendCallAs("guest", {
+          type: "CALL_INVITE",
+          data: {
+            fullscreen: Boolean(opts?.fullscreen),
+            access_reject_escalation: Boolean(opts?.fullscreen),
+            ...(avatar ? { guest_avatar_url: avatar } : {}),
+          },
+        });
+        if (!sent) {
+          setCallRequesting(false);
+          uiToast.error("Could not reach the server. Try again.", { title: "Call" });
           return;
         }
-        if (sendCallAs("guest", payload) || attempts >= 15) {
-          window.clearInterval(timer);
-          if (attempts >= 15 && sessionRef.current?.callId === optimistic.callId) {
-            void clearSession();
-          }
-        }
-      }, 200);
+        armServerAnswerWait();
+      })();
       return true;
     },
-    [clearSession, guestZoneIds, sendCallAs],
+    [armServerAnswerWait, callRequesting, sendCallAs, user],
   );
 
   const roleForSession = (cur: GuestCallSession): GuestCallRole =>
     cur.isCaller ? cur.callerRole : cur.callerRole === "guest" ? "admin" : "guest";
 
   const acceptCall = useCallback(() => {
+    primeLocalVoiceContext();
     const cur = sessionRef.current;
     if (!cur || cur.state !== "ringing" || cur.isCaller) return;
     if (cur.callId.startsWith("pending-")) return;
@@ -503,17 +568,27 @@ export function GuestCallProvider({ children }: { children: ReactNode }) {
     });
   }, [sendCallAs]);
 
+  const notifyCardVisible = useCallback(() => {
+    // The invite is sent when Call is pressed. The card opens from the server reply.
+  }, []);
+
   const rejectCall = useCallback(() => {
     const cur = sessionRef.current;
     if (!cur || (cur.state !== "ringing" && cur.state !== "queued")) return;
-    if (!cur.callId.startsWith("pending-")) {
-      sendCallAs(roleForSession(cur), {
-        type: cur.isCaller ? "CALL_CANCEL" : "CALL_REJECT",
-        data: { call_id: cur.callId },
-      });
+    const sent = sendCallAs(roleForSession(cur), {
+      type: cur.isCaller ? "CALL_CANCEL" : "CALL_REJECT",
+      data: {
+        call_id: cur.callId,
+        guest_id: cur.guestId,
+        zone_id: cur.zoneId,
+        access_reject_escalation: cur.accessRejectEscalation,
+        fullscreen: cur.fullscreen,
+      },
+    });
+    if (!sent) {
+      uiToast.error("Could not reach the server. The call is still ringing.", { title: "Call" });
     }
-    void clearSession();
-  }, [clearSession, sendCallAs]);
+  }, [sendCallAs]);
 
   const endCall = useCallback(() => {
     const cur = sessionRef.current;
@@ -540,8 +615,14 @@ export function GuestCallProvider({ children }: { children: ReactNode }) {
       if (!cur || cur.callId !== session.callId || cur.state !== "ringing") return;
       sendCallAs(roleForSession(cur), {
         type: cur.isCaller ? "CALL_CANCEL" : "CALL_REJECT",
-        data: { call_id: cur.callId },
+        data: {
+          call_id: cur.callId,
+          guest_id: cur.guestId,
+          zone_id: cur.zoneId,
+          access_reject_escalation: cur.accessRejectEscalation,
+        },
       });
+      if (cur.accessRejectEscalation) emitEscalatedAccessClosed();
       void clearSession();
     }, remaining);
     return () => window.clearTimeout(timer);
@@ -551,9 +632,8 @@ export function GuestCallProvider({ children }: { children: ReactNode }) {
     () => ({
       session,
       elapsedLabel,
-      callBusy:
-        Boolean(session) ||
-        (guestToken ? !guestWsOpen : status === "connecting"),
+      callRequesting,
+      callBusy: Boolean(session) || callRequesting,
       startAdminCall,
       startGuestCall,
       presentLocalOutgoingCall,
@@ -561,19 +641,19 @@ export function GuestCallProvider({ children }: { children: ReactNode }) {
       rejectCall,
       cancelCall: rejectCall,
       endCall,
+      notifyCardVisible,
     }),
     [
       session,
       elapsedLabel,
-      guestToken,
-      guestWsOpen,
-      status,
+      callRequesting,
       startAdminCall,
       startGuestCall,
       presentLocalOutgoingCall,
       acceptCall,
       rejectCall,
       endCall,
+      notifyCardVisible,
     ],
   );
 

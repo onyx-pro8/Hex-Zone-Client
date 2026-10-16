@@ -1,6 +1,8 @@
-import { Phone, PhoneOff } from "lucide-react";
+import { Maximize2, Phone, PhoneOff } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useGuestCallOptional } from "../../context/GuestCallContext";
+import { playConnected, playEnded, startRinging, stopRinging } from "../../lib/callSounds";
+import { subscribeLocalVoiceLevel } from "../../lib/guestCallMedia";
 import { API_BASE_URL } from "../../services/api/client";
 
 function otherPartyName(
@@ -33,6 +35,48 @@ function initials(name: string) {
   );
 }
 
+const VOICE_DOTS = 11;
+
+function LocalVoiceLine({ active }: { active: boolean }) {
+  const [level, setLevel] = useState(0);
+  const levelRef = useRef(0);
+
+  useEffect(() => {
+    if (!active) {
+      levelRef.current = 0;
+      setLevel(0);
+      return;
+    }
+    const unsubscribe = subscribeLocalVoiceLevel((next) => {
+      levelRef.current = Math.max(levelRef.current, next);
+    });
+    const timer = window.setInterval(() => {
+      setLevel(levelRef.current);
+      levelRef.current *= 0.72;
+    }, 80);
+    return () => {
+      window.clearInterval(timer);
+      unsubscribe();
+    };
+  }, [active]);
+
+  return (
+    <div className="mt-4 flex h-9 items-center justify-center gap-2">
+      {Array.from({ length: VOICE_DOTS }, (_, index) => {
+        const shape = 0.4 + 0.6 * Math.abs(Math.sin(index * 0.85));
+        const height = 6 + Math.min(1, level) * 26 * shape;
+        return (
+          <span
+            key={index}
+            className="w-[7px] rounded-full bg-[#2F80ED]"
+            style={{ height }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 function visualKey(session: {
   guestId: string;
   callId: string;
@@ -54,7 +98,13 @@ export function CallOverlay() {
 
   const [photo, setPhoto] = useState<string | null>(null);
   const [reveal, setReveal] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const revealedKeyRef = useRef<string | null>(null);
+  const callId = session?.callId ?? "";
+
+  useEffect(() => {
+    setExpanded(false);
+  }, [callId]);
 
   useEffect(() => {
     if (!session) {
@@ -79,7 +129,10 @@ export function CallOverlay() {
         setPhoto(null);
         return;
       }
-      const wait = window.setTimeout(() => openCard(null), 30);
+      const wait = window.setTimeout(
+        () => openCard(null),
+        session.isCaller ? 8000 : 1200,
+      );
       return () => {
         cancelled = true;
         window.clearTimeout(wait);
@@ -87,7 +140,7 @@ export function CallOverlay() {
     }
 
     const img = new Image();
-    const timeout = window.setTimeout(() => openCard(photoUrl), 1100);
+    const timeout = window.setTimeout(() => openCard(null), 8000);
     img.onload = () => {
       window.clearTimeout(timeout);
       openCard(photoUrl);
@@ -105,9 +158,28 @@ export function CallOverlay() {
     };
   }, [session, photoUrl]);
 
+  const heardRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!reveal || !session) {
+      if (heardRef.current === "ringing") playEnded();
+      heardRef.current = null;
+      stopRinging();
+      return;
+    }
+    if (session.state === "ringing" || session.state === "queued") {
+      if (heardRef.current !== "ringing") startRinging();
+      heardRef.current = "ringing";
+      return;
+    }
+    if (session.state === "connected" && heardRef.current !== "connected") {
+      playConnected();
+      heardRef.current = "connected";
+    }
+  }, [reveal, session, session?.state, session?.callId]);
+
   if (!call || !session || !reveal) return null;
 
-  const fullscreen = session.fullscreen;
+  const fullscreen = Boolean(session.fullscreen) || expanded;
   const isQueued = session.state === "queued";
   const isIncoming = session.state === "ringing" && !session.isCaller;
   const isOutgoing = session.state === "ringing" && session.isCaller;
@@ -130,9 +202,9 @@ export function CallOverlay() {
     <div className="relative flex h-[7.25rem] w-[7.25rem] items-center justify-center">
       {ringing ? (
         <>
-          <span className={`call-halo call-halo-a ${light ? "call-halo-light" : ""}`} />
-          <span className={`call-halo call-halo-b ${light ? "call-halo-light" : ""}`} />
-          <span className={`call-halo call-halo-c ${light ? "call-halo-light" : ""}`} />
+          <span className={`call-halo call-halo-a ${light ? "call-halo-light" : ""} ${isIncoming ? "call-halo-in" : ""}`} />
+          <span className={`call-halo call-halo-b ${light ? "call-halo-light" : ""} ${isIncoming ? "call-halo-in" : ""}`} />
+          <span className={`call-halo call-halo-c ${light ? "call-halo-light" : ""} ${isIncoming ? "call-halo-in" : ""}`} />
         </>
       ) : (
         <span
@@ -158,20 +230,41 @@ export function CallOverlay() {
   );
 
   if (fullscreen) {
+    const incomingScreen = isIncoming;
     return (
-      <div className="fixed inset-0 z-[200] flex flex-col bg-[linear-gradient(165deg,#F8FBFF_0%,#EEF4FC_48%,#F5F8FC_100%)] px-8 pb-12 pt-12 text-[#0F2C5C]">
+      <div
+        className={`fixed inset-0 z-[200] flex flex-col px-8 pb-12 pt-12 text-[#0F2C5C] ${
+          incomingScreen
+            ? "bg-[linear-gradient(165deg,#F7FBF8_0%,#EAF6EF_48%,#F5F8FC_100%)]"
+            : "bg-[linear-gradient(165deg,#F8FBFF_0%,#EEF4FC_48%,#F5F8FC_100%)]"
+        }`}
+      >
         <style>{CALL_CSS}</style>
         <p className="relative text-center text-[11px] font-semibold uppercase tracking-[0.28em] text-[#8694AC]">
-          Access call
+          {isOutgoing ? "Outgoing" : isIncoming ? "Incoming" : "Access call"}
         </p>
+        {expanded && !session.fullscreen ? (
+          <button
+            type="button"
+            onClick={() => setExpanded(false)}
+            className="absolute right-6 top-10 text-[13px] font-semibold text-[#5C6B82]"
+          >
+            Minimize
+          </button>
+        ) : null}
         <div className="relative flex flex-1 flex-col items-center justify-center call-enter">
           <div className="mb-8">{avatar(true)}</div>
           <p className="text-center text-[2.15rem] font-semibold tracking-[-0.03em] text-[#0F2C5C]">
             {party}
           </p>
-          <p className="mt-2.5 text-[15px] font-medium tabular-nums tracking-wide text-[#2F80ED]">
+          <p
+            className={`mt-2.5 text-[15px] font-medium tabular-nums tracking-wide ${
+              isIncoming ? "text-[#1F8A4C]" : "text-[#2F80ED]"
+            }`}
+          >
             {status}
           </p>
+          {connected ? <LocalVoiceLine active /> : null}
           <p className="mt-2 max-w-xs text-center text-[13px] leading-5 text-[#8694AC]">
             {connected
               ? "Voice connected"
@@ -228,7 +321,11 @@ export function CallOverlay() {
   return (
     <div className="pointer-events-none fixed inset-x-0 top-3 z-[200] flex justify-center px-3 sm:top-4">
       <style>{CALL_CSS}</style>
-      <div className="pointer-events-auto w-full max-w-lg call-card-enter rounded-2xl border border-white/10 bg-[#0B1C36]/95 p-4 text-white shadow-[0_18px_50px_rgba(5,16,38,0.45)] backdrop-blur-md">
+      <div
+        className={`pointer-events-auto w-full max-w-lg call-card-enter rounded-2xl border border-white/10 bg-[#0B1C36]/95 p-4 text-white shadow-[0_18px_50px_rgba(5,16,38,0.45)] backdrop-blur-md ${
+          isIncoming ? "border-l-[3px] border-l-[#2E9B57]" : isOutgoing ? "border-l-[3px] border-l-[#2F80ED]" : ""
+        }`}
+      >
         <div className="flex items-center gap-3">
           <div className="relative flex h-12 w-12 items-center justify-center">
             {ringing ? <span className="call-halo-sm" /> : null}
@@ -249,7 +346,9 @@ export function CallOverlay() {
                 ? "Voice connected"
                 : isQueued
                   ? "Yours starts when the current call ends"
-                  : "Guest access voice call"}
+                  : isIncoming
+                    ? "Answer or decline"
+                    : "Request sent · waiting for an answer"}
             </p>
           </div>
         </div>
@@ -282,13 +381,22 @@ export function CallOverlay() {
             </button>
           ) : null}
           {connected ? (
-            <button
-              type="button"
-              onClick={call.endCall}
-              className="inline-flex flex-1 items-center justify-center gap-1 rounded-xl bg-[#D64545] px-3 py-2.5 text-xs font-semibold text-white"
-            >
-              <PhoneOff className="h-3.5 w-3.5" /> End
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => setExpanded(true)}
+                className="inline-flex flex-1 items-center justify-center gap-1 rounded-xl bg-[#2457C5] px-3 py-2.5 text-xs font-semibold text-white"
+              >
+                <Maximize2 className="h-3.5 w-3.5" /> Full
+              </button>
+              <button
+                type="button"
+                onClick={call.endCall}
+                className="inline-flex flex-1 items-center justify-center gap-1 rounded-xl bg-[#D64545] px-3 py-2.5 text-xs font-semibold text-white"
+              >
+                <PhoneOff className="h-3.5 w-3.5" /> End
+              </button>
+            </>
           ) : null}
         </div>
       </div>
@@ -331,6 +439,10 @@ const CALL_CSS = `
   .call-halo-light {
     border-color: rgba(47, 128, 237, 0.28);
     box-shadow: 0 0 0 8px rgba(47, 128, 237, 0.04);
+  }
+  .call-halo-in {
+    border-color: rgba(46, 155, 87, 0.38);
+    box-shadow: 0 0 0 8px rgba(46, 155, 87, 0.05);
   }
   .call-halo-b { animation-delay: 0.8s; }
   .call-halo-c { animation-delay: 1.6s; }

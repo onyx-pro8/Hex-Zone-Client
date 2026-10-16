@@ -28,6 +28,7 @@ export type GuestCallSession = {
 
 export type GuestCallSocketEvent =
   | "CALL_INVITE"
+  | "CALL_STARTED"
   | "CALL_QUEUED"
   | "CALL_ACCEPT"
   | "CALL_REJECT"
@@ -38,6 +39,7 @@ export type GuestCallSocketEvent =
 
 const CALL_TYPES = new Set<string>([
   "CALL_INVITE",
+  "CALL_STARTED",
   "CALL_QUEUED",
   "CALL_ACCEPT",
   "CALL_REJECT",
@@ -139,6 +141,17 @@ export function formatCallDuration(seconds: number): string {
   const mm = String(Math.floor(s / 60)).padStart(2, "0");
   const ss = String(s % 60).padStart(2, "0");
   return `${mm}:${ss}`;
+}
+
+const escalatedCloseListeners = new Set<() => void>();
+
+export function onEscalatedAccessClosed(listener: () => void): () => void {
+  escalatedCloseListeners.add(listener);
+  return () => escalatedCloseListeners.delete(listener);
+}
+
+export function emitEscalatedAccessClosed(): void {
+  escalatedCloseListeners.forEach((listener) => listener());
 }
 
 export function zoneIdsEqual(a: string[], b: string[]): boolean {

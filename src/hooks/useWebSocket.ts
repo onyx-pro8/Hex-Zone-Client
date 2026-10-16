@@ -52,12 +52,14 @@ type Snapshot = {
 };
 
 type Listener = (snapshot: Snapshot) => void;
+type MessageListener = (raw: string) => void;
 
 type SharedManager = {
   ws: WebSocket | null;
   status: WebSocketStatus;
   lastMessage: string | null;
   listeners: Set<Listener>;
+  messageListeners: Set<MessageListener>;
   reconnectTimer: number | null;
   reconnectAttempt: number;
   activeUsers: number;
@@ -73,6 +75,7 @@ const sharedManager: SharedManager = {
   status: "closed",
   lastMessage: null,
   listeners: new Set(),
+  messageListeners: new Set(),
   reconnectTimer: null,
   reconnectAttempt: 0,
   activeUsers: 0,
@@ -88,10 +91,27 @@ function snapshot(): Snapshot {
   };
 }
 
+export function subscribeRealtimeMessages(listener: MessageListener): () => void {
+  sharedManager.messageListeners.add(listener);
+  return () => {
+    sharedManager.messageListeners.delete(listener);
+  };
+}
+
+export function realtimeSocketStatus(): WebSocketStatus {
+  return sharedManager.status;
+}
+
 function emitSnapshot() {
   const next = snapshot();
   for (const listener of sharedManager.listeners) {
     listener(next);
+  }
+}
+
+function emitMessage(raw: string) {
+  for (const listener of sharedManager.messageListeners) {
+    listener(raw);
   }
 }
 
@@ -198,6 +218,7 @@ function connectSocket() {
     if (sharedManager.ws !== ws) return;
     const payload = typeof event.data === "string" ? event.data : String(event.data);
     sharedManager.lastMessage = payload;
+    emitMessage(payload);
     emitSnapshot();
     const ack = parseWellnessAckBroadcast(payload);
     if (ack && typeof window !== "undefined") {

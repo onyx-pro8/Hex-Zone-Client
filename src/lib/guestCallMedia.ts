@@ -14,6 +14,74 @@ type PeerBundle = {
 };
 
 let active: PeerBundle | null = null;
+const levelListeners = new Set<(level: number) => void>();
+let meterTimer: ReturnType<typeof setInterval> | null = null;
+let meterContext: AudioContext | null = null;
+
+export function subscribeLocalVoiceLevel(listener: (level: number) => void) {
+  levelListeners.add(listener);
+  return () => {
+    levelListeners.delete(listener);
+  };
+}
+
+function publishLocalVoiceLevel(level: number) {
+  const next = Math.max(0, Math.min(1, level));
+  for (const listener of levelListeners) listener(next);
+}
+
+function stopLocalVoiceMeter() {
+  if (meterTimer) clearInterval(meterTimer);
+  meterTimer = null;
+  const ctx = meterContext;
+  meterContext = null;
+  if (ctx) void ctx.close().catch(() => undefined);
+}
+
+function audioContext(): AudioContext | null {
+  const Host = globalThis as typeof globalThis & {
+    AudioContext?: typeof AudioContext;
+    webkitAudioContext?: typeof AudioContext;
+  };
+  const Ctor = Host.AudioContext || Host.webkitAudioContext;
+  if (!Ctor) return null;
+  if (!meterContext || meterContext.state === "closed") meterContext = new Ctor();
+  if (meterContext.state === "suspended") void meterContext.resume();
+  return meterContext;
+}
+
+/** Call from the Call or Accept click so the browser unlocks the microphone graph. */
+export function primeLocalVoiceContext() {
+  audioContext();
+}
+
+function startLocalVoiceMeter(stream: MediaStream) {
+  if (meterTimer) {
+    clearInterval(meterTimer);
+    meterTimer = null;
+  }
+  const ctx = audioContext();
+  if (!ctx) return;
+  const source = ctx.createMediaStreamSource(stream);
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 1024;
+  const mute = ctx.createGain();
+  mute.gain.value = 0;
+  source.connect(analyser);
+  analyser.connect(mute);
+  mute.connect(ctx.destination);
+  const samples = new Float32Array(analyser.fftSize);
+  meterTimer = setInterval(() => {
+    if (ctx.state === "suspended") void ctx.resume();
+    analyser.getFloatTimeDomainData(samples);
+    let peak = 0;
+    for (let i = 0; i < samples.length; i += 1) {
+      const abs = Math.abs(samples[i] || 0);
+      if (abs > peak) peak = abs;
+    }
+    publishLocalVoiceLevel(Math.min(1, peak * 14));
+  }, 80);
+}
 
 function getRtcPeerConnection(): typeof RTCPeerConnection | null {
   const g = globalThis as typeof globalThis & {
@@ -80,6 +148,7 @@ export async function startGuestCallMedia(opts: {
     for (const track of localStream.getTracks()) {
       pc.addTrack(track, localStream);
     }
+    startLocalVoiceMeter(localStream);
   }
 
   pc.onicecandidate = (ev) => {
@@ -126,6 +195,7 @@ export async function handleGuestCallSignal(
 }
 
 export async function stopGuestCallMedia(): Promise<void> {
+  stopLocalVoiceMeter();
   const bundle = active;
   active = null;
   if (!bundle) return;

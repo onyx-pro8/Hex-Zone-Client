@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useGuestCallOptional } from "../context/GuestCallContext";
+import { onEscalatedAccessClosed } from "../lib/guestCall";
 import { resolveGuestBrowserDeviceId } from "../lib/guestDeviceId";
 import {
   mapGuestAccessErrorCode,
@@ -154,33 +155,47 @@ export default function GuestAccess() {
   const [exchangeBusy, setExchangeBusy] = useState(false);
   const [exchangeError, setExchangeError] = useState<string | null>(null);
   const openedPendingChat = useRef(false);
+  const escalationCallStarted = useRef(false);
+
+  useEffect(() => {
+    return onEscalatedAccessClosed(() => {
+      setPhase({
+        id: "rejected",
+        message: "The call was cancelled and this request was closed.",
+      });
+    });
+  }, []);
 
   const attachPendingGuestSession = useCallback(
     (
       token: string,
       guestId: string,
       zoneId: string,
-      opts?: { openChat?: boolean; callFullscreen?: boolean },
+      opts?: {
+        openChat?: boolean;
+        callFullscreen?: boolean;
+        adminAvatarUrl?: string | null;
+      },
     ) => {
       const accessToken = token.trim();
       const gid = guestId.trim();
       const zone = zoneId.trim();
       if (!gid || !zone) return;
-      // Sender sees the call card first — before token/socket attach.
-      if (opts?.callFullscreen) {
-        guestCall?.presentLocalOutgoingCall({
-          zoneId: zone,
-          guestId: gid,
-          guestName: guestName.trim() || "Guest",
-          fullscreen: true,
-        });
-      }
       if (accessToken) {
         persistPendingNetworkGuestChat({
           access_token: accessToken,
           guest_id: gid,
           zone_id: zone,
           display_name: guestName,
+        });
+      }
+      if (opts?.callFullscreen && !escalationCallStarted.current) {
+        escalationCallStarted.current = true;
+        guestCall?.startGuestCall({
+          fullscreen: true,
+          guestId: gid,
+          zoneId: zone,
+          adminAvatarUrl: opts.adminAvatarUrl,
         });
       }
       if (opts?.openChat && accessToken) {
@@ -516,6 +531,7 @@ export default function GuestAccess() {
     if (result.chat_access_token || result.call_fullscreen) {
       attachPendingGuestSession(result.chat_access_token || "", gid, pollZoneId, {
         callFullscreen: Boolean(result.call_fullscreen),
+        adminAvatarUrl: result.admin_avatar_url,
         openChat:
           Boolean(result.chat_access_token) &&
           !result.chat_queue_waiting &&
@@ -743,15 +759,17 @@ export default function GuestAccess() {
           </p>
           <button
             type="button"
-            disabled={Boolean(guestCall?.session)}
+            disabled={Boolean(guestCall?.session) || Boolean(guestCall?.callRequesting)}
             onClick={() =>
               guestCall?.startGuestCall({
                 fullscreen: Boolean(phase.callFullscreen),
+                guestId: phase.guestId,
+                zoneId: phase.pollZoneId,
               })
             }
             className="inline-flex items-center gap-1 rounded-lg border border-[#E0992A]/50 bg-white px-3 py-2 text-xs font-bold text-[#E0992A] disabled:opacity-50"
           >
-            Call host
+            {guestCall?.callRequesting ? "Calling…" : "Call host"}
           </button>
           <button
             type="button"
