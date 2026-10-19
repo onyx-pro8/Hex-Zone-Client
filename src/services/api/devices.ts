@@ -62,6 +62,30 @@ export async function registerPushToken(payload: PushTokenPayload) {
   });
 }
 
+export type HubCommandRecord = {
+  id: number;
+  hid: string;
+  command: string;
+  status: "sent" | "failed" | "no_reply" | string;
+  detail: string;
+  created_at?: string | null;
+};
+
+export async function listHubCommands() {
+  return request<HubCommandRecord[]>({
+    method: "GET",
+    url: "/devices/hub-commands",
+  });
+}
+
+export async function sendHubCommand(hid: string, command: string) {
+  return request<HubCommandRecord>({
+    method: "POST",
+    url: "/devices/hub-commands",
+    data: { hid, command },
+  });
+}
+
 export async function getDevices() {
   return request<DeviceRecord[]>({
     method: "GET",

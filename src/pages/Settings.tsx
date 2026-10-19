@@ -8,8 +8,14 @@ import {
   type AppSettings,
 } from "../lib/appSettings";
 import { getRemoteAppSettings, updateRemoteAppSettings } from "../services/api";
-import { getDevices } from "../services/api/devices";
+import {
+  getDevices,
+  listHubCommands,
+  sendHubCommand,
+  type HubCommandRecord,
+} from "../services/api/devices";
 import { useAuth } from "../hooks/useAuth";
+import { isSystemAdministrator } from "../lib/accountLimits";
 import { isSmartHomeHid } from "../lib/deviceSync";
 import { AddressAutocompleteInput } from "../components/AddressAutocompleteInput";
 import AddressMapPreview from "../components/AddressMapPreview";
@@ -79,6 +85,16 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hubCommand, setHubCommand] = useState("arm");
+  const [hubCommands, setHubCommands] = useState<HubCommandRecord[]>([]);
+  const [sendingCommand, setSendingCommand] = useState(false);
+  const isSystemAdmin = isSystemAdministrator({
+    role: user?.role,
+    accountType: user?.accountType,
+    legacyAccountType: user?.account_type,
+  });
+  const isNetworkAdmin =
+    String(user?.role ?? "").toLowerCase() === "administrator" && !isSystemAdmin;
   /** Real [lat, lng] for the map — from the owner's home, a picked suggestion, or geocoding the typed address. */
   const [addressCoords, setAddressCoords] = useState<[number, number] | null>(
     null,
@@ -88,11 +104,13 @@ export default function Settings() {
     let mounted = true;
     void (async () => {
       const ownerId = String(user?.id ?? "").trim();
-      const [res, devicesRes] = await Promise.all([
+      const [res, devicesRes, commandRes] = await Promise.all([
         getRemoteAppSettings(),
         getDevices(),
+        isNetworkAdmin ? listHubCommands() : Promise.resolve({ data: [] as HubCommandRecord[], error: null }),
       ]);
       if (!mounted) return;
+      setHubCommands(commandRes.data ?? []);
 
       const fromSettings = (res.data?.smartHomeDevices ?? [])
         .filter((d) => typeof d.hid === "string" && d.hid.trim())
@@ -172,7 +190,7 @@ export default function Settings() {
     return () => {
       mounted = false;
     };
-  }, [user?.id]);
+  }, [user?.id, isNetworkAdmin]);
 
   // Seed the map from the owner's geocoded home address (from /me) on first load.
   useEffect(() => {
@@ -439,6 +457,64 @@ export default function Settings() {
             <p className="-mt-1 text-xs text-[#8694AC]">
               Hint for hubs that poll instead of (or in addition to) webhook push.
             </p>
+            {isNetworkAdmin ? (
+              <div className="rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] p-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[#566784]">
+                  Send command
+                </p>
+                <p className="mt-1 text-xs text-[#8694AC]">
+                  Arm, disarm, or ask this hub for status. The hub must accept the
+                  webhook or the result stays failed.
+                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <select
+                    value={hubCommand}
+                    onChange={(event) => setHubCommand(event.target.value)}
+                    disabled={hubs.length === 0 || sendingCommand}
+                    className="rounded-lg border border-[#DCE6F2] bg-white px-3 py-2 text-sm text-[#0F2C5C]"
+                  >
+                    <option value="arm">Arm</option>
+                    <option value="disarm">Disarm</option>
+                    <option value="status">Status</option>
+                  </select>
+                  <button
+                    type="button"
+                    disabled={hubs.length === 0 || sendingCommand}
+                    onClick={() => {
+                      const hid = draft.sharedNotification.hid || hubs[0]?.hid;
+                      if (!hid) return;
+                      setSendingCommand(true);
+                      void sendHubCommand(hid, hubCommand).then((result) => {
+                        setSendingCommand(false);
+                        if (result.error || !result.data) {
+                          setError(result.error || "Could not send the command.");
+                          return;
+                        }
+                        setHubCommands((prev) => [result.data as HubCommandRecord, ...prev].slice(0, 8));
+                      });
+                    }}
+                    className="rounded-lg bg-[#2F80ED] px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+                  >
+                    {sendingCommand ? "Sending…" : "Send"}
+                  </button>
+                </div>
+                {hubs.length === 0 ? (
+                  <p className="mt-2 text-xs text-[#8694AC]">
+                    Register a hub in Device Manager first.
+                  </p>
+                ) : null}
+                {hubCommands.length > 0 ? (
+                  <ul className="mt-3 space-y-1 text-xs text-[#566784]">
+                    {hubCommands.map((row) => (
+                      <li key={row.id}>
+                        {row.command.toUpperCase()} · {row.status}
+                        {row.detail ? ` · ${row.detail}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            ) : null}
           </div>
           <div className="mt-4 flex items-center gap-3">
             <button

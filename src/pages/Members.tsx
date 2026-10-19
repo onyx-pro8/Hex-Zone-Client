@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import { getOwners, type OwnerListItem } from "../services/api/auth";
+import {
+  getOwners,
+  listNetworkAdmins,
+  type OwnerListItem,
+} from "../services/api/auth";
 import { getMembers, type Member } from "../services/api/members";
 import { updateOwner } from "../lib/api";
 import {
@@ -54,16 +58,25 @@ export default function Members() {
   const [updatingRoleOwnerId, setUpdatingRoleOwnerId] = useState<string | null>(
     null,
   );
+  const [memberTab, setMemberTab] = useState<"owners" | "admins">("owners");
+  const [networkAdmins, setNetworkAdmins] = useState<OwnerListItem[]>([]);
 
   useEffect(() => {
     let mounted = true;
-    Promise.all([getMembers(), getOwners({ skip: 0, limit: 500 })])
-      .then(([membersResult, ownersResult]) => {
+    Promise.all([
+      getMembers(),
+      getOwners({ skip: 0, limit: 500 }),
+      isSystemAdmin ? listNetworkAdmins() : Promise.resolve({ data: [] as OwnerListItem[], error: null }),
+    ])
+      .then(([membersResult, ownersResult, adminResult]) => {
         if (!mounted) return;
 
-        if (membersResult.error || ownersResult.error) {
+        if (membersResult.error || ownersResult.error || adminResult.error) {
           setError(
-            membersResult.error ?? ownersResult.error ?? "Failed to load data.",
+            membersResult.error ??
+              ownersResult.error ??
+              adminResult.error ??
+              "Failed to load data.",
           );
           return;
         }
@@ -73,6 +86,7 @@ export default function Members() {
         setMembers(nextMembers);
         setGlobalMembers(nextMembers);
         setOwners(nextOwners);
+        setNetworkAdmins(adminResult.data ?? []);
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -80,7 +94,7 @@ export default function Members() {
     return () => {
       mounted = false;
     };
-  }, [setGlobalMembers]);
+  }, [setGlobalMembers, isSystemAdmin]);
 
   const toggleOwnerActive = async (owner: OwnerListItem) => {
     if (!isAdministrator) {
@@ -93,6 +107,11 @@ export default function Members() {
     try {
       await updateOwner(owner.id, { active: !current });
       setOwners((prev) =>
+        prev.map((row) =>
+          row.id === owner.id ? { ...row, active: !current } : row,
+        ),
+      );
+      setNetworkAdmins((prev) =>
         prev.map((row) =>
           row.id === owner.id ? { ...row, active: !current } : row,
         ),
@@ -233,6 +252,91 @@ export default function Members() {
               ? " As a system administrator you can set role and account type. Assigning Private makes an administrator a system administrator."
               : " Manage active status for members in your account. Only the system administrator can change role or account type."}
           </p>
+          {isSystemAdmin ? (
+            <div className="mb-4 flex gap-4 border-b border-[#DCE6F2]">
+              {(
+                [
+                  { key: "owners" as const, label: "All owners" },
+                  { key: "admins" as const, label: "Network admins" },
+                ]
+              ).map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setMemberTab(tab.key)}
+                  className={`py-2 text-xs font-bold uppercase tracking-[0.15em] ${
+                    memberTab === tab.key
+                      ? "border-b-2 border-[#2F80ED] text-[#2F80ED]"
+                      : "text-[#8694AC]"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {isSystemAdmin && memberTab === "admins" ? (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left text-sm">
+                <thead>
+                  <tr className="text-xs uppercase tracking-wide text-[#8694AC]">
+                    <th className="px-2 py-2">Name</th>
+                    <th className="px-2 py-2">Email</th>
+                    <th className="px-2 py-2">Network</th>
+                    <th className="px-2 py-2">Account</th>
+                    <th className="px-2 py-2">Status</th>
+                    <th className="px-2 py-2" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {networkAdmins.map((owner) => {
+                    const name =
+                      `${owner.first_name ?? ""} ${owner.last_name ?? ""}`.trim() ||
+                      owner.email ||
+                      "Owner";
+                    const self = String(owner.id) === String(user?.id);
+                    return (
+                      <tr key={owner.id} className="border-t border-[#DCE6F2]">
+                        <td className="px-2 py-2 text-[#0F2C5C]">{name}</td>
+                        <td className="px-2 py-2 text-[#566784]">{owner.email}</td>
+                        <td className="px-2 py-2 font-mono text-xs text-[#566784]">
+                          {owner.zone_id ?? "—"}
+                        </td>
+                        <td className="px-2 py-2 text-[#566784]">
+                          {ownerAccountTypeLabel(owner)}
+                        </td>
+                        <td className="px-2 py-2 text-[#566784]">
+                          {owner.active === false ? "Suspended" : "Active"}
+                        </td>
+                        <td className="px-2 py-2">
+                          {self ? null : (
+                            <button
+                              type="button"
+                              onClick={() => void toggleOwnerActive(owner)}
+                              disabled={updatingOwnerId === String(owner.id)}
+                              className="rounded-md border border-[#DCE6F2] bg-white px-3 py-1.5 text-xs text-[#566784]"
+                            >
+                              {updatingOwnerId === String(owner.id)
+                                ? "Updating..."
+                                : owner.active === false
+                                  ? "Restore"
+                                  : "Suspend"}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              {networkAdmins.length === 0 ? (
+                <p className="px-2 py-4 text-sm text-[#8694AC]">
+                  No network administrators yet.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+          {isSystemAdmin && memberTab === "admins" ? null : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {owners.map((owner) => {
               const name =
@@ -333,6 +437,7 @@ export default function Members() {
               );
             })}
           </div>
+          )}
         </div>
       )}
     </section>

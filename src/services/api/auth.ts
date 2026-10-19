@@ -314,6 +314,13 @@ export async function getProfile() {
   return request<AuthUser>({ method: "GET", url: "/owners/me" });
 }
 
+export async function listNetworkAdmins() {
+  return request<OwnerListItem[]>({
+    method: "GET",
+    url: "/owners/network-admins",
+  });
+}
+
 export async function getOwners(params?: { skip?: number; limit?: number }) {
   const primary = await request<OwnerListItem[]>({
     method: "GET",
