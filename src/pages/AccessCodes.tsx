@@ -164,10 +164,6 @@ export default function AccessCodes() {
   }
 
   async function onReject(row: UniversalAccessRequestRow) {
-    if (!rejectReason.trim()) {
-      setError("A reject reason is required.");
-      return;
-    }
     setBusyId(row.id);
     const result = await rejectUniversalAccessRequest(row.id, rejectReason.trim());
     setBusyId(null);
@@ -482,7 +478,7 @@ export default function AccessCodes() {
             <input
               value={rejectReason}
               onChange={(event) => setRejectReason(event.target.value)}
-              placeholder="Reject reason"
+              placeholder="Reject reason (optional)"
               className="rounded-lg border border-[#DCE6F2] px-3 py-2 text-sm"
             />
             <button

@@ -8,7 +8,7 @@ import {
   type AppSettings,
 } from "../lib/appSettings";
 import { getRemoteAppSettings, updateRemoteAppSettings } from "../services/api";
-import { getZoneAreaBudget, updateZoneAreaLimits } from "../services/api/zones";
+import { getZoneAreaLimits, updateZoneAreaLimits, type ZoneSizeRule } from "../services/api/zones";
 import {
   getDevices,
   listHubCommands,
@@ -74,6 +74,132 @@ function Field({
   );
 }
 
+const AREA_ACCOUNTS = [
+  { value: "private_plus", label: "Family" },
+  { value: "exclusive", label: "Individual" },
+  { value: "enhanced", label: "Individual Pro" },
+  { value: "enhanced_plus", label: "Organization" },
+] as const;
+
+type AreaUnit = "m2" | "km2";
+type AreaDraft = {
+  account_type: string;
+  role: "administrator" | "user";
+  eachInput: string;
+  eachUnit: AreaUnit;
+  totalInput: string;
+  totalUnit: AreaUnit;
+};
+
+function emptyAreaRules(): AreaDraft[] {
+  return AREA_ACCOUNTS.flatMap((account) =>
+    (["administrator", "user"] as const).map((role) => ({
+      account_type: account.value,
+      role,
+      eachInput: "",
+      eachUnit: "km2" as const,
+      totalInput: "",
+      totalUnit: "km2" as const,
+    })),
+  );
+}
+
+function shownArea(m2: number | null, unit: string): string {
+  if (m2 == null) return "";
+  return String(unit === "km2" ? m2 / 1_000_000 : m2);
+}
+
+function areaDraftFromRule(rule: ZoneSizeRule): AreaDraft {
+  const eachUnit: AreaUnit = rule.each_unit === "m2" ? "m2" : "km2";
+  const totalUnit: AreaUnit = rule.total_unit === "m2" ? "m2" : "km2";
+  return {
+    account_type: rule.account_type,
+    role: rule.role === "administrator" ? "administrator" : "user",
+    eachInput: shownArea(rule.each_zone_m2, eachUnit),
+    eachUnit,
+    totalInput: shownArea(rule.total_m2, totalUnit),
+    totalUnit,
+  };
+}
+
+function convertAreaInput(raw: string, from: AreaUnit, to: AreaUnit): string {
+  if (from === to || !raw.trim()) return raw;
+  const value = Number(raw);
+  if (!Number.isFinite(value)) return raw;
+  return String(from === "km2" ? value * 1_000_000 : value / 1_000_000);
+}
+
+function patchAreaRule(
+  accountType: string,
+  role: "administrator" | "user",
+  patch: Partial<AreaDraft>,
+  setRules: (update: (current: AreaDraft[]) => AreaDraft[]) => void,
+) {
+  setRules((current) =>
+    current.map((rule) =>
+      rule.account_type === accountType && rule.role === role ? { ...rule, ...patch } : rule,
+    ),
+  );
+}
+
+function areaRuleFromDraft(draft: AreaDraft): ZoneSizeRule | null {
+  const toM2 = (raw: string, unit: AreaUnit) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    const value = Number(trimmed);
+    if (!Number.isFinite(value) || value <= 0) return Number.NaN;
+    return unit === "km2" ? value * 1_000_000 : value;
+  };
+  const each = toM2(draft.eachInput, draft.eachUnit);
+  const total = toM2(draft.totalInput, draft.totalUnit);
+  if (Number.isNaN(each) || Number.isNaN(total)) return null;
+  return {
+    account_type: draft.account_type,
+    role: draft.role,
+    each_zone_m2: each,
+    each_unit: draft.eachUnit,
+    total_m2: total,
+    total_unit: draft.totalUnit,
+  };
+}
+
+function LimitPair({
+  label,
+  value,
+  unit,
+  onValue,
+  onUnit,
+}: {
+  label: string;
+  value: string;
+  unit: AreaUnit;
+  onValue: (value: string) => void;
+  onUnit: (unit: AreaUnit) => void;
+}) {
+  return (
+    <label className="mb-3 block">
+      <span className={settingsLabelClass}>{label}</span>
+      <span className="flex gap-2">
+        <input
+          value={value}
+          onChange={(event) => onValue(event.target.value)}
+          placeholder="No limit"
+          className={settingsInputClass}
+        />
+        <select
+          aria-label={`${label} unit`}
+          value={unit}
+          onChange={(event) => onUnit(event.target.value as AreaUnit)}
+          className="w-24 shrink-0 rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] px-2 py-2 text-sm font-semibold text-[#0F2C5C] outline-none transition focus:border-[#2F80ED]"
+        >
+          <option value="km2">km²</option>
+          <option value="m2">m²</option>
+        </select>
+      </span>
+    </label>
+  );
+}
+
 export default function Settings() {
   const { user, refreshUser } = useAuth();
   const accountName = (user?.name ?? "").trim();
@@ -89,9 +215,8 @@ export default function Settings() {
   const [hubCommand, setHubCommand] = useState("arm");
   const [hubCommands, setHubCommands] = useState<HubCommandRecord[]>([]);
   const [sendingCommand, setSendingCommand] = useState(false);
-  const [areaUnit, setAreaUnit] = useState<"m2" | "km2">("km2");
-  const [eachZoneInput, setEachZoneInput] = useState("");
-  const [totalZoneInput, setTotalZoneInput] = useState("");
+  const [areaAccount, setAreaAccount] = useState("private_plus");
+  const [areaRules, setAreaRules] = useState<AreaDraft[]>(() => emptyAreaRules());
   const [savingLimits, setSavingLimits] = useState(false);
   const isSystemAdmin = isSystemAdministrator({
     role: user?.role,
@@ -200,20 +325,14 @@ export default function Settings() {
   useEffect(() => {
     if (!isSystemAdmin) return;
     let mounted = true;
-    void getZoneAreaBudget().then((result) => {
-      if (!mounted || !result.data) return;
-      const toField = (m2: number | null) => {
-        if (m2 == null) return "";
-        const shown = areaUnit === "km2" ? m2 / 1_000_000 : m2;
-        return String(shown);
-      };
-      setEachZoneInput(toField(result.data.each_zone_m2));
-      setTotalZoneInput(toField(result.data.total_m2));
+    void getZoneAreaLimits().then((result) => {
+      if (!mounted || !result.data?.rules?.length) return;
+      setAreaRules(result.data.rules.map(areaDraftFromRule));
     });
     return () => {
       mounted = false;
     };
-  }, [isSystemAdmin, areaUnit]);
+  }, [isSystemAdmin]);
 
   // Seed the map from the owner's geocoded home address (from /me) on first load.
   useEffect(() => {
@@ -567,64 +686,85 @@ export default function Settings() {
             <SettingsIcon className="h-5 w-5 text-[#2F80ED]" /> Zone size limit
           </div>
           <p className="mb-4 text-sm text-[#566784]">
-            Largest area one zone may cover, and the largest combined area of
-            every zone on an account. Counts polygons, circles, and hex cells.
-            Leave a field empty for no limit.
+            Set the each-zone cap and the total cap for the network admin and
+            for the member, on every account type. Each cap has its own unit.
+            Polygons, circles, and hex cells count. Leave a field empty for no limit.
           </p>
-          <label className="mb-3 block max-w-xs">
-            <span className={settingsLabelClass}>Unit</span>
-            <select
-              value={areaUnit}
-              onChange={(event) => setAreaUnit(event.target.value as "m2" | "km2")}
-              className={settingsInputClass}
-            >
-              <option value="km2">Square kilometers</option>
-              <option value="m2">Square meters</option>
-            </select>
-          </label>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block">
-              <span className={settingsLabelClass}>Each zone</span>
-              <input
-                value={eachZoneInput}
-                onChange={(event) => setEachZoneInput(event.target.value)}
-                placeholder="No limit"
-                className={settingsInputClass}
-              />
-            </label>
-            <label className="block">
-              <span className={settingsLabelClass}>Total size</span>
-              <input
-                value={totalZoneInput}
-                onChange={(event) => setTotalZoneInput(event.target.value)}
-                placeholder="No limit"
-                className={settingsInputClass}
-              />
-            </label>
+          <div className="mb-4 flex flex-wrap gap-2">
+            {AREA_ACCOUNTS.map((account) => (
+              <button
+                key={account.value}
+                type="button"
+                onClick={() => setAreaAccount(account.value)}
+                className={`rounded-full px-3 py-1 text-sm font-semibold ${
+                  areaAccount === account.value
+                    ? "bg-[#2F80ED] text-white"
+                    : "bg-[#E8F1FC] text-[#0F2C5C]"
+                }`}
+              >
+                {account.label}
+              </button>
+            ))}
+          </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {(["administrator", "user"] as const).map((role) => {
+              const draft = areaRules.find(
+                (rule) => rule.account_type === areaAccount && rule.role === role,
+              );
+              if (!draft) return null;
+              return (
+                <div key={role} className="rounded-xl border border-[#DCE6F2] p-4">
+                  <div className="mb-3 text-sm font-bold text-[#0F2C5C]">
+                    {role === "administrator" ? "Network admin" : "Member"}
+                  </div>
+                  <LimitPair
+                    label="Each zone"
+                    value={draft.eachInput}
+                    unit={draft.eachUnit}
+                    onValue={(value) =>
+                      patchAreaRule(areaAccount, role, { eachInput: value }, setAreaRules)
+                    }
+                    onUnit={(unit) =>
+                      patchAreaRule(
+                        areaAccount,
+                        role,
+                        { eachUnit: unit, eachInput: convertAreaInput(draft.eachInput, draft.eachUnit, unit) },
+                        setAreaRules,
+                      )
+                    }
+                  />
+                  <LimitPair
+                    label="Total size"
+                    value={draft.totalInput}
+                    unit={draft.totalUnit}
+                    onValue={(value) =>
+                      patchAreaRule(areaAccount, role, { totalInput: value }, setAreaRules)
+                    }
+                    onUnit={(unit) =>
+                      patchAreaRule(
+                        areaAccount,
+                        role,
+                        { totalUnit: unit, totalInput: convertAreaInput(draft.totalInput, draft.totalUnit, unit) },
+                        setAreaRules,
+                      )
+                    }
+                  />
+                </div>
+              );
+            })}
           </div>
           <button
             type="button"
             disabled={savingLimits}
             onClick={() => {
-              const toM2 = (raw: string) => {
-                const trimmed = raw.trim();
-                if (!trimmed) return null;
-                const value = Number(trimmed);
-                if (!Number.isFinite(value) || value <= 0) return Number.NaN;
-                return areaUnit === "km2" ? value * 1_000_000 : value;
-              };
-              const each = toM2(eachZoneInput);
-              const total = toM2(totalZoneInput);
-              if (Number.isNaN(each) || Number.isNaN(total)) {
+              const rules = areaRules.map(areaRuleFromDraft);
+              if (rules.some((rule) => rule == null)) {
                 setError("Zone size limits must be numbers greater than zero.");
                 return;
               }
               setSavingLimits(true);
               setError(null);
-              void updateZoneAreaLimits({
-                each_zone_m2: each,
-                total_m2: total,
-              }).then((result) => {
+              void updateZoneAreaLimits(rules as ZoneSizeRule[]).then((result) => {
                 setSavingLimits(false);
                 if (result.error) setError(result.error);
               });

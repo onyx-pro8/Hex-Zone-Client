@@ -58,14 +58,27 @@ export async function getZoneAreaBudget(excludeZoneId?: string | number) {
   });
 }
 
-export async function updateZoneAreaLimits(payload: {
+export type ZoneSizeRule = {
+  account_type: string;
+  role: "administrator" | "user" | string;
   each_zone_m2: number | null;
+  each_unit: "m2" | "km2" | string;
   total_m2: number | null;
-}) {
-  return request<Pick<ZoneAreaBudget, "each_zone_m2" | "total_m2">>({
+  total_unit: "m2" | "km2" | string;
+};
+
+export async function getZoneAreaLimits() {
+  return request<{ rules: ZoneSizeRule[] }>({
+    method: "GET",
+    url: "/zones/area-limits",
+  });
+}
+
+export async function updateZoneAreaLimits(rules: ZoneSizeRule[]) {
+  return request<{ rules: ZoneSizeRule[] }>({
     method: "PUT",
     url: "/zones/area-limits",
-    data: payload,
+    data: { rules },
   });
 }
 
