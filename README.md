@@ -73,5 +73,5 @@ npm test
 ## Notes
 
 - Dark teal theme with hex-style UI accents
-- H3 grid and polygon zone builder powered by `h3-js` and `react-leaflet`
+- H3 grid and polygon zones builder powered by `h3-js` and `react-leaflet`
 - JWT login stored in `localStorage`
