@@ -29,6 +29,8 @@ import {
   useZones,
   type SavedZone,
 } from "../hooks/useZones";
+import { getZoneAreaBudget, type ZoneAreaBudget } from "../services/api/zones";
+import { areaBlockReason, draftZoneAreaM2, formatArea } from "../lib/zoneArea";
 import {
   getCellFromCoords,
   h3ToPolygon,
@@ -1431,6 +1433,7 @@ export default function Dashboard() {
 
   const [pasteText, setPasteText] = useState("");
   const [saveStatus, setSaveStatus] = useState("");
+  const [areaBudget, setAreaBudget] = useState<ZoneAreaBudget | null>(null);
   const [activeSavedZoneKey, setActiveSavedZoneKey] = useState<string | null>(
     null,
   );
@@ -2512,6 +2515,66 @@ export default function Dashboard() {
     URL.revokeObjectURL(url);
   };
 
+  const editingZoneId =
+    !isCreatingNewZone && activeZoneEntry
+      ? savedZoneRecordId(activeZoneEntry.zone)
+      : "";
+  useEffect(() => {
+    let cancelled = false;
+    void getZoneAreaBudget(editingZoneId || undefined).then((result) => {
+      if (!cancelled) setAreaBudget(result.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [editingZoneId, zones.length, saveStatus]);
+  const draftAreaM2 = useMemo(() => {
+    const governmentGeometry = activeReferenceValidation?.geometry as
+      | { geo_fence_polygon?: unknown }
+      | undefined;
+    const radius =
+      zoneType === "proximity"
+        ? proximityRadiusMeters
+        : zoneType === "object"
+          ? objectRadiusMeters
+          : zoneType === "dynamic"
+            ? (dynamicPreview?.resolved_radius_meters ?? dynamicMaxRadiusMeters)
+            : null;
+    return draftZoneAreaM2({
+      zoneType,
+      polygons,
+      cells: selectedCells.filter((cell) => !removedCellIds.has(cell)),
+      radiusMeters: radius,
+      governmentPolygon: governmentGeometry?.geo_fence_polygon,
+    });
+  }, [
+    activeReferenceValidation,
+    zoneType,
+    proximityRadiusMeters,
+    objectRadiusMeters,
+    dynamicPreview,
+    dynamicMaxRadiusMeters,
+    polygons,
+    selectedCells,
+    removedCellIds,
+  ]);
+  const zoneAreaReason =
+    zoneType === "communal_id"
+      ? null
+      : areaBlockReason({
+          draftM2: draftAreaM2,
+          eachZoneM2: areaBudget?.each_zone_m2 ?? null,
+          remainingTotalM2: areaBudget?.remaining_total_m2 ?? null,
+        });
+  const eachZoneLeft =
+    areaBudget?.each_zone_m2 == null
+      ? null
+      : Math.max(0, areaBudget.each_zone_m2 - draftAreaM2);
+  const totalLeft =
+    areaBudget?.remaining_total_m2 == null
+      ? null
+      : Math.max(0, areaBudget.remaining_total_m2 - draftAreaM2);
+
   const handleExportCsv = () => {
     const csv = serializeCellCsv(selectedCells);
     const blob = new Blob([csv], { type: "text/csv" });
@@ -2524,6 +2587,10 @@ export default function Dashboard() {
   };
 
   const handleSave = async () => {
+    if (zoneAreaReason) {
+      setSaveStatus(zoneAreaReason);
+      return;
+    }
     if (!zoneId) {
       setSaveStatus("Your account has no network ID.");
       return;
@@ -5803,6 +5870,19 @@ export default function Dashboard() {
           </div>
 
           <div className="border-t border-[#DCE6F2] p-4">
+            {zoneType !== "communal_id" && areaBudget ? (
+              <div className={`mb-3 text-xs ${zoneAreaReason ? "text-[#E23B4E]" : "text-[#566784]"}`}>
+                <p>This zone: {formatArea(draftAreaM2)}</p>
+                <p>
+                  Each-zone room left:{" "}
+                  {eachZoneLeft == null ? "no limit" : formatArea(eachZoneLeft)}
+                </p>
+                <p>
+                  Total left: {totalLeft == null ? "no limit" : formatArea(totalLeft)}
+                </p>
+                {zoneAreaReason ? <p className="mt-1 font-semibold">{zoneAreaReason}</p> : null}
+              </div>
+            ) : null}
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
@@ -5839,8 +5919,9 @@ export default function Dashboard() {
                   type="button"
                   onClick={handleSave}
                   disabled={
-                    zoneType === "communal_id" &&
-                    (communalCode.trim().length < 3 || communalExists === true)
+                    Boolean(zoneAreaReason) ||
+                    (zoneType === "communal_id" &&
+                      (communalCode.trim().length < 3 || communalExists === true))
                   }
                   className="ml-auto min-w-[120px] flex-1 rounded-md bg-[#2F80ED] px-4 py-2.5 text-sm font-bold text-white sm:flex-none disabled:opacity-50"
                 >

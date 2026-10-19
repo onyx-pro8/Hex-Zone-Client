@@ -8,6 +8,7 @@ import {
   type AppSettings,
 } from "../lib/appSettings";
 import { getRemoteAppSettings, updateRemoteAppSettings } from "../services/api";
+import { getZoneAreaBudget, updateZoneAreaLimits } from "../services/api/zones";
 import {
   getDevices,
   listHubCommands,
@@ -88,6 +89,10 @@ export default function Settings() {
   const [hubCommand, setHubCommand] = useState("arm");
   const [hubCommands, setHubCommands] = useState<HubCommandRecord[]>([]);
   const [sendingCommand, setSendingCommand] = useState(false);
+  const [areaUnit, setAreaUnit] = useState<"m2" | "km2">("km2");
+  const [eachZoneInput, setEachZoneInput] = useState("");
+  const [totalZoneInput, setTotalZoneInput] = useState("");
+  const [savingLimits, setSavingLimits] = useState(false);
   const isSystemAdmin = isSystemAdministrator({
     role: user?.role,
     accountType: user?.accountType,
@@ -191,6 +196,24 @@ export default function Settings() {
       mounted = false;
     };
   }, [user?.id, isNetworkAdmin]);
+
+  useEffect(() => {
+    if (!isSystemAdmin) return;
+    let mounted = true;
+    void getZoneAreaBudget().then((result) => {
+      if (!mounted || !result.data) return;
+      const toField = (m2: number | null) => {
+        if (m2 == null) return "";
+        const shown = areaUnit === "km2" ? m2 / 1_000_000 : m2;
+        return String(shown);
+      };
+      setEachZoneInput(toField(result.data.each_zone_m2));
+      setTotalZoneInput(toField(result.data.total_m2));
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [isSystemAdmin, areaUnit]);
 
   // Seed the map from the owner's geocoded home address (from /me) on first load.
   useEffect(() => {
@@ -537,6 +560,81 @@ export default function Settings() {
           </div>
         </div>
       </div>
+
+      {isSystemAdmin ? (
+        <div className="rounded-2xl border border-[#DCE6F2] bg-white p-5 shadow-sm">
+          <div className="mb-1 flex items-center gap-2 text-lg font-bold text-[#0F2C5C]">
+            <SettingsIcon className="h-5 w-5 text-[#2F80ED]" /> Zone size limit
+          </div>
+          <p className="mb-4 text-sm text-[#566784]">
+            Largest area one zone may cover, and the largest combined area of
+            every zone on an account. Counts polygons, circles, and hex cells.
+            Leave a field empty for no limit.
+          </p>
+          <label className="mb-3 block max-w-xs">
+            <span className={settingsLabelClass}>Unit</span>
+            <select
+              value={areaUnit}
+              onChange={(event) => setAreaUnit(event.target.value as "m2" | "km2")}
+              className={settingsInputClass}
+            >
+              <option value="km2">Square kilometers</option>
+              <option value="m2">Square meters</option>
+            </select>
+          </label>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <span className={settingsLabelClass}>Each zone</span>
+              <input
+                value={eachZoneInput}
+                onChange={(event) => setEachZoneInput(event.target.value)}
+                placeholder="No limit"
+                className={settingsInputClass}
+              />
+            </label>
+            <label className="block">
+              <span className={settingsLabelClass}>Total size</span>
+              <input
+                value={totalZoneInput}
+                onChange={(event) => setTotalZoneInput(event.target.value)}
+                placeholder="No limit"
+                className={settingsInputClass}
+              />
+            </label>
+          </div>
+          <button
+            type="button"
+            disabled={savingLimits}
+            onClick={() => {
+              const toM2 = (raw: string) => {
+                const trimmed = raw.trim();
+                if (!trimmed) return null;
+                const value = Number(trimmed);
+                if (!Number.isFinite(value) || value <= 0) return Number.NaN;
+                return areaUnit === "km2" ? value * 1_000_000 : value;
+              };
+              const each = toM2(eachZoneInput);
+              const total = toM2(totalZoneInput);
+              if (Number.isNaN(each) || Number.isNaN(total)) {
+                setError("Zone size limits must be numbers greater than zero.");
+                return;
+              }
+              setSavingLimits(true);
+              setError(null);
+              void updateZoneAreaLimits({
+                each_zone_m2: each,
+                total_m2: total,
+              }).then((result) => {
+                setSavingLimits(false);
+                if (result.error) setError(result.error);
+              });
+            }}
+            className="mt-4 rounded-lg bg-[#2F80ED] px-5 py-2 text-sm font-bold text-white disabled:opacity-60"
+          >
+            {savingLimits ? "Saving…" : "Save zone size limits"}
+          </button>
+        </div>
+      ) : null}
 
       <div className="rounded-2xl border border-[#DCE6F2] bg-white p-5 shadow-sm">
         <div className="mb-1 flex items-center gap-2 text-lg font-bold text-[#0F2C5C]">

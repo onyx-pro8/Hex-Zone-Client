@@ -43,6 +43,32 @@ export type ZoneCapabilities = {
   can_create_secondary?: boolean;
 };
 
+export type ZoneAreaBudget = {
+  each_zone_m2: number | null;
+  total_m2: number | null;
+  used_m2: number;
+  remaining_total_m2: number | null;
+};
+
+export async function getZoneAreaBudget(excludeZoneId?: string | number) {
+  return request<ZoneAreaBudget>({
+    method: "GET",
+    url: "/zones/area-budget",
+    params: excludeZoneId ? { exclude_zone_id: excludeZoneId } : undefined,
+  });
+}
+
+export async function updateZoneAreaLimits(payload: {
+  each_zone_m2: number | null;
+  total_m2: number | null;
+}) {
+  return request<Pick<ZoneAreaBudget, "each_zone_m2" | "total_m2">>({
+    method: "PUT",
+    url: "/zones/area-limits",
+    data: payload,
+  });
+}
+
 /** Authoritative create/edit quotas for the signed-in account. */
 export async function getZoneCapabilities() {
   return request<ZoneCapabilities>({
