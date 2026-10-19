@@ -164,6 +164,10 @@ export default function AccessCodes() {
   }
 
   async function onReject(row: UniversalAccessRequestRow) {
+    if (!rejectReason.trim()) {
+      setError("A reject reason is required.");
+      return;
+    }
     setBusyId(row.id);
     const result = await rejectUniversalAccessRequest(row.id, rejectReason.trim());
     setBusyId(null);
