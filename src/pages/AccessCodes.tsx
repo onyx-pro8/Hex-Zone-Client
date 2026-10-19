@@ -73,7 +73,9 @@ export default function AccessCodes() {
     setError(null);
     const [requestResult, memberResult] = await Promise.all([
       listUniversalAccessRequests(),
-      isSystemAdmin ? Promise.resolve({ data: [] as Member[], error: null }) : getMembers(),
+      isSystemAdmin
+        ? Promise.resolve({ data: [] as Member[], error: null })
+        : getMembers(),
     ]);
     if (requestResult.error) setError(requestResult.error);
     setRows(requestResult.data ?? []);
@@ -142,7 +144,10 @@ export default function AccessCodes() {
   async function onToggle(row: UniversalAccessRequestRow) {
     if (row.credential_id == null) return;
     setBusyId(row.id);
-    const result = await setUniversalAccessEnabled(row.credential_id, !row.enabled);
+    const result = await setUniversalAccessEnabled(
+      row.credential_id,
+      !row.enabled,
+    );
     setBusyId(null);
     if (result.error) {
       setError(result.error);
@@ -169,7 +174,10 @@ export default function AccessCodes() {
       return;
     }
     setBusyId(row.id);
-    const result = await rejectUniversalAccessRequest(row.id, rejectReason.trim());
+    const result = await rejectUniversalAccessRequest(
+      row.id,
+      rejectReason.trim(),
+    );
     setBusyId(null);
     if (result.error) {
       setError(result.error);
@@ -226,10 +234,14 @@ export default function AccessCodes() {
           ) : null}
 
           {!isSystemAdmin && tab === "compose" ? (
-            <form className="max-w-xl space-y-4" onSubmit={(event) => void onSubmit(event)}>
+            <form
+              className="max-w-xl space-y-4"
+              onSubmit={(event) => void onSubmit(event)}
+            >
               <p className="text-sm text-[#566784]">
-                Ask the system administrator to give one member a universal access code for a
-                city, region, and country. The member must already be on your network.
+                Ask the system administrator to give one member a universal
+                access code for a city, region, and country. The member must
+                already be on your network.
               </p>
               <label className="block text-sm text-[#0F2C5C]">
                 <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[#566784]">
@@ -297,7 +309,11 @@ export default function AccessCodes() {
                 />
                 {photo ? (
                   <span className="mt-2 flex items-center gap-3">
-                    <img src={photo} alt="" className="h-16 w-16 rounded object-cover" />
+                    <img
+                      src={photo}
+                      alt=""
+                      className="h-16 w-16 rounded object-cover"
+                    />
                     <button
                       type="button"
                       className="text-xs font-semibold text-[#E23B4E]"
@@ -372,7 +388,8 @@ export default function AccessCodes() {
             </form>
           ) : null}
 
-          {(isSystemAdmin || tab === "list") && !(isSystemAdmin && tab === "compose" && false) ? (
+          {(isSystemAdmin || tab === "list") &&
+          !(isSystemAdmin && tab === "compose" && false) ? (
             loading ? (
               <p className="text-sm text-[#8694AC]">Loading…</p>
             ) : (
@@ -380,7 +397,9 @@ export default function AccessCodes() {
                 <table className="w-full border-collapse text-left text-sm">
                   <thead>
                     <tr className="text-[11px] uppercase tracking-wide text-[#8694AC]">
-                      {isSystemAdmin ? <th className="py-2 pr-3">Network</th> : null}
+                      {isSystemAdmin ? (
+                        <th className="py-2 pr-3">Network</th>
+                      ) : null}
                       <th className="py-2 pr-3">Member</th>
                       <th className="py-2 pr-3">Place</th>
                       <th className="py-2 pr-3">Status</th>
@@ -390,9 +409,14 @@ export default function AccessCodes() {
                   </thead>
                   <tbody>
                     {tableRows.map((row) => (
-                      <tr key={row.id} className="border-t border-[#DCE6F2] text-[#0F2C5C]">
+                      <tr
+                        key={row.id}
+                        className="border-t border-[#DCE6F2] text-[#0F2C5C]"
+                      >
                         {isSystemAdmin ? (
-                          <td className="py-2 pr-3 font-mono text-xs">{row.network_id}</td>
+                          <td className="py-2 pr-3 font-mono text-xs">
+                            {row.network_id}
+                          </td>
                         ) : null}
                         <td className="py-2 pr-3">{row.member_name}</td>
                         <td className="py-2 pr-3">{row.place}</td>
@@ -410,7 +434,8 @@ export default function AccessCodes() {
                             : "—"}
                         </td>
                         <td className="py-2">
-                          {row.status === "approved" && row.credential_id != null ? (
+                          {row.status === "approved" &&
+                          row.credential_id != null ? (
                             <button
                               type="button"
                               disabled={busyId === row.id}
@@ -426,10 +451,12 @@ export default function AccessCodes() {
                               className="text-xs font-semibold text-[#2F80ED]"
                               onClick={() => {
                                 setRejectReason("");
-                                void getUniversalAccessRequest(row.id).then((result) => {
-                                  setDetail(result.data ?? row);
-                                  if (result.error) setError(result.error);
-                                });
+                                void getUniversalAccessRequest(row.id).then(
+                                  (result) => {
+                                    setDetail(result.data ?? row);
+                                    if (result.error) setError(result.error);
+                                  },
+                                );
                               }}
                             >
                               Review
@@ -455,14 +482,18 @@ export default function AccessCodes() {
 
       {detail ? (
         <div className="mt-4 rounded-lg border border-[#DCE6F2] bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-bold text-[#0F2C5C]">{detail.member_name}</h2>
+          <h2 className="text-lg font-bold text-[#0F2C5C]">
+            {detail.member_name}
+          </h2>
           <p className="mt-1 text-sm text-[#566784]">{detail.email}</p>
           <p className="text-sm text-[#566784]">{detail.address}</p>
           <p className="text-sm text-[#566784]">{detail.place}</p>
           <p className="text-sm text-[#566784]">
             Sent by {detail.network_admin_name} · {detail.network_id}
           </p>
-          {detail.note ? <p className="mt-2 text-sm text-[#0F2C5C]">{detail.note}</p> : null}
+          {detail.note ? (
+            <p className="mt-2 text-sm text-[#0F2C5C]">{detail.note}</p>
+          ) : null}
           {detail.photo_id ? (
             <img
               src={detail.photo_id}
