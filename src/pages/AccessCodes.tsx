@@ -102,8 +102,8 @@ export default function AccessCodes() {
 
   const profile = useMemo(
     () => ({
-      firstName: String(user?.firstName ?? user?.first_name ?? ""),
-      lastName: String(user?.lastName ?? user?.last_name ?? ""),
+      firstName: String(user?.first_name ?? ""),
+      lastName: String(user?.last_name ?? ""),
       email: String(user?.email ?? ""),
       address: String(user?.address ?? ""),
     }),
