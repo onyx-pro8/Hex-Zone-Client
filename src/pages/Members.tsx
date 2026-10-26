@@ -143,9 +143,13 @@ export default function Members() {
 
     setUpdatingAccountTypeOwnerId(String(owner.id));
     setError(null);
+    const assignAdministrator =
+      accountTypeValue.toLowerCase() === "enhanced" &&
+      String(owner.role ?? "").toLowerCase() !== "administrator";
     try {
       const updated = await updateOwner(owner.id, {
         account_type: accountTypeValue as OwnerUpdateAccountType,
+        ...(assignAdministrator ? { role: "administrator" as const } : {}),
       });
       setOwners((prev) =>
         prev.map((row) =>
@@ -153,6 +157,9 @@ export default function Members() {
             ? {
                 ...row,
                 account_type: updated.account_type ?? accountTypeValue,
+                role: assignAdministrator
+                  ? "administrator"
+                  : (updated.role ?? row.role),
               }
             : row,
         ),
@@ -171,6 +178,13 @@ export default function Members() {
     }
     const current = String(owner.role ?? "").toLowerCase();
     if (current === role.toLowerCase()) return;
+    if (
+      role.toLowerCase() === "user" &&
+      String(owner.account_type ?? "").toLowerCase() === "enhanced"
+    ) {
+      setError("Individual Pro accounts can only be administrators.");
+      return;
+    }
 
     setUpdatingRoleOwnerId(String(owner.id));
     setError(null);
@@ -386,7 +400,9 @@ export default function Members() {
                           className="w-full rounded-md border border-[#DCE6F2] bg-white px-2 py-1.5 text-xs text-[#0F2C5C] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <option value="administrator">administrator</option>
-                          <option value="user">user</option>
+                          {currentAccountType === "enhanced" ? null : (
+                            <option value="user">user</option>
+                          )}
                         </select>
                       </label>
                       <label className="mt-3 block text-xs text-[#566784]">

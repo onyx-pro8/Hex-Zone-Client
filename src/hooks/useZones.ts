@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { request } from "../services/api/client";
+import { subscribeRealtimeMessages } from "./useWebSocket";
 
 export type SavedZone = {
   zone_id?: number | string;
@@ -457,6 +458,32 @@ export function useZones(
 
   useEffect(() => {
     void refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    return subscribeRealtimeMessages((raw) => {
+      try {
+        const parsed = JSON.parse(raw) as {
+          type?: string;
+          data?: { zones?: SavedZone[] };
+        };
+        if (parsed.type !== "UNIVERSAL_ZONES_GRANTED") return;
+        const incoming = Array.isArray(parsed.data?.zones) ? parsed.data.zones : [];
+        if (incoming.length > 0) {
+          setZones((prev) => {
+            const byId = new Map(prev.map((zone) => [String(zone.id), zone]));
+            for (const zone of incoming) {
+              if (zone?.id == null) continue;
+              byId.set(String(zone.id), zone);
+            }
+            return Array.from(byId.values());
+          });
+        }
+        void refresh();
+      } catch {
+        // ignore non-JSON frames
+      }
+    });
   }, [refresh]);
 
   return {

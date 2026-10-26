@@ -23,12 +23,22 @@ function ringAreaM2(ring: LngLat[]): number {
   return Math.abs((total * radius * radius) / 2);
 }
 
-export function formatArea(m2: number): string {
+/** One unit, picked so the size summary stays short. */
+export function formatAreaCompact(m2: number): string {
   const meters = Math.max(0, m2);
-  const km = meters / 1_000_000;
-  const meterLabel = `${Math.round(meters).toLocaleString()} m²`;
-  const kmLabel = `${km.toLocaleString(undefined, { maximumFractionDigits: 2 })} km²`;
-  return `${kmLabel} (${meterLabel})`;
+  if (meters >= 10_000) {
+    const km = meters / 1_000_000;
+    return `${km.toLocaleString(undefined, {
+      minimumFractionDigits: km >= 10 ? 1 : 2,
+      maximumFractionDigits: km >= 10 ? 1 : 2,
+    })} km²`;
+  }
+  return `${Math.round(meters).toLocaleString()} m²`;
+}
+
+export function formatAreaLimit(m2: number | null | undefined): string {
+  if (m2 == null) return "No limit";
+  return formatAreaCompact(m2);
 }
 
 export function draftZoneAreaM2(input: {
@@ -90,10 +100,10 @@ export function areaBlockReason(input: {
   remainingTotalM2: number | null;
 }): string | null {
   if (input.eachZoneM2 != null && input.draftM2 > input.eachZoneM2 + 1) {
-    return "This zone is bigger than the each-zone limit.";
+    return "Exceeds the each-zone size limit.";
   }
   if (input.remainingTotalM2 != null && input.draftM2 > input.remainingTotalM2 + 1) {
-    return "Not enough total size left.";
+    return "Exceeds the total size limit.";
   }
   return null;
 }

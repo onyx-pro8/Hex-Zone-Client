@@ -108,10 +108,20 @@ async function getUserMedia(): Promise<MediaStream | null> {
       })
     | undefined;
   if (nav?.mediaDevices?.getUserMedia) {
+    const spoken: MediaTrackConstraints = {
+      echoCancellation: { ideal: true },
+      noiseSuppression: { ideal: true },
+      autoGainControl: { ideal: true },
+      channelCount: { ideal: 1 },
+    };
     try {
-      return await nav.mediaDevices.getUserMedia({ audio: true, video: false });
+      return await nav.mediaDevices.getUserMedia({ audio: spoken, video: false });
     } catch {
-      return null;
+      try {
+        return await nav.mediaDevices.getUserMedia({ audio: true, video: false });
+      } catch {
+        return null;
+      }
     }
   }
   try {
@@ -120,7 +130,14 @@ async function getUserMedia(): Promise<MediaStream | null> {
       mediaDevices?: { getUserMedia: (c: object) => Promise<MediaStream> };
     };
     if (mod.mediaDevices?.getUserMedia) {
-      return await mod.mediaDevices.getUserMedia({ audio: true, video: false });
+      return await mod.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+        video: false,
+      });
     }
   } catch {
     /* ignore */

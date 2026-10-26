@@ -686,9 +686,9 @@ export default function Settings() {
             <SettingsIcon className="h-5 w-5 text-[#2F80ED]" /> Zone size limit
           </div>
           <p className="mb-4 text-sm text-[#566784]">
-            Set the each-zone cap and the total cap for the network admin and
-            for the member, on every account type. Each cap has its own unit.
-            Polygons, circles, and hex cells count. Leave a field empty for no limit.
+            {areaAccount === "enhanced"
+              ? "Individual Pro is administrator only, so there is no member limit. Set the each-zone cap and the total cap for the administrator. Each cap has its own unit. Polygons, circles, and hex cells count. Leave a field empty for no limit."
+              : "Set the each-zone cap and the total cap for the network admin and for the member, on every account type. Each cap has its own unit. Polygons, circles, and hex cells count. Leave a field empty for no limit."}
           </p>
           <div className="mb-4 flex flex-wrap gap-2">
             {AREA_ACCOUNTS.map((account) => (
@@ -707,7 +707,9 @@ export default function Settings() {
             ))}
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
-            {(["administrator", "user"] as const).map((role) => {
+            {(["administrator", "user"] as const)
+              .filter((role) => areaAccount !== "enhanced" || role === "administrator")
+              .map((role) => {
               const draft = areaRules.find(
                 (rule) => rule.account_type === areaAccount && rule.role === role,
               );

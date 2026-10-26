@@ -49,7 +49,7 @@ const accountOptions: {
   {
     value: "ENHANCED",
     title: "Enhanced",
-    lines: ["1 device only", "Extended zone capabilities"],
+    lines: ["Administrator only", "1 device · no member invites"],
   },
   {
     value: "ENHANCED_PLUS",
@@ -93,6 +93,7 @@ export default function CreateAccount() {
   const [regCodeError, setRegCodeError] = useState<string | null>(null);
 
   const isIndividual = accountType === "EXCLUSIVE";
+  const isIndividualPro = accountType === "ENHANCED";
 
   const loadRegistrationCode = useCallback(async () => {
     if (accountType === "EXCLUSIVE") {
@@ -142,7 +143,7 @@ export default function CreateAccount() {
   );
   const grid = useMemo<H3Cell[]>(() => getHexGrid(center, 9, 1), [center]);
 
-  const joiningNetwork = !isIndividual && registrationType === "USER";
+  const joiningNetwork = !isIndividual && !isIndividualPro && registrationType === "USER";
 
   useEffect(() => {
     if (!joiningNetwork) return;
@@ -198,7 +199,11 @@ export default function CreateAccount() {
         email,
         password,
         accountType,
-        registrationType: isIndividual ? "USER" : registrationType,
+        registrationType: isIndividual
+          ? "USER"
+          : isIndividualPro
+            ? "ADMINISTRATOR"
+            : registrationType,
         ...(joiningNetwork &&
         needsAdministratorEmail &&
         administratorEmail.trim()
@@ -417,6 +422,11 @@ export default function CreateAccount() {
                           setAccountType(option.value);
                           setExistingZoneId("");
                           setError("");
+                          if (option.value === "EXCLUSIVE") {
+                            setRegistrationType("USER");
+                          } else if (option.value === "ENHANCED") {
+                            setRegistrationType("ADMINISTRATOR");
+                          }
                         }}
                         className={`rounded-md border px-4 py-4 text-left transition ${
                           active
@@ -443,38 +453,50 @@ export default function CreateAccount() {
 
               <div className="rounded-md border border-[#DCE6F2] bg-white p-4">
                 <p className={labelClass}>Registration type</p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <button
-                    type="button"
-                    onClick={() => setRegistrationType("ADMINISTRATOR")}
-                    className={`rounded-md border px-4 py-3 text-left transition ${
-                      registrationType === "ADMINISTRATOR"
-                        ? "border-[#2F80ED] bg-[#EDF3FB] text-[#0F2C5C]"
-                        : "border-[#DCE6F2] text-[#566784] hover:border-[#C5D4E8]"
-                    }`}
-                  >
-                    Administrator
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRegistrationType("USER");
-                      setUseExistingZone(true);
-                    }}
-                    className={`rounded-md border px-4 py-3 text-left transition ${
-                      registrationType === "USER"
-                        ? "border-[#2F80ED] bg-[#EDF3FB] text-[#0F2C5C]"
-                        : "border-[#DCE6F2] text-[#566784] hover:border-[#C5D4E8]"
-                    }`}
-                  >
-                    User
-                  </button>
-                </div>
-                {!isIndividual && registrationType === "USER" && (
-                  <p className="mt-3 text-xs leading-relaxed text-[#8694AC]">
-                    Enter the network name below. Your plan follows that network,
-                    so you do not need an account owner ID.
-                  </p>
+                {isIndividualPro ? (
+                  <div>
+                    <p className="font-semibold text-[#0F2C5C]">Administrator</p>
+                    <p className="mt-2 text-xs leading-relaxed text-[#8694AC]">
+                      Individual Pro accounts are administrator only. They cannot
+                      invite members or generate a member access QR code.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => setRegistrationType("ADMINISTRATOR")}
+                        className={`rounded-md border px-4 py-3 text-left transition ${
+                          registrationType === "ADMINISTRATOR"
+                            ? "border-[#2F80ED] bg-[#EDF3FB] text-[#0F2C5C]"
+                            : "border-[#DCE6F2] text-[#566784] hover:border-[#C5D4E8]"
+                        }`}
+                      >
+                        Administrator
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRegistrationType("USER");
+                          setUseExistingZone(true);
+                        }}
+                        className={`rounded-md border px-4 py-3 text-left transition ${
+                          registrationType === "USER"
+                            ? "border-[#2F80ED] bg-[#EDF3FB] text-[#0F2C5C]"
+                            : "border-[#DCE6F2] text-[#566784] hover:border-[#C5D4E8]"
+                        }`}
+                      >
+                        User
+                      </button>
+                    </div>
+                    {!isIndividual && registrationType === "USER" && (
+                      <p className="mt-3 text-xs leading-relaxed text-[#8694AC]">
+                        Enter the network name below. Your plan follows that network,
+                        so you do not need an account owner ID.
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
 

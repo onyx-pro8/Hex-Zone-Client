@@ -4,12 +4,14 @@ import { cellToParent, getResolution, isValidCell } from "h3-js";
 import {
   Copy,
   Download,
+  KeyRound,
   LocateFixed,
   MapPin,
   Ruler,
   Trash2,
   Upload,
 } from "lucide-react";
+import { UniversalAccessKeyModal } from "../components/dashboard/UniversalAccessKeyModal";
 import HexMapperMap, {
   h3CellsAtPoint,
   type MapFitBoundsRequest,
@@ -30,7 +32,7 @@ import {
   type SavedZone,
 } from "../hooks/useZones";
 import { getZoneAreaBudget, type ZoneAreaBudget } from "../services/api/zones";
-import { areaBlockReason, draftZoneAreaM2, formatArea } from "../lib/zoneArea";
+import { areaBlockReason, draftZoneAreaM2, formatAreaCompact, formatAreaLimit } from "../lib/zoneArea";
 import {
   getCellFromCoords,
   h3ToPolygon,
@@ -1463,6 +1465,7 @@ export default function Dashboard() {
     accountOwnerId:
       user?.account_owner_id != null ? String(user.account_owner_id) : null,
   });
+  const [universalKeyModalOpen, setUniversalKeyModalOpen] = useState(false);
   const [publicCommunalIds, setPublicCommunalIds] = useState<CommunalIdRow[]>(
     [],
   );
@@ -2566,15 +2569,6 @@ export default function Dashboard() {
           eachZoneM2: areaBudget?.each_zone_m2 ?? null,
           remainingTotalM2: areaBudget?.remaining_total_m2 ?? null,
         });
-  const eachZoneLeft =
-    areaBudget?.each_zone_m2 == null
-      ? null
-      : Math.max(0, areaBudget.each_zone_m2 - draftAreaM2);
-  const totalLeft =
-    areaBudget?.remaining_total_m2 == null
-      ? null
-      : Math.max(0, areaBudget.remaining_total_m2 - draftAreaM2);
-
   const handleExportCsv = () => {
     const csv = serializeCellCsv(selectedCells);
     const blob = new Blob([csv], { type: "text/csv" });
@@ -4083,21 +4077,40 @@ export default function Dashboard() {
         <span className="text-xs font-bold uppercase tracking-[0.2em] text-[#0F2C5C]">
           H3 Hexagon Mapper
         </span>
-        <div
-          className={`flex items-center gap-2 rounded-full border border-[#DCE6F2] ${panel} px-3 py-1.5 font-mono text-xs text-[#2F80ED]`}
-        >
-          <span className="max-w-[140px] truncate sm:max-w-xs">{zoneId}</span>
+        <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={copyZoneId}
-            className="rounded p-1 text-[#2F80ED] transition hover:bg-[#EDF3FB]"
-            aria-label="Copy network ID"
+            onClick={() => setUniversalKeyModalOpen(true)}
+            className="rounded-lg border border-[#DCE6F2] p-2 text-[#2F80ED] transition hover:bg-[#EDF3FB]"
+            aria-label="Enter universal access key"
+            title="Universal access keys"
           >
-            <Copy className="h-3.5 w-3.5" strokeWidth={2} />
+            <KeyRound className="h-4 w-4" strokeWidth={2} />
           </button>
+          <div
+            className={`flex items-center gap-2 rounded-full border border-[#DCE6F2] ${panel} px-3 py-1.5 font-mono text-xs text-[#2F80ED]`}
+          >
+            <span className="max-w-[140px] truncate sm:max-w-xs">{zoneId}</span>
+            <button
+              type="button"
+              onClick={copyZoneId}
+              className="rounded p-1 text-[#2F80ED] transition hover:bg-[#EDF3FB]"
+              aria-label="Copy network ID"
+            >
+              <Copy className="h-3.5 w-3.5" strokeWidth={2} />
+            </button>
+          </div>
         </div>
         <span className="text-sm text-[#566784]">{userLabel}</span>
       </header>
+
+      <UniversalAccessKeyModal
+        open={universalKeyModalOpen}
+        onClose={() => setUniversalKeyModalOpen(false)}
+        onActivated={() => {
+          void refresh();
+        }}
+      />
 
       {zoneId.trim() !== "" ? (
         <RecentServicesDashboardSection zoneId={zoneId.trim()} />
@@ -5871,16 +5884,33 @@ export default function Dashboard() {
 
           <div className="border-t border-[#DCE6F2] p-4">
             {zoneType !== "communal_id" && areaBudget ? (
-              <div className={`mb-3 text-xs ${zoneAreaReason ? "text-[#E23B4E]" : "text-[#566784]"}`}>
-                <p>This zone: {formatArea(draftAreaM2)}</p>
-                <p>
-                  Each-zone room left:{" "}
-                  {eachZoneLeft == null ? "no limit" : formatArea(eachZoneLeft)}
-                </p>
-                <p>
-                  Total left: {totalLeft == null ? "no limit" : formatArea(totalLeft)}
-                </p>
-                {zoneAreaReason ? <p className="mt-1 font-semibold">{zoneAreaReason}</p> : null}
+              <div
+                className={`mb-3 rounded-md border px-3 py-2.5 text-xs ${
+                  zoneAreaReason
+                    ? "border-rose-200 bg-rose-50 text-[#E23B4E]"
+                    : "border-[#DCE6F2] bg-[#F7FAFE] text-[#566784]"
+                }`}
+              >
+                <div className="flex items-baseline justify-between gap-3">
+                  <span>This zone</span>
+                  <span className={`font-semibold ${zoneAreaReason ? "text-[#E23B4E]" : "text-[#0F2C5C]"}`}>
+                    {formatAreaCompact(draftAreaM2)}
+                  </span>
+                </div>
+                <div className="my-2 h-px bg-[#DCE6F2]" />
+                <div className="flex items-baseline justify-between gap-3">
+                  <span>Each-zone size limit</span>
+                  <span className="font-semibold text-[#0F2C5C]">
+                    {formatAreaLimit(areaBudget.each_zone_m2)}
+                  </span>
+                </div>
+                <div className="mt-1.5 flex items-baseline justify-between gap-3">
+                  <span>Total limit</span>
+                  <span className="font-semibold text-[#0F2C5C]">
+                    {formatAreaLimit(areaBudget.total_m2)}
+                  </span>
+                </div>
+                {zoneAreaReason ? <p className="mt-2 font-semibold">{zoneAreaReason}</p> : null}
               </div>
             ) : null}
             <div className="flex flex-wrap items-center gap-2">

@@ -33,7 +33,7 @@ const SECONDARY_ITEMS: NavItem[] = [
   { path: "/emergency-log", title: "Emergency Log", icon: Siren },
   { path: "/devices", title: "Devices", icon: Shield },
   { path: "/guest-passes", title: "Guest Passes", icon: Ticket },
-  { path: "/access-codes", title: "Access codes", icon: KeyRound },
+  { path: "/access-codes", title: "Universal Access", icon: KeyRound },
   { path: "/guest-arrival-messages", title: "Guest Arrival Settings", icon: NotebookPen },
   { path: "/guest-access-qr", title: "Guest QR", icon: ScanLine },
   { path: "/qr", title: "QR invite", icon: QrCode },
@@ -58,7 +58,7 @@ export function Sidebar() {
   });
 
   const secondary = SECONDARY_ITEMS.filter((item) => {
-    if (item.path === "/access-codes") return isAdministrator;
+    if (item.path === "/access-codes") return true;
     if (item.path === "/qr") return canInviteUserMember;
     if (item.path === "/guest-access-qr") return isAdministrator;
     if (item.path === "/guest-arrival-messages") return isAdministrator;

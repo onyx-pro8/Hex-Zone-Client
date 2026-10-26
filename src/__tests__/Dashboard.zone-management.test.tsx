@@ -23,6 +23,7 @@ vi.mock("../hooks/useWebSocket", () => ({
     sendMessage: vi.fn(),
     status: "closed" as const,
   }),
+  subscribeRealtimeMessages: () => () => {},
 }));
 
 vi.mock("../services/api/accessPermissions", () => ({

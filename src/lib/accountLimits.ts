@@ -57,7 +57,7 @@ export function getMemberLimit(
   tierLevel?: number | string | null,
 ): number {
   if (type === "EXCLUSIVE") return 1;
-  if (type === "ENHANCED") return 2; // Individual Pro: admin + 1 invited Individual
+  if (type === "ENHANCED") return 1; // Individual Pro: administrator only
   if (type === "PRIVATE_PLUS") return FAMILY_MEMBER_LIMIT;
   if (type === "ENHANCED_PLUS") {
     const level = normalizeTierLevel(tierLevel) ?? 1;
@@ -133,13 +133,16 @@ export function canEditNetworkId(params: {
 }
 
 export const MEMBER_INVITE_UNAVAILABLE_HINT =
-  "Member invite QR is available to administrators on Private, Family, Organization, and Individual Pro accounts. Individual accounts are solo and cannot invite members. Use Guest access to invite visitors.";
+  "Member invite QR is available to administrators on Private, Family, and Organization accounts. Individual and Individual Pro accounts cannot invite members. Use Guest access to invite visitors.";
 
 export function memberInviteUnavailableHint(
   type: NormalizedAccountType,
 ): string {
   if (type === "EXCLUSIVE") {
     return "Individual accounts are user-role only and cannot invite members. Use Guest access to invite visitors.";
+  }
+  if (type === "ENHANCED") {
+    return "Individual Pro accounts are administrator-only and cannot invite members or generate member access QR codes. Use Guest access to invite visitors.";
   }
   return MEMBER_INVITE_UNAVAILABLE_HINT;
 }
@@ -181,7 +184,7 @@ export function memberLimitDescription(
     return "Family accounts allow up to 10 users (administrator + members).";
   }
   if (type === "ENHANCED") {
-    return "Individual Pro accounts allow the administrator plus 1 invited Individual.";
+    return "Individual Pro accounts are administrator-only and cannot invite members.";
   }
   if (type === "ENHANCED_PLUS") {
     const level = normalizeTierLevel(tierLevel) ?? 1;
@@ -224,7 +227,7 @@ export const ADMIN_ASSIGNABLE_ACCOUNT_TYPES: {
     value: "ENHANCED",
     apiValue: "enhanced",
     label: "Individual Pro",
-    description: "Administrator + 1 invited Individual — one device",
+    description: "Administrator only — one device, no member invites",
   },
   {
     value: "ENHANCED_PLUS",
