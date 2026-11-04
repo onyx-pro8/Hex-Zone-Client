@@ -35,7 +35,8 @@ export type GuestCallSocketEvent =
   | "CALL_CANCEL"
   | "CALL_TIMEOUT"
   | "CALL_END"
-  | "CALL_SIGNAL";
+  | "CALL_SIGNAL"
+  | "CALL_LIVEKIT";
 
 const CALL_TYPES = new Set<string>([
   "CALL_INVITE",
@@ -47,6 +48,7 @@ const CALL_TYPES = new Set<string>([
   "CALL_TIMEOUT",
   "CALL_END",
   "CALL_SIGNAL",
+  "CALL_LIVEKIT",
 ]);
 
 export function parseGuestCallSocketMessage(

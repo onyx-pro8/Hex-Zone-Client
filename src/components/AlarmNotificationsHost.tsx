@@ -3,6 +3,7 @@ import { AlertTriangle, BellRing, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useAlarmNotifications } from "../hooks/useAlarmNotifications";
+import { formatServerTime } from "../lib/serverDate";
 import { useAlarmInbox } from "../state/alarm/AlarmInboxContext";
 import {
   browserSupportsNotifications,
@@ -155,7 +156,7 @@ export function AlarmNotificationsHost() {
                         : "text-[#B23A48]"
                   }`}
                 >
-                  {new Date(alarm.createdAt).toLocaleTimeString()}
+                  {formatServerTime(alarm.createdAt)}
                 </span>
               </div>
               <p

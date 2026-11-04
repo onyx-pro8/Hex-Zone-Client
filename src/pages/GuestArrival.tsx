@@ -13,6 +13,7 @@ import {
   type GuestArrivalPosition,
 } from "../lib/guestArrival";
 import { resolveGuestBrowserDeviceId } from "../lib/guestDeviceId";
+import { formatServerDateTime } from "../lib/serverDate";
 import {
   normalizeGuestPermissionResponse,
   pollGuestAccessSession,
@@ -829,7 +830,7 @@ export default function GuestArrival() {
                 <p className="text-[#2FA24A]">
                   Sign-in code expires:{" "}
                   <span className="font-mono text-[#2FA24A]">
-                    {new Date(phase.exchange_expires_at).toLocaleString()}
+                    {formatServerDateTime(phase.exchange_expires_at)}
                   </span>
                 </p>
               ) : null}

@@ -21,8 +21,7 @@ import {
   type GuestCallSession,
 } from "../lib/guestCall";
 import {
-  handleGuestCallSignal,
-  startGuestCallMedia,
+  connectLiveKitCall,
   primeLocalVoiceContext,
   stopGuestCallMedia,
 } from "../lib/guestCallMedia";
@@ -201,20 +200,20 @@ export function GuestCallProvider({ children }: { children: ReactNode }) {
   );
 
   const beginMedia = useCallback(
-    async (next: GuestCallSession) => {
+    (next: GuestCallSession) => {
+      if (!next.callId || next.callId.startsWith("pending-") || next.callId.startsWith("queue-")) {
+        return;
+      }
+      if (armedCallRef.current === next.callId) return;
+      armedCallRef.current = next.callId;
       const asRole: GuestCallRole = next.isCaller
         ? next.callerRole
         : next.callerRole === "guest"
           ? "admin"
           : "guest";
-      await startGuestCallMedia({
-        isOfferer: next.isCaller,
-        onSignal: (signal) => {
-          sendCallAs(asRole, {
-            type: "CALL_SIGNAL",
-            data: { call_id: next.callId, signal },
-          });
-        },
+      sendCallAs(asRole, {
+        type: "CALL_LIVEKIT",
+        data: { call_id: next.callId },
       });
     },
     [sendCallAs],
@@ -223,13 +222,19 @@ export function GuestCallProvider({ children }: { children: ReactNode }) {
   const applyEvent = useCallback(
     async (raw: string | null, asRole: GuestCallRole) => {
       if (!raw) return;
-      if (lastHandledRef.current[asRole] === raw) return;
+      let envelopeType = "";
       try {
         const envelope = JSON.parse(raw) as {
           type?: string;
           error?: { message?: string; error_code?: string };
         };
-        if (String(envelope.type || "").toUpperCase() === "ERROR") {
+        envelopeType = String(envelope.type || "").toUpperCase();
+        if (envelopeType === "CALL_SIGNAL") {
+          /* voice frames must not be dropped when the payload repeats */
+        } else if (lastHandledRef.current[asRole] === raw) {
+          return;
+        }
+        if (envelopeType === "ERROR") {
           lastHandledRef.current[asRole] = raw;
           if (answerTimerRef.current) {
             window.clearTimeout(answerTimerRef.current);
@@ -237,6 +242,10 @@ export function GuestCallProvider({ children }: { children: ReactNode }) {
           }
           setCallRequesting(false);
           const code = String(envelope.error?.error_code || "");
+          if (code === "LIVEKIT_UNAVAILABLE") {
+            uiToast.error(envelope.error?.message || "Voice is unavailable.", { title: "Call" });
+            return;
+          }
           if (code === "RECEIVER_OFFLINE" || code === "CALL_FAILED" || code === "CALL_ALREADY_ACTIVE") {
             uiToast.error(envelope.error?.message || "The call could not be started.", {
               title: "Call",
@@ -249,23 +258,32 @@ export function GuestCallProvider({ children }: { children: ReactNode }) {
       }
       const ev = parseGuestCallSocketMessage(raw);
       if (!ev) return;
-      lastHandledRef.current[asRole] = raw;
+      if (ev.type !== "CALL_SIGNAL") lastHandledRef.current[asRole] = raw;
+
+      if (ev.type === "CALL_LIVEKIT") {
+        const serverUrl = String(ev.data.server_url ?? "").trim();
+        const participantToken = String(ev.data.participant_token ?? "").trim();
+        const callId = String(ev.data.call_id ?? "").trim();
+        const cur = sessionRef.current;
+        if (
+          cur &&
+          callId &&
+          cur.callId !== callId &&
+          !cur.callId.startsWith("pending-") &&
+          !cur.callId.startsWith("queue-")
+        ) {
+          return;
+        }
+        if (!serverUrl || !participantToken) return;
+        const joined = await connectLiveKitCall(serverUrl, participantToken);
+        if (joined === "failed") {
+          armedCallRef.current = null;
+          uiToast.error("The voice room could not be joined.", { title: "Call" });
+        }
+        return;
+      }
 
       if (ev.type === "CALL_SIGNAL") {
-        const signal = ev.data.signal;
-        if (signal && typeof signal === "object") {
-          await handleGuestCallSignal(
-            signal as Parameters<typeof handleGuestCallSignal>[0],
-            (out) => {
-              const callId = String(ev.data.call_id ?? sessionRef.current?.callId ?? "");
-              if (!callId || callId.startsWith("pending-") || callId.startsWith("queue-")) return;
-              sendCallAs(asRole, {
-                type: "CALL_SIGNAL",
-                data: { call_id: callId, signal: out },
-              });
-            },
-          );
-        }
         return;
       }
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Lock, X } from "lucide-react";
+import { formatServerDateTime } from "../../lib/serverDate";
 import {
   getPrivateThread,
   type PrivateThreadMessage,
@@ -95,7 +96,7 @@ export function PrivateThreadModal({
                         mine ? "text-white/70" : "text-[#8694AC]"
                       }`}
                     >
-                      {new Date(msg.createdAt).toLocaleString()}
+                      {formatServerDateTime(msg.createdAt)}
                     </p>
                   </div>
                 </div>

@@ -1076,6 +1076,11 @@ type ZoneEntry = {
   deletable: boolean;
 };
 
+function zoneIsAccessed(zone: SavedZone): boolean {
+  const config = zone.config as Record<string, unknown> | undefined;
+  return config?.universal_access === true;
+}
+
 const MAX_ZONE_NAME_LENGTH = 120;
 
 type DraftCircle = {
@@ -1441,6 +1446,7 @@ export default function Dashboard() {
   );
   const [isCreatingNewZone, setIsCreatingNewZone] = useState(true);
   const [createAsPrimary, setCreateAsPrimary] = useState(false);
+  const [zoneListTab, setZoneListTab] = useState<"mine" | "accessed">("mine");
   const [showAllZones, setShowAllZones] = useState(true);
   const [activeSavedZoneEditable, setActiveSavedZoneEditable] =
     useState<boolean>(false);
@@ -1583,10 +1589,13 @@ export default function Dashboard() {
           (zone as { is_primary?: boolean }).is_primary ??
             (zone as { isPrimary?: boolean }).isPrimary,
         );
-        // Match mobile: primary → network admin; secondary → creator only.
-        const editable = isPrimary
-          ? isAccountAdministrator
-          : Boolean(creatorId && currentUserId && creatorId === currentUserId);
+        const accessed = zoneIsAccessed(zone);
+        // Accessed zones stay off the primary/secondary list and are view-only.
+        const editable = accessed
+          ? false
+          : isPrimary
+            ? isAccountAdministrator
+            : Boolean(creatorId && currentUserId && creatorId === currentUserId);
         const deletable = editable;
         return {
           zone,
@@ -1599,6 +1608,16 @@ export default function Dashboard() {
       }),
     [zones, currentUserId, isAccountAdministrator],
   );
+  const mineZoneEntries = useMemo(
+    () => zoneEntries.filter((entry) => !zoneIsAccessed(entry.zone)),
+    [zoneEntries],
+  );
+  const accessedZoneEntries = useMemo(
+    () => zoneEntries.filter((entry) => zoneIsAccessed(entry.zone)),
+    [zoneEntries],
+  );
+  const listedZoneEntries =
+    zoneListTab === "mine" ? mineZoneEntries : accessedZoneEntries;
   const activeZoneEntry = useMemo(
     () => zoneEntries.find((entry) => entry.key === activeSavedZoneKey) ?? null,
     [zoneEntries, activeSavedZoneKey],
@@ -5598,7 +5617,7 @@ export default function Dashboard() {
               <div className="mb-3">
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8694AC]">
-                    Zones ({zones.length})
+                    Zones
                   </p>
                   <div className="flex items-center gap-2">
                     {loadingZones && (
@@ -5676,8 +5695,32 @@ export default function Dashboard() {
                     <p className="text-xs text-[#E23B4E]">{zonesError}</p>
                   ) : (
                     <>
+                      <div className="mb-2 flex gap-1 rounded-md bg-[#F4F7FB] p-1">
+                        <button
+                          type="button"
+                          onClick={() => setZoneListTab("mine")}
+                          className={`flex-1 rounded px-2 py-1 text-[11px] font-bold ${
+                            zoneListTab === "mine"
+                              ? "bg-white text-[#1B5BB5] shadow-sm"
+                              : "text-[#566784]"
+                          }`}
+                        >
+                          Mine ({mineZoneEntries.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setZoneListTab("accessed")}
+                          className={`flex-1 rounded px-2 py-1 text-[11px] font-bold ${
+                            zoneListTab === "accessed"
+                              ? "bg-white text-[#1B5BB5] shadow-sm"
+                              : "text-[#566784]"
+                          }`}
+                        >
+                          Accessed ({accessedZoneEntries.length})
+                        </button>
+                      </div>
                       <div className="flex w-full min-w-0 gap-2 overflow-x-auto pb-1">
-                        {zoneEntries.map((entry) => {
+                        {listedZoneEntries.map((entry) => {
                           const zone = entry.zone;
                           const isActive =
                             !isCreatingNewZone &&
@@ -5721,38 +5764,47 @@ export default function Dashboard() {
                             </div>
                           );
                         })}
-                        <button
-                          type="button"
-                          onClick={startNewZoneDraft}
-                          disabled={isCreatingNewZone || !canCreateZone}
-                          className={`shrink-0 rounded-md border px-2.5 py-1.5 text-xs transition ${
-                            isCreatingNewZone
-                              ? "border-[#2F80ED] bg-[#EDF3FB] text-[#2F80ED]"
-                              : !canCreateZone
-                                ? "cursor-not-allowed border-[#DCE6F2] text-[#8694AC]"
-                                : "border-[#DCE6F2] text-[#566784] hover:border-[#2F80ED]/60"
-                          }`}
-                        >
-                          + New zone
-                        </button>
+                        {zoneListTab === "mine" ? (
+                          <button
+                            type="button"
+                            onClick={startNewZoneDraft}
+                            disabled={isCreatingNewZone || !canCreateZone}
+                            className={`shrink-0 rounded-md border px-2.5 py-1.5 text-xs transition ${
+                              isCreatingNewZone
+                                ? "border-[#2F80ED] bg-[#EDF3FB] text-[#2F80ED]"
+                                : !canCreateZone
+                                  ? "cursor-not-allowed border-[#DCE6F2] text-[#8694AC]"
+                                  : "border-[#DCE6F2] text-[#566784] hover:border-[#2F80ED]/60"
+                            }`}
+                          >
+                            + New zone
+                          </button>
+                        ) : null}
                       </div>
-                      {zones.length > 0 ? (
+                      {listedZoneEntries.length > 0 && zoneListTab === "mine" ? (
                         <p className="mt-2 text-[10px] text-[#8694AC]">
-                          Select a zone tab to edit, or use the trash icon to delete a saved zone.
+                          Select a zone to edit, or use the trash icon to delete a saved zone.
                         </p>
                       ) : null}
-                      {zones.length === 0 && !isCreatingNewZone && (
+                      {listedZoneEntries.length === 0 && zoneListTab === "accessed" ? (
+                        <p className="mt-2 text-xs text-[#8694AC]">
+                          No accessed zones yet.
+                        </p>
+                      ) : null}
+                      {mineZoneEntries.length === 0 &&
+                      zoneListTab === "mine" &&
+                      !isCreatingNewZone ? (
                         <p className="mt-2 text-xs text-[#8694AC]">
                           {canCreateZone
                             ? "No saved zones yet. Use + New zone to create your first zone."
                             : createBlockedReason || "No editable zones are currently available."}
                         </p>
-                      )}
-                      {!canCreateZone && (
+                      ) : null}
+                      {zoneListTab === "mine" && !canCreateZone ? (
                         <p className="mt-2 text-xs text-[#E0992A]">
                           {createBlockedReason || "You cannot create more zones."}
                         </p>
-                      )}
+                      ) : null}
                     </>
                   )}
                 </div>

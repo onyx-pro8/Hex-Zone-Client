@@ -8,13 +8,14 @@ import {
   type MessageFeatureAccessSchedule,
   type MessageFeatureAccessScheduleStatus,
 } from "../../services/api/messageFeature";
+import { formatServerDateTime, parseServerDate } from "../../lib/serverDate";
 
 type Props = { zoneId: string; isAdmin: boolean };
 
 function isEnded(item: MessageFeatureAccessSchedule): boolean {
   if (!item.ends_at) return false;
-  const t = new Date(item.ends_at).getTime();
-  return Number.isFinite(t) && t < Date.now();
+  const t = parseServerDate(item.ends_at)?.getTime();
+  return t != null && Number.isFinite(t) && t < Date.now();
 }
 
 function statusBadge(status: string) {
@@ -35,11 +36,7 @@ function statusBadge(status: string) {
 
 function formatDate(iso: string | undefined): string {
   if (!iso) return "open";
-  try {
-    return new Date(iso).toLocaleString();
-  } catch {
-    return iso;
-  }
+  return formatServerDateTime(iso, undefined, iso);
 }
 
 export function GuestScheduleListSection({ zoneId, isAdmin }: Props) {

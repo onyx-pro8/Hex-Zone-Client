@@ -173,6 +173,9 @@ export interface CreateDevicePayload {
   update_interval_seconds: number;
   active?: boolean;
   is_online?: boolean;
+  webhook?: string;
+  periodical_check_sec?: string;
+  zone_ids?: number[];
 }
 
 /** PATCH /devices/{device_id} — update device settings. */
@@ -184,6 +187,9 @@ export interface UpdateDevicePayload {
   enable_notification?: boolean;
   alert_threshold_meters?: number;
   update_interval_seconds?: number;
+  webhook?: string;
+  periodical_check_sec?: string;
+  zone_ids?: number[];
 }
 
 /** Typical device response from list/detail endpoints. */
@@ -214,6 +220,9 @@ export interface DeviceResponse {
   enable_notification?: boolean;
   alert_threshold_meters?: number | null;
   update_interval_seconds?: number | null;
+  webhook?: string;
+  periodical_check_sec?: string;
+  zone_ids?: number[];
   created_at?: string;
   updated_at?: string | null;
 }

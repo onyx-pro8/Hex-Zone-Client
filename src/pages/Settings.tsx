@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Home, Megaphone, BellRing, Loader2, Settings as SettingsIcon } from "lucide-react";
+import { Home, BellRing, Loader2, Settings as SettingsIcon } from "lucide-react";
 import {
   QUICK_MESSAGE_LABELS,
   QUICK_MESSAGE_TYPES,
@@ -9,15 +9,8 @@ import {
 } from "../lib/appSettings";
 import { getRemoteAppSettings, updateRemoteAppSettings } from "../services/api";
 import { getZoneAreaLimits, updateZoneAreaLimits, type ZoneSizeRule } from "../services/api/zones";
-import {
-  getDevices,
-  listHubCommands,
-  sendHubCommand,
-  type HubCommandRecord,
-} from "../services/api/devices";
 import { useAuth } from "../hooks/useAuth";
 import { isSystemAdministrator } from "../lib/accountLimits";
-import { isSmartHomeHid } from "../lib/deviceSync";
 import { AddressAutocompleteInput } from "../components/AddressAutocompleteInput";
 import AddressMapPreview from "../components/AddressMapPreview";
 import { addressToMockCoords, getHexGrid, type H3Cell } from "../lib/h3";
@@ -205,16 +198,10 @@ export default function Settings() {
   const accountName = (user?.name ?? "").trim();
   const settings = useAppSettings();
   const [draft, setDraft] = useState<AppSettings>(settings);
-  const [hubs, setHubs] = useState<
-    Array<{ hid: string; name: string; active: boolean }>
-  >([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hubCommand, setHubCommand] = useState("arm");
-  const [hubCommands, setHubCommands] = useState<HubCommandRecord[]>([]);
-  const [sendingCommand, setSendingCommand] = useState(false);
   const [areaAccount, setAreaAccount] = useState("private_plus");
   const [areaRules, setAreaRules] = useState<AreaDraft[]>(() => emptyAreaRules());
   const [savingLimits, setSavingLimits] = useState(false);
@@ -223,8 +210,6 @@ export default function Settings() {
     accountType: user?.accountType,
     legacyAccountType: user?.account_type,
   });
-  const isNetworkAdmin =
-    String(user?.role ?? "").toLowerCase() === "administrator" && !isSystemAdmin;
   /** Real [lat, lng] for the map — from the owner's home, a picked suggestion, or geocoding the typed address. */
   const [addressCoords, setAddressCoords] = useState<[number, number] | null>(
     null,
@@ -233,94 +218,19 @@ export default function Settings() {
   useEffect(() => {
     let mounted = true;
     void (async () => {
-      const ownerId = String(user?.id ?? "").trim();
-      const [res, devicesRes, commandRes] = await Promise.all([
-        getRemoteAppSettings(),
-        getDevices(),
-        isNetworkAdmin ? listHubCommands() : Promise.resolve({ data: [] as HubCommandRecord[], error: null }),
-      ]);
+      const res = await getRemoteAppSettings();
       if (!mounted) return;
-      setHubCommands(commandRes.data ?? []);
-
-      const fromSettings = (res.data?.smartHomeDevices ?? [])
-        .filter((d) => typeof d.hid === "string" && d.hid.trim())
-        .map((d) => ({
-          hid: d.hid.trim(),
-          name: (d.name ?? d.hid).trim() || d.hid.trim(),
-          active: d.active !== false,
-        }));
-
-      const deviceRows = Array.isArray(devicesRes.data) ? devicesRes.data : [];
-      const allSmartHomes = deviceRows
-        .filter((d) => isSmartHomeHid(d.hid))
-        .map((d) => ({
-          hid: String(d.hid).trim(),
-          name: (d.name ?? d.hid).trim() || String(d.hid).trim(),
-          active: d.active !== false,
-        }));
-      const owned = ownerId
-        ? deviceRows
-            .filter((d) => {
-              if (!isSmartHomeHid(d.hid)) return false;
-              return (
-                String(d.owner_id ?? d.owner?.id ?? "").trim() === ownerId
-              );
-            })
-            .map((d) => ({
-              hid: String(d.hid).trim(),
-              name: (d.name ?? d.hid).trim() || String(d.hid).trim(),
-              active: d.active !== false,
-            }))
-        : allSmartHomes;
-      const fromDevices = owned.length > 0 ? owned : allSmartHomes;
-
-      const byHid = new Map<string, { hid: string; name: string; active: boolean }>();
-      for (const hub of [...fromSettings, ...fromDevices]) {
-        const key = hub.hid.toUpperCase();
-        if (!key || !isSmartHomeHid(hub.hid)) continue;
-        const prev = byHid.get(key);
-        byHid.set(key, {
-          hid: prev?.hid ?? hub.hid,
-          name: hub.name || prev?.name || hub.hid,
-          active: hub.active && (prev?.active ?? true),
-        });
-      }
-      const mergedHubs = [...byHid.values()].sort((a, b) =>
-        a.hid.localeCompare(b.hid),
-      );
-
       if (res.data) {
-        const remoteSn = res.data.sharedNotification ?? {};
-        let hid =
-          typeof remoteSn.hid === "string" ? remoteSn.hid.trim() : "";
-        if (!isSmartHomeHid(hid)) hid = "";
-        if (!hid && mergedHubs[0]) hid = mergedHubs[0].hid;
-        if (
-          hid &&
-          mergedHubs.length > 0 &&
-          !mergedHubs.some((h) => h.hid.toUpperCase() === hid.toUpperCase())
-        ) {
-          hid = mergedHubs[0].hid;
-        }
-        const merged = updateAppSettings({
-          ...res.data,
-          sharedNotification: {
-            ...remoteSn,
-            hid,
-          },
-        } as Partial<AppSettings>);
-        setHubs(mergedHubs);
-        setDraft(merged);
+        setDraft(updateAppSettings(res.data as Partial<AppSettings>));
       } else if (res.error) {
         setError(res.error);
-        if (mergedHubs.length) setHubs(mergedHubs);
       }
       setLoading(false);
     })();
     return () => {
       mounted = false;
     };
-  }, [user?.id, isNetworkAdmin]);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!isSystemAdmin) return;
@@ -394,17 +304,6 @@ export default function Settings() {
       return;
     }
     const merged = updateAppSettings((res.data as Partial<AppSettings>) ?? draft);
-    if (res.data?.smartHomeDevices) {
-      setHubs(
-        res.data.smartHomeDevices
-          .filter((d) => typeof d.hid === "string" && d.hid.trim())
-          .map((d) => ({
-            hid: d.hid.trim(),
-            name: (d.name ?? d.hid).trim() || d.hid.trim(),
-            active: d.active !== false,
-          })),
-      );
-    }
     setDraft(merged);
     setSaved(true);
     void refreshUser();
@@ -418,8 +317,8 @@ export default function Settings() {
           <SettingsIcon className="h-4 w-4" /> Hardware configuration
         </span>
         <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[#566784]">
-          Configure your broadcast identity, address, smart-home integration,
-          and the pre-programmed quick-alert messages.
+          Configure your broadcast identity, address, and the pre-programmed
+          quick-alert messages. Smart-home webhooks are set on each device.
         </p>
         {loading ? (
           <p className="mt-3 inline-flex items-center gap-2 text-sm text-[#8694AC]">
@@ -428,7 +327,7 @@ export default function Settings() {
         ) : null}
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="space-y-6">
         <div className="rounded-2xl border border-[#DCE6F2] bg-white p-5 shadow-sm">
           <div className="mb-1 flex items-center gap-2 text-lg font-bold text-[#0F2C5C]">
             <Home className="h-5 w-5 text-[#2F80ED]" /> Your Address
@@ -492,192 +391,6 @@ export default function Settings() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-[#DCE6F2] bg-white p-5 shadow-sm">
-          <div className="mb-1 flex items-center gap-2 text-lg font-bold text-[#0F2C5C]">
-            <Megaphone className="h-5 w-5 text-[#2F80ED]" /> Smart-home integration
-          </div>
-          <p className="mb-4 text-sm text-[#566784]">
-            First add smart-home hubs on Device Manager (DEV- ID). Select which
-            hub this account uses for integration, then copy the API key and
-            Network ID onto that hub. Paste a public webhook URL to receive
-            Alarm/Alert messages from this network only. Leave webhook blank if
-            the hub only polls.
-          </p>
-          <div className="space-y-3">
-            <label className="block">
-              <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-[#566784]">
-                Hardware Identification (HID)
-              </span>
-              {hubs.length > 0 ? (
-                <select
-                  value={draft.sharedNotification.hid || hubs[0].hid}
-                  onChange={(e) =>
-                    update({
-                      sharedNotification: {
-                        ...draft.sharedNotification,
-                        hid: e.target.value,
-                      },
-                    })
-                  }
-                  disabled={loading || saving}
-                  className={settingsInputClass}
-                >
-                  {hubs.map((hub) => (
-                    <option key={hub.hid} value={hub.hid}>
-                      {hub.name && hub.name !== hub.hid
-                        ? `${hub.name} (${hub.hid})`
-                        : hub.hid}
-                      {hub.active ? "" : " · inactive"}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  value="No smart-home hub yet"
-                  disabled
-                  className="w-full rounded-lg border border-[#E3EAF3] bg-[#EEF2F7] px-3 py-2 text-sm text-[#8694AC] outline-none cursor-not-allowed"
-                />
-              )}
-            </label>
-            <p className="-mt-1 text-xs text-[#8694AC]">
-              {hubs.length > 1
-                ? "Choose which registered hub to use. Add more hubs in Device Manager."
-                : hubs.length === 1
-                  ? "Your registered smart-home hub. Add more in Device Manager if your account allows it."
-                  : "Register a hub in Device Manager first."}
-            </p>
-            <Field
-              label="Network ID"
-              value={draft.sharedNotification.networkId}
-              onChange={() => {}}
-              placeholder="ZONE-ABC123"
-              disabled
-            />
-            <p className="-mt-1 text-xs text-[#8694AC]">
-              Assigned to your account. Copy this onto the hub; it cannot be
-              changed here. Your hub only receives alarms from this network.
-            </p>
-            <Field
-              label="API Key"
-              value={draft.sharedNotification.apiKey}
-              onChange={() => {}}
-              placeholder="66c5b8a0-e30c-…"
-              disabled
-            />
-            <p className="-mt-1 text-xs text-[#8694AC]">
-              Authenticates the smart-home device when talking to the server.
-            </p>
-            <Field
-              label="Webhook"
-              value={draft.sharedNotification.webhook}
-              onChange={(v) =>
-                update({
-                  sharedNotification: { ...draft.sharedNotification, webhook: v },
-                })
-              }
-              placeholder="https://hub.example.com/hooks/hex-zone"
-            />
-            <p className="-mt-1 text-xs text-[#8694AC]">
-              Must start with https:// (or http://). When set, Hex Zone POSTs{" "}
-              <code className="text-[#8694AC]">{"{ title, message }"}</code> JSON
-              for Alarm/Alert messages from this network (Home Assistant
-              webhook shape).
-            </p>
-            <Field
-              label="Periodical Check (sec)"
-              value={draft.sharedNotification.periodicalCheckSec}
-              onChange={(v) =>
-                update({
-                  sharedNotification: {
-                    ...draft.sharedNotification,
-                    periodicalCheckSec: v,
-                  },
-                })
-              }
-              placeholder="86400"
-            />
-            <p className="-mt-1 text-xs text-[#8694AC]">
-              Hint for hubs that poll instead of (or in addition to) webhook push.
-            </p>
-            {isNetworkAdmin ? (
-              <div className="rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] p-3">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-[#566784]">
-                  Send command
-                </p>
-                <p className="mt-1 text-xs text-[#8694AC]">
-                  Arm, disarm, or ask this hub for status. The hub must accept the
-                  webhook or the result stays failed.
-                </p>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <select
-                    value={hubCommand}
-                    onChange={(event) => setHubCommand(event.target.value)}
-                    disabled={hubs.length === 0 || sendingCommand}
-                    className="rounded-lg border border-[#DCE6F2] bg-white px-3 py-2 text-sm text-[#0F2C5C]"
-                  >
-                    <option value="arm">Arm</option>
-                    <option value="disarm">Disarm</option>
-                    <option value="status">Status</option>
-                  </select>
-                  <button
-                    type="button"
-                    disabled={hubs.length === 0 || sendingCommand}
-                    onClick={() => {
-                      const hid = draft.sharedNotification.hid || hubs[0]?.hid;
-                      if (!hid) return;
-                      setSendingCommand(true);
-                      void sendHubCommand(hid, hubCommand).then((result) => {
-                        setSendingCommand(false);
-                        if (result.error || !result.data) {
-                          setError(result.error || "Could not send the command.");
-                          return;
-                        }
-                        setHubCommands((prev) => [result.data as HubCommandRecord, ...prev].slice(0, 8));
-                      });
-                    }}
-                    className="rounded-lg bg-[#2F80ED] px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
-                  >
-                    {sendingCommand ? "Sending…" : "Send"}
-                  </button>
-                </div>
-                {hubs.length === 0 ? (
-                  <p className="mt-2 text-xs text-[#8694AC]">
-                    Register a hub in Device Manager first.
-                  </p>
-                ) : null}
-                {hubCommands.length > 0 ? (
-                  <ul className="mt-3 space-y-1 text-xs text-[#566784]">
-                    {hubCommands.map((row) => (
-                      <li key={row.id}>
-                        {row.command.toUpperCase()} · {row.status}
-                        {row.detail ? ` · ${row.detail}` : ""}
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-          <div className="mt-4 flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => void onSave()}
-              disabled={loading || saving}
-              className="inline-flex items-center gap-2 rounded-lg bg-[#2F80ED] px-5 py-2 text-sm font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" /> Saving…
-                </>
-              ) : (
-                "Update smart-home settings"
-              )}
-            </button>
-            {saved ? (
-              <span className="text-sm text-[#2FA24A]">Saved.</span>
-            ) : null}
-          </div>
-        </div>
       </div>
 
       {isSystemAdmin ? (

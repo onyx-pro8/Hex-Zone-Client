@@ -37,7 +37,7 @@ const appRoutes = [
   { path: "/messages", title: "Messages", icon: Mail },
   { path: "/members", title: "Members", icon: Users },
   { path: "/guest-passes", title: "Guest Passes", icon: Ticket },
-  { path: "/access-codes", title: "Universal Access", icon: KeyRound },
+  { path: "/access-codes", title: "Zone Management", icon: KeyRound },
   { path: "/guest-arrival-messages", title: "Guest Arrival Settings", icon: NotebookPen },
   { path: "/guest-access-qr", title: "Guest QR", icon: ScanLine },
   { path: "/qr", title: "QR invite", icon: QrCode },

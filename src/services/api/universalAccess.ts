@@ -72,6 +72,8 @@ export type UniversalAccessKeyRow = {
   zone_ids: number[];
   zones: UniversalAccessZone[];
   enabled?: boolean;
+  selected?: boolean;
+  network_admin_id?: number;
   created_at?: string | null;
   activated_at?: string | null;
 };
@@ -223,5 +225,16 @@ export async function deactivatePublicUniversalAccessKey(credentialId: number) {
   return request<UniversalAccessKeyRow>({
     method: "DELETE",
     url: `/universal-access/keys/activated/${credentialId}`,
+  });
+}
+
+export async function setPrivateUniversalAccessKeySelected(
+  credentialId: number,
+  selected: boolean,
+) {
+  return request<UniversalAccessKeyRow & { newly_selected?: boolean }>({
+    method: "POST",
+    url: `/universal-access/keys/private/${credentialId}/selected`,
+    data: { selected },
   });
 }

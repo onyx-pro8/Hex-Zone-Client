@@ -1,19 +1,23 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ChevronDown,
   ChevronUp,
   RefreshCw,
   ShieldAlert,
   Ban,
+  Trash2,
 } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { useWebSocket } from "../../hooks/useWebSocket";
 import {
+  clearExpiredGuestPasses,
+  deleteGuestPass,
   listGuestPasses,
   revokeGuestPass,
   type GuestPass,
   type GuestPassStatus,
 } from "../../services/api/guestPasses";
+import { formatServerDateTime, parseServerDate } from "../../lib/serverDate";
 
 type Props = { zoneId: string; isAdmin: boolean };
 
@@ -34,15 +38,12 @@ function statusBadge(status: GuestPassStatus) {
 
 function isExpired(pass: GuestPass): boolean {
   if (pass.is_expired) return true;
-  return new Date(pass.expires_at) < new Date();
+  const exp = parseServerDate(pass.expires_at);
+  return exp ? exp.getTime() < Date.now() : false;
 }
 
 function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString();
-  } catch {
-    return iso;
-  }
+  return formatServerDateTime(iso, undefined, iso);
 }
 
 export function GuestPassListSection({ zoneId, isAdmin }: Props) {
@@ -53,8 +54,13 @@ export function GuestPassListSection({ zoneId, isAdmin }: Props) {
   const [listError, setListError] = useState("");
   const [loading, setLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [clearingExpired, setClearingExpired] = useState(false);
   const [actionError, setActionError] = useState("");
   const [expanded, setExpanded] = useState(false);
+  const expiredCount = useMemo(
+    () => passes.filter((pass) => isExpired(pass)).length,
+    [passes],
+  );
 
   const { lastMessage, status } = useWebSocket({
     token,
@@ -117,6 +123,42 @@ export function GuestPassListSection({ zoneId, isAdmin }: Props) {
     void refresh();
   };
 
+  const runDelete = async (pass: GuestPass) => {
+    const label = pass.guest_name?.trim() || pass.event_id;
+    if (!window.confirm(`Delete expired pass “${label}”? This frees the Event ID for reuse.`)) {
+      return;
+    }
+    setBusyId(pass.id);
+    setActionError("");
+    const res = await deleteGuestPass(pass.id);
+    setBusyId(null);
+    if (res.error) {
+      setActionError(res.error);
+      return;
+    }
+    void refresh();
+  };
+
+  const runClearExpired = async () => {
+    if (expiredCount === 0) return;
+    if (
+      !window.confirm(
+        `Delete ${expiredCount} expired guest pass${expiredCount === 1 ? "" : "es"}? Event IDs will be freed for reuse.`,
+      )
+    ) {
+      return;
+    }
+    setClearingExpired(true);
+    setActionError("");
+    const res = await clearExpiredGuestPasses(normalizedZoneId);
+    setClearingExpired(false);
+    if (res.error) {
+      setActionError(res.error);
+      return;
+    }
+    void refresh();
+  };
+
   if (!normalizedZoneId) return null;
 
   const canToggle = passes.length > COLLAPSED_COUNT;
@@ -131,20 +173,33 @@ export function GuestPassListSection({ zoneId, isAdmin }: Props) {
             Guest passes
           </h2>
           <p className="mt-1 max-w-2xl text-xs text-[#8694AC]">
-            Share the Event ID with the guest. They enter it on arrival to get access. Admins can revoke a live pass.
+            Share the Event ID with the guest. They enter it on arrival to get access. Admins can revoke a live pass or delete expired ones.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => void refresh()}
-          disabled={loading}
-          className="inline-flex items-center gap-2 rounded-lg border border-[#DCE6F2] px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#566784] transition hover:border-[#2F80ED]/40 hover:text-[#2F80ED] disabled:opacity-60"
-        >
-          <RefreshCw
-            className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
-          />
-          Refresh
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {expiredCount > 0 ? (
+            <button
+              type="button"
+              onClick={() => void runClearExpired()}
+              disabled={clearingExpired || loading}
+              className="inline-flex items-center gap-2 rounded-lg border border-[#E23B4E]/30 bg-[#FCE7EA] px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#E23B4E] transition hover:brightness-95 disabled:opacity-60"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {clearingExpired ? "Clearing…" : "Clear expired"}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-lg border border-[#DCE6F2] px-3 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-[#566784] transition hover:border-[#2F80ED]/40 hover:text-[#2F80ED] disabled:opacity-60"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`}
+            />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {listError && (
@@ -168,6 +223,7 @@ export function GuestPassListSection({ zoneId, isAdmin }: Props) {
         {visible.map((pass) => {
           const expired = isExpired(pass);
           const showRevoke = pass.status === "ACCEPTED" && !expired && isAdmin;
+          const showDelete = expired;
 
           return (
             <article
@@ -222,16 +278,28 @@ export function GuestPassListSection({ zoneId, isAdmin }: Props) {
                 Ref · {pass.id}
               </div>
 
-              {showRevoke && (
-                <div className="mt-4">
-                  <button
-                    type="button"
-                    disabled={busyId === pass.id}
-                    onClick={() => void runRevoke(pass.id)}
-                    className="inline-flex items-center gap-1 rounded-lg bg-[#E0992A] px-3 py-2 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-50"
-                  >
-                    <Ban className="h-3.5 w-3.5" /> Revoke
-                  </button>
+              {(showRevoke || showDelete) && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {showRevoke ? (
+                    <button
+                      type="button"
+                      disabled={busyId === pass.id}
+                      onClick={() => void runRevoke(pass.id)}
+                      className="inline-flex items-center gap-1 rounded-lg bg-[#E0992A] px-3 py-2 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-50"
+                    >
+                      <Ban className="h-3.5 w-3.5" /> Revoke
+                    </button>
+                  ) : null}
+                  {showDelete ? (
+                    <button
+                      type="button"
+                      disabled={busyId === pass.id}
+                      onClick={() => void runDelete(pass)}
+                      className="inline-flex items-center gap-1 rounded-lg bg-[#E23B4E] px-3 py-2 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-50"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Delete
+                    </button>
+                  ) : null}
                 </div>
               )}
             </article>

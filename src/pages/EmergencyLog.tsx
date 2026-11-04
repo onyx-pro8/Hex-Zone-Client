@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, RefreshCw, Siren } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { formatServerDateTime } from "../lib/serverDate";
 import {
   listEmergencyEvents,
   type EmergencyEvent,
@@ -140,7 +141,7 @@ export default function EmergencyLog() {
                     {typeLabel(event.type)}
                   </span>
                   <span className="text-xs text-[#8694AC]">
-                    {new Date(event.createdAt).toLocaleString()}
+                    {formatServerDateTime(event.createdAt)}
                   </span>
                 </div>
                 {event.text ? (

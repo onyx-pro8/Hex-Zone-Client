@@ -69,6 +69,8 @@ export type RegisterPayload = {
   address?: string;
   /** From GET /utils/registration-code (or legacy); required for administrator self-registration. */
   registrationCode?: string;
+  /** Organization (ENHANCED_PLUS) capacity level 1–5. */
+  tierLevel?: number;
 };
 
 type LoginResponse = {
@@ -96,6 +98,7 @@ type LegacyRegisterPayload = {
   phone?: string;
   address?: string;
   registration_code?: string;
+  tier_level?: number;
 };
 
 function toLegacyAccountType(accountType: AccountType): string {
@@ -136,6 +139,9 @@ function mapLegacyRegisterPayload(payload: RegisterPayload): LegacyRegisterPaylo
     phone: payload.phone,
     address: payload.address,
     ...(trimmedCode ? { registration_code: trimmedCode } : {}),
+    ...(payload.accountType === "ENHANCED_PLUS" && payload.tierLevel != null
+      ? { tier_level: payload.tierLevel }
+      : {}),
   };
 }
 

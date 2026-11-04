@@ -24,6 +24,7 @@ import {
   submitAnonymousGuestPermission,
 } from "../services/api/accessPermissions";
 import { persistPendingNetworkGuestChat } from "../lib/guestAccessToken";
+import { formatServerDateTime } from "../lib/serverDate";
 import {
   exchangeGuestSession,
   persistGuestSessionAfterExchange,
@@ -819,7 +820,7 @@ export default function GuestAccess() {
                 <p className="text-[#2FA24A]">
                   Sign-in code expires:{" "}
                   <span className="font-mono text-[#2FA24A]">
-                    {new Date(phase.exchange_expires_at).toLocaleString()}
+                    {formatServerDateTime(phase.exchange_expires_at)}
                   </span>
                 </p>
               ) : null}

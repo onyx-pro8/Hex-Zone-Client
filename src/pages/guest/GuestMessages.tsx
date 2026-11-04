@@ -31,6 +31,11 @@ import {
 } from "../../lib/permissionVisibility";
 import { useGuestRealtime } from "../../hooks/useGuestRealtime";
 import { isAdminGuestPeer } from "../../lib/chatGuestCompose";
+import {
+  formatServerDate,
+  formatServerTime,
+  parseServerDate,
+} from "../../lib/serverDate";
 
 const POLL_MS = 4000;
 const APPROVAL_POLL_MS = 2000;
@@ -44,9 +49,8 @@ function messageLooksApproved(item: GuestApiMessage): boolean {
 }
 
 function inboxDayKey(value: string | null | undefined): string {
-  if (!value) return "";
-  const t = new Date(value);
-  if (!Number.isFinite(t.getTime())) return "";
+  const t = parseServerDate(value);
+  if (!t) return "";
   return `${t.getFullYear()}-${t.getMonth() + 1}-${t.getDate()}`;
 }
 
@@ -55,13 +59,12 @@ function startOfLocalDay(value: Date): number {
 }
 
 function formatInboxDayLabel(value: string | null | undefined): string {
-  if (!value) return "";
-  const t = new Date(value);
-  if (!Number.isFinite(t.getTime())) return "";
+  const t = parseServerDate(value);
+  if (!t) return "";
   const diffDays = Math.round((startOfLocalDay(new Date()) - startOfLocalDay(t)) / 86_400_000);
   if (diffDays === 0) return "Today";
   if (diffDays === 1) return "Yesterday";
-  return t.toLocaleDateString(undefined, {
+  return formatServerDate(value, {
     year: "numeric",
     month: "numeric",
     day: "numeric",
@@ -86,9 +89,11 @@ function guestMessagesFormCluster(
   if (aSys || bSys) return false;
   if (guestSenderKey(a) !== guestSenderKey(b)) return false;
   if (inboxDayKey(a.created_at) !== inboxDayKey(b.created_at)) return false;
-  const ta = new Date(a.created_at ?? "").getTime();
-  const tb = new Date(b.created_at ?? "").getTime();
-  if (!Number.isFinite(ta) || !Number.isFinite(tb)) return false;
+  const ta = parseServerDate(a.created_at)?.getTime();
+  const tb = parseServerDate(b.created_at)?.getTime();
+  if (ta == null || tb == null || !Number.isFinite(ta) || !Number.isFinite(tb)) {
+    return false;
+  }
   return Math.abs(ta - tb) <= CLUSTER_WINDOW_MS;
 }
 
@@ -548,7 +553,7 @@ export default function GuestMessages() {
                             </div>
                             {first.message.created_at ? (
                               <p className="shrink-0 font-semibold text-[#C48A2A]">
-                                {new Date(first.message.created_at).toLocaleTimeString(undefined, {
+                                {formatServerTime(first.message.created_at, {
                                   hour: "numeric",
                                   minute: "2-digit",
                                 })}
@@ -638,7 +643,7 @@ export default function GuestMessages() {
                               isMine ? "text-white/70" : "text-[#8694AC]"
                             }`}
                           >
-                            {new Date(m.created_at).toLocaleTimeString(undefined, {
+                            {formatServerTime(m.created_at, {
                               hour: "numeric",
                               minute: "2-digit",
                             })}

@@ -8,6 +8,13 @@ import {
   type DeviceRecord,
 } from "../services/api/devices";
 import type { AuthUser } from "../services/api";
+import {
+  mainDevicePlaceChanged,
+  resolveMainDevicePlace,
+} from "./mainDeviceLocation";
+import { parseServerDate } from "./serverDate";
+
+export { parseServerDate } from "./serverDate";
 
 /** Thrown when login succeeds but another device holds the active session. */
 export class DeviceSessionConflictError extends Error {
@@ -71,10 +78,10 @@ export function getOrCreateDeviceHid(): string {
 }
 
 function deviceLastSeenMs(device: DeviceRecord): number | null {
-  const raw = device.last_seen ?? device.updated_at ?? device.created_at;
-  if (!raw) return null;
-  const t = new Date(raw).getTime();
-  return Number.isNaN(t) ? null : t;
+  const parsed = parseServerDate(
+    device.last_seen ?? device.updated_at ?? device.created_at,
+  );
+  return parsed ? parsed.getTime() : null;
 }
 
 /** Phone (MOB-) and browser (WEB-) login clients — not smart-home hubs. */
@@ -161,6 +168,33 @@ export async function removeDevice(deviceId: number | string): Promise<void> {
   await deleteDevice(deviceId);
 }
 
+function sessionCenter(user: AuthUser | null): { latitude: number; longitude: number } | null {
+  const center = user?.mapCenter ?? user?.map_center;
+  if (!center) return null;
+  if (!Number.isFinite(center.latitude) || !Number.isFinite(center.longitude)) return null;
+  return { latitude: center.latitude, longitude: center.longitude };
+}
+
+/** Write GPS, or the Settings address, onto this browser. Hubs keep their own address. */
+export async function refreshSessionDevicePlace(
+  device: DeviceRecord,
+  user?: AuthUser | null,
+): Promise<void> {
+  if (!device.id || !isClientSessionHid(device.hid)) return;
+  try {
+    const place = await resolveMainDevicePlace(device.address, sessionCenter(user ?? null));
+    if (!place || !mainDevicePlaceChanged(device, place)) return;
+    await updateDevice(device.id, {
+      address: place.address,
+      ...(place.latitude != null && place.longitude != null
+        ? { latitude: place.latitude, longitude: place.longitude }
+        : {}),
+    });
+  } catch {
+    /* presence stays online even if the place lookup fails */
+  }
+}
+
 export async function syncCurrentDevice(
   user: AuthUser | null,
   options?: { forceTakeover?: boolean; resumeSession?: boolean },
@@ -201,6 +235,7 @@ export async function syncCurrentDevice(
       }
       await updateDevice(byLocalHid.id, { is_online: true });
       await sendDeviceHeartbeat(byLocalHid.id);
+      await refreshSessionDevicePlace(byLocalHid, user);
       return { status: "ok", deviceId: byLocalHid.id };
     }
 
@@ -211,12 +246,23 @@ export async function syncCurrentDevice(
       }
     }
 
+    const place = isClientSessionHid(hid)
+      ? await resolveMainDevicePlace("Unknown", sessionCenter(user)).catch(() => null)
+      : null;
     const created = await createDevice({
       hid,
       name: `${displayName} (Web)`,
       enable_notification: true,
       propagate_enabled: true,
       is_online: true,
+      ...(place
+        ? {
+            address: place.address,
+            ...(place.latitude != null && place.longitude != null
+              ? { latitude: place.latitude, longitude: place.longitude }
+              : {}),
+          }
+        : {}),
     });
     if (created.error) {
       return mapCreateError(created.error);

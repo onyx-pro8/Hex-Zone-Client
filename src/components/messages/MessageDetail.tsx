@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Lock, MessagesSquare } from "lucide-react";
 import { type Message } from "../../services/api/messages";
 import { toMessageTypeLabel } from "../../lib/messageTypes";
+import { formatServerDateTime } from "../../lib/serverDate";
 import { messageBroadcastLabel } from "../../lib/messageBroadcast";
 import {
   isPermissionDirectVisibility,
@@ -116,7 +117,7 @@ export function MessageDetail({
               </span>
             )}
             <span className="text-[#8694AC]">
-              {new Date(message.created_at).toLocaleString()}
+              {formatServerDateTime(message.created_at)}
             </span>
             {(() => {
               const mapsUrl = messageCoordinatesMapsUrl(message);

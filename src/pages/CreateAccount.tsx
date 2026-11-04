@@ -22,6 +22,9 @@ import {
   getHexGrid,
   H3Cell,
 } from "../lib/h3";
+import { ENHANCED_PLUS_MEMBER_LIMITS } from "../lib/accountLimits";
+
+const ORGANIZATION_LEVELS = [1, 2, 3, 4, 5] as const;
 
 const accent = "text-[#2F80ED]";
 const accentBorder = "border-[#2F80ED]/45";
@@ -53,8 +56,8 @@ const accountOptions: {
   },
   {
     value: "ENHANCED_PLUS",
-    title: "Enhanced+",
-    lines: ["Unlimited devices", "Maximum controls"],
+    title: "Organization",
+    lines: ["Unlimited devices", "User capacity by level"],
   },
 ];
 
@@ -88,12 +91,15 @@ export default function CreateAccount() {
   const [communalBusy, setCommunalBusy] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [organizationLevel, setOrganizationLevel] = useState(1);
   const [registrationCode, setRegistrationCode] = useState("");
   const [regCodeLoading, setRegCodeLoading] = useState(true);
   const [regCodeError, setRegCodeError] = useState<string | null>(null);
 
   const isIndividual = accountType === "EXCLUSIVE";
   const isIndividualPro = accountType === "ENHANCED";
+  const isOrganizationAdmin =
+    accountType === "ENHANCED_PLUS" && registrationType === "ADMINISTRATOR";
 
   const loadRegistrationCode = useCallback(async () => {
     if (accountType === "EXCLUSIVE") {
@@ -216,6 +222,7 @@ export default function CreateAccount() {
           ? { communalId: communalId.trim().toUpperCase() }
           : {}),
         ...(joiningNetwork ? {} : { registrationCode: code }),
+        ...(isOrganizationAdmin ? { tierLevel: organizationLevel } : {}),
       });
       navigate("/login");
     } catch (e: unknown) {
@@ -499,6 +506,39 @@ export default function CreateAccount() {
                   </>
                 )}
               </div>
+
+              {isOrganizationAdmin ? (
+                <div className="rounded-md border border-[#DCE6F2] bg-white p-4">
+                  <p className={labelClass}>Organization level</p>
+                  <p className="mb-3 text-xs leading-relaxed text-[#8694AC]">
+                    Choose how many users this organization can include
+                    (administrator and members).
+                  </p>
+                  <div className="grid gap-2 sm:grid-cols-5">
+                    {ORGANIZATION_LEVELS.map((level) => {
+                      const active = organizationLevel === level;
+                      const limit = ENHANCED_PLUS_MEMBER_LIMITS[level];
+                      return (
+                        <button
+                          key={level}
+                          type="button"
+                          onClick={() => setOrganizationLevel(level)}
+                          className={`rounded-md border px-3 py-3 text-left transition ${
+                            active
+                              ? "border-[#2F80ED] bg-[#EDF3FB] text-[#0F2C5C]"
+                              : "border-[#DCE6F2] text-[#566784] hover:border-[#C5D4E8]"
+                          }`}
+                        >
+                          <p className="text-sm font-semibold">Level {level}</p>
+                          <p className="mt-1 text-xs text-[#8694AC]">
+                            {limit.toLocaleString()} users
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
 
               {isIndividual ? (
                 <div className="rounded-md border border-[#DCE6F2] bg-white p-4 space-y-3">

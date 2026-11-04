@@ -3,6 +3,7 @@ import {
   createDevice,
   fetchDevice,
   fetchDevices,
+  fetchZones,
   sendDeviceHeartbeat,
   updateDevice,
   type CachedDeviceSettings,
@@ -10,6 +11,14 @@ import {
   type DeviceResponse,
   type UpdateDevicePayload,
 } from "../lib/api";
+import { getRemoteAppSettings } from "../services/api";
+import {
+  listHubCommands,
+  sendHubCommand,
+  type HubCommandRecord,
+} from "../services/api/devices";
+import { isSystemAdministrator } from "../lib/accountLimits";
+import { uiToast } from "../lib/uiToast";
 import { getMembers } from "../services/api/members";
 import {
   appendLocalDevice,
@@ -29,9 +38,11 @@ import {
   deriveDeviceOnline,
   isClientSessionHid,
   isSmartHomeHid,
+  refreshSessionDevicePlace,
   removeDevice,
   signOutDevice,
 } from "../lib/deviceSync";
+import { formatServerDateTime } from "../lib/serverDate";
 import { AlertTriangle, CircleDot, Home, Plus, Smartphone, X } from "lucide-react";
 
 const ACCENT = "#2F80ED";
@@ -44,7 +55,7 @@ const DM_ADDRESS_INPUT =
 const DEVICE_LIMIT_MESSAGE_BY_ACCOUNT = {
   PRIVATE: "Private accounts can register up to 1 smart-home hub.",
   EXCLUSIVE: "Exclusive accounts are limited to 1 smart-home hub.",
-  PRIVATE_PLUS: "Private+ accounts can register up to 10 smart-home hubs.",
+  PRIVATE_PLUS: "Private+ accounts can register 10 smart-home hubs.",
   ENHANCED: "Enhanced accounts are limited to 1 smart-home hub.",
   ENHANCED_PLUS: "",
 } as const;
@@ -90,8 +101,11 @@ function deriveUiStatus(device: Device): UiStatus {
 }
 
 function formatLastSeen(device: Device): string {
-  const t = device.last_seen ?? device.updated_at;
-  return t ? new Date(t).toLocaleString() : "—";
+  return formatServerDateTime(
+    device.last_seen ?? device.updated_at,
+    undefined,
+    "—",
+  );
 }
 
 function statusBadgeClass(status: UiStatus): string {
@@ -171,6 +185,8 @@ function ownerForDevice(
   return owners.find((o) => o.id === ownerId);
 }
 
+type ZoneOption = { id: number; name: string };
+
 type DeviceFormState = {
   name: string;
   address: string;
@@ -179,7 +195,42 @@ type DeviceFormState = {
   enable_notification: boolean;
   alert_threshold_meters: number;
   update_interval_seconds: number;
+  webhook: string;
+  periodical_check_sec: string;
+  zone_ids: number[];
 };
+
+function zoneIdsFrom(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  const ids: number[] = [];
+  for (const item of value) {
+    const id = Number(item);
+    if (Number.isFinite(id)) ids.push(id);
+  }
+  return ids;
+}
+
+function parseZoneOptions(payload: unknown): ZoneOption[] {
+  const rows = Array.isArray(payload)
+    ? payload
+    : payload &&
+        typeof payload === "object" &&
+        Array.isArray((payload as { data?: unknown }).data)
+      ? (payload as { data: unknown[] }).data
+      : [];
+  const options: ZoneOption[] = [];
+  for (const row of rows) {
+    if (!row || typeof row !== "object") continue;
+    const rec = row as { id?: unknown; name?: unknown };
+    const id = Number(rec.id);
+    if (!Number.isFinite(id)) continue;
+    options.push({
+      id,
+      name: String(rec.name ?? "").trim() || `Zone ${id}`,
+    });
+  }
+  return options;
+}
 
 function defaultForm(device: Device): DeviceFormState {
   return {
@@ -190,6 +241,9 @@ function defaultForm(device: Device): DeviceFormState {
     enable_notification: device.enable_notification ?? true,
     alert_threshold_meters: Number(device.alert_threshold_meters ?? 100),
     update_interval_seconds: Number(device.update_interval_seconds ?? 30),
+    webhook: device.webhook ?? "",
+    periodical_check_sec: device.periodical_check_sec || "86400",
+    zone_ids: zoneIdsFrom(device.zone_ids),
   };
 }
 
@@ -239,7 +293,114 @@ function remoteToForm(
     update_interval_seconds: Number(
       remote.update_interval_seconds ?? fallback.update_interval_seconds ?? 30,
     ),
+    webhook: remote.webhook ?? fallback.webhook ?? "",
+    periodical_check_sec:
+      remote.periodical_check_sec || fallback.periodical_check_sec || "86400",
+    zone_ids: zoneIdsFrom(remote.zone_ids ?? fallback.zone_ids),
   };
+}
+
+function SmartHomeBindingFields({
+  webhook,
+  periodicalCheckSec,
+  zoneIds,
+  zones,
+  networkId,
+  apiKey,
+  onWebhook,
+  onPeriod,
+  onToggleZone,
+}: {
+  webhook: string;
+  periodicalCheckSec: string;
+  zoneIds: number[];
+  zones: ZoneOption[];
+  networkId: string;
+  apiKey: string;
+  onWebhook: (value: string) => void;
+  onPeriod: (value: string) => void;
+  onToggleZone: (zoneId: number) => void;
+}) {
+  return (
+    <div className="space-y-4 rounded-md border border-[#DCE6F2] bg-[#F7FAFE] p-4">
+      <p className="text-xs leading-relaxed text-[#566784]">
+        This hub has its own webhook. Alarms are sent only for the zones you
+        select. Copy the Network ID and API key onto the device.
+      </p>
+      <div>
+        <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]">
+          Webhook
+        </label>
+        <input
+          className="mt-2 w-full rounded-md border border-[#DCE6F2] bg-white px-3 py-2.5 text-sm text-[#0F2C5C] focus:border-[#2F80ED] focus:outline-none focus:ring-2 focus:ring-[#2F80ED]/25"
+          value={webhook}
+          onChange={(e) => onWebhook(e.target.value)}
+          placeholder="https://hub.example.com/hooks/hex-zone"
+        />
+      </div>
+      <div>
+        <span className="block text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]">
+          Zones
+        </span>
+        {zones.length === 0 ? (
+          <p className="mt-2 text-xs text-[#8694AC]">
+            No zones yet. Create a zone first, then connect this hub to it.
+          </p>
+        ) : (
+          <div className="mt-2 max-h-40 space-y-2 overflow-y-auto">
+            {zones.map((zone) => (
+              <label
+                key={zone.id}
+                className="flex cursor-pointer items-center gap-3 text-sm text-[#566784]"
+              >
+                <input
+                  type="checkbox"
+                  className="rounded border-[#E4ECF7] text-[#2F80ED] focus:ring-[#2F80ED]"
+                  checked={zoneIds.includes(zone.id)}
+                  onChange={() => onToggleZone(zone.id)}
+                />
+                <span>{zone.name}</span>
+              </label>
+            ))}
+          </div>
+        )}
+      </div>
+      <div>
+        <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]">
+          Network ID
+        </label>
+        <input
+          readOnly
+          className="mt-2 w-full cursor-not-allowed rounded-md border border-[#DCE6F2] bg-white px-3 py-2.5 font-mono text-sm text-[#8694AC]"
+          value={networkId || "—"}
+        />
+      </div>
+      <div>
+        <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]">
+          API Key
+        </label>
+        <input
+          readOnly
+          className="mt-2 w-full cursor-not-allowed rounded-md border border-[#DCE6F2] bg-white px-3 py-2.5 font-mono text-sm text-[#8694AC]"
+          value={apiKey || "—"}
+        />
+      </div>
+      <div>
+        <label className="block text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]">
+          Periodical check (sec)
+        </label>
+        <input
+          className="mt-2 w-full rounded-md border border-[#DCE6F2] bg-white px-3 py-2.5 text-sm text-[#0F2C5C] focus:border-[#2F80ED] focus:outline-none focus:ring-2 focus:ring-[#2F80ED]/25"
+          value={periodicalCheckSec}
+          onChange={(e) => onPeriod(e.target.value)}
+          placeholder="86400"
+        />
+        <p className="mt-1 text-xs text-[#8694AC]">
+          Hint for hubs that poll instead of webhook push.
+        </p>
+      </div>
+    </div>
+  );
 }
 
 export default function DeviceManager() {
@@ -272,7 +433,19 @@ export default function DeviceManager() {
     enable_notification: true,
     alert_threshold_meters: 100,
     update_interval_seconds: 30,
+    webhook: "",
+    periodical_check_sec: "86400",
+    zone_ids: [],
   });
+  const [zoneOptions, setZoneOptions] = useState<ZoneOption[]>([]);
+  const [accountApiKey, setAccountApiKey] = useState("");
+  const [hubCommand, setHubCommand] = useState("arm");
+  const [hubCommands, setHubCommands] = useState<HubCommandRecord[]>([]);
+  const [sendingCommand, setSendingCommand] = useState(false);
+  const [commandResult, setCommandResult] = useState<{
+    hid: string;
+    text: string;
+  } | null>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [addSubmitting, setAddSubmitting] = useState(false);
@@ -289,6 +462,9 @@ export default function DeviceManager() {
     enable_notification: true,
     alert_threshold_meters: 150,
     update_interval_seconds: 120,
+    webhook: "",
+    periodical_check_sec: "86400",
+    zoneIds: [] as number[],
   });
 
   const loadRegisteredOwners = useCallback(async (): Promise<
@@ -321,8 +497,55 @@ export default function DeviceManager() {
     void loadRegisteredOwners();
   }, [loadRegisteredOwners]);
 
+  useEffect(() => {
+    void fetchZones()
+      .then((data) => setZoneOptions(parseZoneOptions(data)))
+      .catch(() => setZoneOptions([]));
+    void getRemoteAppSettings().then((res) => {
+      const key = res.data?.sharedNotification?.apiKey;
+      if (typeof key === "string") setAccountApiKey(key);
+    });
+  }, []);
+
+  const networkId = String(user?.zone_id ?? user?.zoneId ?? "").trim();
+  const isNetworkAdmin =
+    String(user?.role ?? "").toLowerCase() === "administrator" &&
+    !isSystemAdministrator({
+      role: user?.role,
+      accountType: user?.accountType,
+      legacyAccountType: user?.account_type,
+    });
+
+  useEffect(() => {
+    if (!drawerDevice || !isSmartHomeHid(drawerDevice.hid) || !isNetworkAdmin) {
+      setHubCommands([]);
+      return;
+    }
+    const hid = drawerDevice.hid.toUpperCase();
+    void listHubCommands().then((res) => {
+      setHubCommands(
+        (res.data ?? []).filter((row) => String(row.hid).toUpperCase() === hid),
+      );
+    });
+  }, [drawerDevice, isNetworkAdmin]);
+
   const loadDevices = useCallback(() => {
-    return fetchDevices()
+    const refreshBrowser = currentWebHid
+      ? fetchDevices()
+          .then((list) => {
+            const row = (Array.isArray(list) ? list : []).find(
+              (device) =>
+                String(device.hid).toUpperCase() === currentWebHid &&
+                isClientSessionHid(device.hid),
+            );
+            if (!row?.id) return;
+            return sendDeviceHeartbeat(row.id).then(() =>
+              refreshSessionDevicePlace(row, user),
+            );
+          })
+          .catch(() => undefined)
+      : Promise.resolve();
+    return refreshBrowser.then(() => fetchDevices())
       .then((data: DeviceResponse[]) => {
         const apiList = Array.isArray(data) ? data : [];
         const localList = loadLocalDevices();
@@ -337,7 +560,7 @@ export default function DeviceManager() {
           applyDeviceAssignments(localList as unknown as Device[]) as Device[],
         );
       });
-  }, []);
+  }, [currentWebHid, user]);
 
   useEffect(() => {
     loadDevices().finally(() => setLoading(false));
@@ -376,6 +599,10 @@ export default function DeviceManager() {
         update_interval_seconds: Number(
           cached?.update_interval_seconds ?? defaults.update_interval_seconds,
         ),
+        webhook: cached?.webhook ?? defaults.webhook,
+        periodical_check_sec:
+          cached?.periodical_check_sec || defaults.periodical_check_sec,
+        zone_ids: zoneIdsFrom(cached?.zone_ids ?? defaults.zone_ids),
       });
       setSettingsLoading(false);
       return;
@@ -402,6 +629,10 @@ export default function DeviceManager() {
         update_interval_seconds: Number(
           cached?.update_interval_seconds ?? defaults.update_interval_seconds,
         ),
+        webhook: cached?.webhook ?? defaults.webhook,
+        periodical_check_sec:
+          cached?.periodical_check_sec || defaults.periodical_check_sec,
+        zone_ids: zoneIdsFrom(cached?.zone_ids ?? defaults.zone_ids),
       });
     } finally {
       setSettingsLoading(false);
@@ -440,7 +671,27 @@ export default function DeviceManager() {
       enable_notification: form.enable_notification,
       alert_threshold_meters: form.alert_threshold_meters,
       update_interval_seconds: form.update_interval_seconds,
+      ...(isSmartHomeHid(drawerDevice.hid)
+        ? {
+            webhook: form.webhook.trim(),
+            periodical_check_sec: form.periodical_check_sec.trim() || "86400",
+            zone_ids: form.zone_ids,
+          }
+        : {}),
     };
+
+    if (isSmartHomeHid(drawerDevice.hid)) {
+      if (!form.webhook.trim()) {
+        setSettingsError("Enter the webhook URL for this hub.");
+        setSettingsSaving(false);
+        return;
+      }
+      if (form.zone_ids.length === 0) {
+        setSettingsError("Select at least one zone for this hub.");
+        setSettingsSaving(false);
+        return;
+      }
+    }
 
     if (isLocalOnlyDevice(drawerDevice)) {
       try {
@@ -610,6 +861,9 @@ export default function DeviceManager() {
         enable_notification: true,
         alert_threshold_meters: 150,
         update_interval_seconds: 120,
+        webhook: "",
+        periodical_check_sec: "86400",
+        zoneIds: [],
       });
     });
   };
@@ -679,6 +933,14 @@ export default function DeviceManager() {
     const deviceLabel =
       addForm.deviceName.trim() ||
       `${(ru.displayName.split(/\s+/)[0] || "User").replace(/[^a-zA-Z]/g, "") || "User"} Device`;
+    if (!addForm.webhook.trim()) {
+      setAddError("Enter the webhook URL for this hub.");
+      return;
+    }
+    if (addForm.zoneIds.length === 0) {
+      setAddError("Select at least one zone for this hub.");
+      return;
+    }
 
     setAddSubmitting(true);
     setAddError(null);
@@ -694,6 +956,9 @@ export default function DeviceManager() {
       enable_notification: addForm.enable_notification,
       alert_threshold_meters: addForm.alert_threshold_meters,
       update_interval_seconds: addForm.update_interval_seconds,
+      webhook: addForm.webhook.trim(),
+      periodical_check_sec: addForm.periodical_check_sec.trim() || "86400",
+      zone_ids: addForm.zoneIds,
       is_online: false,
       active: true,
     };
@@ -706,6 +971,9 @@ export default function DeviceManager() {
       enable_notification: createPayload.enable_notification,
       alert_threshold_meters: createPayload.alert_threshold_meters,
       update_interval_seconds: createPayload.update_interval_seconds,
+      webhook: createPayload.webhook,
+      periodical_check_sec: createPayload.periodical_check_sec,
+      zone_ids: createPayload.zone_ids,
     };
 
     try {
@@ -875,7 +1143,7 @@ export default function DeviceManager() {
     accountLabel === "Private"
       ? `Private accounts allow 1 smart-home hub. Phones and browsers register as login sessions and do not use that slot. Zones use H3 Geospatial Indexing (resolution = ${H3_RESOLUTION}).`
       : accountLabel === "Private+"
-        ? `Private+ supports up to 10 smart-home hubs. Phones/browsers are separate login sessions. Zones use H3 Geospatial Indexing (resolution = ${H3_RESOLUTION}).`
+        ? `Private+ accounts support 10 smart-home hubs. Phones and browsers are separate login sessions. Zones use H3 Geospatial Indexing (resolution = ${H3_RESOLUTION}).`
         : accountLabel === "Exclusive" || accountLabel === "Enhanced"
           ? `${accountLabel} accounts support 1 smart-home hub. Zones use H3 Geospatial Indexing (resolution = ${H3_RESOLUTION}).`
           : `Enhanced+ has no smart-home hub cap. Zones use H3 Geospatial Indexing (resolution = ${H3_RESOLUTION}).`;
@@ -996,6 +1264,18 @@ export default function DeviceManager() {
                           )}
                           {device.hid}
                         </span>
+                        {isSmartHomeHid(device.hid) ? (
+                          <p className="mt-1 max-w-xs truncate text-xs text-[#8694AC]">
+                            {zoneIdsFrom(device.zone_ids).length} zone
+                            {zoneIdsFrom(device.zone_ids).length === 1 ? "" : "s"}
+                            {device.webhook ? ` · ${device.webhook}` : ""}
+                          </p>
+                        ) : null}
+                        {commandResult?.hid === device.hid ? (
+                          <p className="mt-1 max-w-xs text-xs text-[#566784]">
+                            {commandResult.text}
+                          </p>
+                        ) : null}
                       </td>
                       <td className="px-6 py-4 text-[#566784]">{kind}</td>
                       <td className="px-6 py-4 text-[#566784]">
@@ -1004,24 +1284,72 @@ export default function DeviceManager() {
                           "—"}
                       </td>
                       <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${statusBadgeClass(ui)}`}
-                        >
-                          <CircleDot size={12} /> {ui}
-                        </span>
+                        {isSmartHomeHid(device.hid) ? (
+                          <span className="text-[#8694AC]">—</span>
+                        ) : (
+                          <span
+                            className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-medium ${statusBadgeClass(ui)}`}
+                          >
+                            <CircleDot size={12} /> {ui}
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-[#8694AC]">
                         {formatLastSeen(device)}
                       </td>
                       <td className="px-6 py-4">
-                        <button
-                          type="button"
-                          onClick={() => openSettings(device)}
-                          className="text-sm font-semibold transition hover:brightness-125"
-                          style={{ color: ACCENT }}
-                        >
-                          Settings
-                        </button>
+                        <div className="flex flex-wrap items-center gap-3">
+                          {isSmartHomeHid(device.hid) ? (
+                            <>
+                              {(["arm", "disarm", "status"] as const).map((command) => (
+                                <button
+                                  key={command}
+                                  type="button"
+                                  disabled={sendingCommand}
+                                  onClick={() => {
+                                    setSendingCommand(true);
+                                    void sendHubCommand(device.hid, command).then((result) => {
+                                      setSendingCommand(false);
+                                      if (result.error || !result.data) {
+                                        const message = result.error || "Could not send the command.";
+                                        setCommandResult({ hid: device.hid, text: message });
+                                        uiToast.error(message, { title: command });
+                                        return;
+                                      }
+                                      setHubCommands((prev) =>
+                                        [result.data as HubCommandRecord, ...prev].slice(0, 8),
+                                      );
+                                      const detail = result.data.detail?.trim() || "";
+                                      const text = `${result.data.command.toUpperCase()} · ${result.data.status}${
+                                        detail ? ` · ${detail}` : ""
+                                      }`;
+                                      setCommandResult({ hid: device.hid, text });
+                                      const title = command[0].toUpperCase() + command.slice(1);
+                                      if (result.data.status === "sent") {
+                                        uiToast.success(detail || text, { title });
+                                      } else if (result.data.status === "no_reply") {
+                                        uiToast.warning(detail || text, { title });
+                                      } else {
+                                        uiToast.error(detail || text, { title });
+                                      }
+                                    });
+                                  }}
+                                  className="text-sm font-semibold capitalize text-[#0F2C5C] transition hover:text-[#2F80ED] disabled:opacity-50"
+                                >
+                                  {command}
+                                </button>
+                              ))}
+                            </>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => openSettings(device)}
+                            className="text-sm font-semibold transition hover:brightness-125"
+                            style={{ color: ACCENT }}
+                          >
+                            Settings
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -1115,8 +1443,9 @@ export default function DeviceManager() {
                   Add smart-home device
                 </h2>
                 <p className="mt-1 text-sm text-[#8694AC]">
-                  Register a hub with a DEV- ID. Then open Settings → Smart-home
-                  integration to copy the API key and Network ID onto the device.
+                  Register a hub with its own webhook and the zones that should
+                  trigger it. Network ID and API key are shown so you can copy
+                  them onto the device.
                 </p>
               </div>
               <button
@@ -1277,6 +1606,29 @@ export default function DeviceManager() {
                   placeholder="e.g. Alex Device"
                 />
               </div>
+
+              <SmartHomeBindingFields
+                webhook={addForm.webhook}
+                periodicalCheckSec={addForm.periodical_check_sec}
+                zoneIds={addForm.zoneIds}
+                zones={zoneOptions}
+                networkId={networkId}
+                apiKey={accountApiKey}
+                onWebhook={(value) =>
+                  setAddForm((f) => ({ ...f, webhook: value }))
+                }
+                onPeriod={(value) =>
+                  setAddForm((f) => ({ ...f, periodical_check_sec: value }))
+                }
+                onToggleZone={(zoneId) =>
+                  setAddForm((f) => ({
+                    ...f,
+                    zoneIds: f.zoneIds.includes(zoneId)
+                      ? f.zoneIds.filter((id) => id !== zoneId)
+                      : [...f.zoneIds, zoneId],
+                  }))
+                }
+              />
 
               <label className="flex cursor-pointer items-center gap-3 rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-4 py-3">
                 <input
@@ -1497,6 +1849,103 @@ export default function DeviceManager() {
                     inputClassName={DM_ADDRESS_INPUT}
                     className="relative z-10"
                   />
+                  {isSmartHomeHid(drawerDevice.hid) ? (
+                    <>
+                      <SmartHomeBindingFields
+                        webhook={form.webhook}
+                        periodicalCheckSec={form.periodical_check_sec}
+                        zoneIds={form.zone_ids}
+                        zones={zoneOptions}
+                        networkId={networkId}
+                        apiKey={accountApiKey}
+                        onWebhook={(value) =>
+                          setForm((f) => ({ ...f, webhook: value }))
+                        }
+                        onPeriod={(value) =>
+                          setForm((f) => ({ ...f, periodical_check_sec: value }))
+                        }
+                        onToggleZone={(zoneId) =>
+                          setForm((f) => ({
+                            ...f,
+                            zone_ids: f.zone_ids.includes(zoneId)
+                              ? f.zone_ids.filter((id) => id !== zoneId)
+                              : [...f.zone_ids, zoneId],
+                          }))
+                        }
+                      />
+                      {isNetworkAdmin ? (
+                        <div className="rounded-md border border-[#DCE6F2] bg-[#F7FAFE] p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#8694AC]">
+                            Send command
+                          </p>
+                          <p className="mt-1 text-xs text-[#8694AC]">
+                            Arm, disarm, or ask this hub for status. Save the
+                            webhook first if you just changed it.
+                          </p>
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <select
+                              value={hubCommand}
+                              onChange={(event) => setHubCommand(event.target.value)}
+                              disabled={sendingCommand}
+                              className="rounded-md border border-[#DCE6F2] bg-white px-3 py-2 text-sm text-[#0F2C5C]"
+                            >
+                              <option value="arm">Arm</option>
+                              <option value="disarm">Disarm</option>
+                              <option value="status">Status</option>
+                            </select>
+                            <button
+                              type="button"
+                              disabled={sendingCommand}
+                              onClick={() => {
+                                setSendingCommand(true);
+                                void sendHubCommand(drawerDevice.hid, hubCommand).then(
+                                  (result) => {
+                                    setSendingCommand(false);
+                                    if (result.error || !result.data) {
+                                      const message =
+                                        result.error || "Could not send the command.";
+                                      setSettingsError(message);
+                                      uiToast.error(message, { title: "Command" });
+                                      return;
+                                    }
+                                    setHubCommands((prev) =>
+                                      [result.data as HubCommandRecord, ...prev].slice(0, 8),
+                                    );
+                                    const detail = result.data.detail?.trim() || "";
+                                    const title =
+                                      result.data.command[0]?.toUpperCase() +
+                                      result.data.command.slice(1);
+                                    if (result.data.status === "sent") {
+                                      uiToast.success(detail || "Command sent.", { title });
+                                    } else if (result.data.status === "no_reply") {
+                                      uiToast.warning(detail || "The hub did not reply.", {
+                                        title,
+                                      });
+                                    } else {
+                                      uiToast.error(detail || "Command failed.", { title });
+                                    }
+                                  },
+                                );
+                              }}
+                              className="rounded-md bg-[#2F80ED] px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+                            >
+                              {sendingCommand ? "Sending…" : "Send"}
+                            </button>
+                          </div>
+                          {hubCommands.length > 0 ? (
+                            <ul className="mt-3 space-y-1 text-xs text-[#566784]">
+                              {hubCommands.map((row) => (
+                                <li key={row.id}>
+                                  {row.command.toUpperCase()} · {row.status}
+                                  {row.detail ? ` · ${row.detail}` : ""}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </>
+                  ) : null}
                   <label className="flex cursor-pointer items-center gap-3 rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-4 py-3">
                     <input
                       type="checkbox"
@@ -1591,26 +2040,28 @@ export default function DeviceManager() {
             </div>
 
             <div className="border-t border-[#DCE6F2] px-5 py-4">
-              <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                <div>
-                  <span className="text-[#8694AC]">Status </span>
-                  <span
-                    className={
-                      drawerUiStatus === "online"
-                        ? "font-medium text-[#2FA24A]"
-                        : drawerUiStatus === "error"
-                          ? "font-medium text-[#E0992A]"
-                          : "font-medium text-[#8694AC]"
-                    }
-                  >
-                    {drawerUiStatus}
-                  </span>
+              {isSmartHomeHid(drawerDevice.hid) ? null : (
+                <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                  <div>
+                    <span className="text-[#8694AC]">Status </span>
+                    <span
+                      className={
+                        drawerUiStatus === "online"
+                          ? "font-medium text-[#2FA24A]"
+                          : drawerUiStatus === "error"
+                            ? "font-medium text-[#E0992A]"
+                            : "font-medium text-[#8694AC]"
+                      }
+                    >
+                      {drawerUiStatus}
+                    </span>
+                  </div>
+                  <div className="text-[#8694AC]">
+                    Last seen: {formatLastSeen(drawerDevice)}
+                  </div>
                 </div>
-                <div className="text-[#8694AC]">
-                  Last seen: {formatLastSeen(drawerDevice)}
-                </div>
-              </div>
-              {!isLocalOnlyDevice(drawerDevice) && (
+              )}
+              {!isLocalOnlyDevice(drawerDevice) && !isSmartHomeHid(drawerDevice.hid) && (
                 <button
                   type="button"
                   disabled={heartbeatBusy || settingsLoading}
@@ -1622,7 +2073,7 @@ export default function DeviceManager() {
               )}
               {!isLocalOnlyDevice(drawerDevice) && !drawerIsThisBrowser ? (
                 <div className="mt-3 flex gap-2">
-                  {drawerUiStatus === "online" ? (
+                  {drawerUiStatus === "online" && !isSmartHomeHid(drawerDevice.hid) ? (
                     <button
                       type="button"
                       disabled={deviceActionBusy || settingsLoading}

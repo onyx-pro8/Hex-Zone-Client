@@ -15,6 +15,7 @@ import {
 } from "../../services/api/accessPermissions";
 import { Check, ChevronDown, ChevronUp, MessageCircle, Phone, RefreshCw, ShieldAlert, X } from "lucide-react";
 import { useGuestCallOptional } from "../../context/GuestCallContext";
+import { formatServerDateTime } from "../../lib/serverDate";
 
 /** Visible cards while collapsed; “Show more” when there are additional rows above this count. */
 const GUEST_REQUESTS_COLLAPSED_COUNT = 2;
@@ -266,7 +267,7 @@ export function GuestRequestsDashboardSection({ zoneId }: Props) {
                     {row.guestName ?? "Guest"}
                   </p>
                   <p className="text-[11px] text-[#8694AC]">
-                    {row.createdAt ? new Date(row.createdAt).toLocaleString() : "Just now"}
+                    {row.createdAt ? formatServerDateTime(row.createdAt) : "Just now"}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2 text-[11px] font-semibold uppercase tracking-[0.14em]">

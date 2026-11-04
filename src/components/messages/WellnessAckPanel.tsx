@@ -8,6 +8,7 @@ import {
   type WellnessAckSummary,
 } from "../../services/api/messageFeature";
 import { WELLNESS_ACK_EVENT } from "../../services/socket/messageSocket";
+import { formatServerDateTime } from "../../lib/serverDate";
 
 type Props = {
   messageEventId: string;
@@ -214,7 +215,7 @@ export function WellnessAckPanel({ messageEventId, currentOwnerId, senderId }: P
                     {row.status === "need_help" ? "Needs help" : "OK"}
                   </span>
                   {row.created_at
-                    ? ` · ${new Date(row.created_at).toLocaleString()}`
+                    ? ` · ${formatServerDateTime(row.created_at)}`
                     : ""}
                 </li>
               ))}

@@ -4,6 +4,11 @@ import { formatMessageCoordinatesLabel } from "../../lib/messageCoordinates";
 import { toMessageTypeLabel } from "../../lib/messageTypes";
 import { isServiceMessageType, isUnknownMessageType } from "../../lib/messageWorkflow";
 import {
+  formatServerDate,
+  formatServerTime,
+  parseServerDate,
+} from "../../lib/serverDate";
+import {
   isPermissionDirectVisibility,
   isPermissionZonePendingBroadcastVisibility,
 } from "../../lib/permissionVisibility";
@@ -13,9 +18,8 @@ import {
 } from "../../lib/messageZoneLabel";
 
 function inboxDayKey(value: string | null | undefined): string {
-  if (!value) return "";
-  const t = new Date(value);
-  if (!Number.isFinite(t.getTime())) return "";
+  const t = parseServerDate(value);
+  if (!t) return "";
   return `${t.getFullYear()}-${t.getMonth() + 1}-${t.getDate()}`;
 }
 
@@ -40,9 +44,11 @@ function messagesFormCluster(a: Message | undefined, b: Message | undefined): bo
   if (aSys || bSys) return false;
   if (inboxSenderKey(a) !== inboxSenderKey(b)) return false;
   if (inboxDayKey(a.created_at) !== inboxDayKey(b.created_at)) return false;
-  const ta = new Date(a.created_at).getTime();
-  const tb = new Date(b.created_at).getTime();
-  if (!Number.isFinite(ta) || !Number.isFinite(tb)) return false;
+  const ta = parseServerDate(a.created_at)?.getTime();
+  const tb = parseServerDate(b.created_at)?.getTime();
+  if (ta == null || tb == null || !Number.isFinite(ta) || !Number.isFinite(tb)) {
+    return false;
+  }
   return Math.abs(ta - tb) <= 5 * 60 * 1000;
 }
 
@@ -86,13 +92,12 @@ function groupInboxClusters(messages: Message[]): ClusterRow[][] {
 }
 
 function formatInboxDayLabel(value: string | null | undefined): string {
-  if (!value) return "";
-  const t = new Date(value);
-  if (!Number.isFinite(t.getTime())) return "";
+  const t = parseServerDate(value);
+  if (!t) return "";
   const diffDays = Math.round((startOfLocalDay(new Date()) - startOfLocalDay(t)) / 86_400_000);
   if (diffDays === 0) return "Today";
   if (diffDays === 1) return "Yesterday";
-  return t.toLocaleDateString(undefined, {
+  return formatServerDate(value, {
     year: "numeric",
     month: "numeric",
     day: "numeric",
@@ -227,7 +232,7 @@ export function MessageList({
                             isService ? "text-[#4CAF50]" : "text-[#C48A2A]"
                           }`}
                         >
-                          {new Date(message.created_at).toLocaleTimeString(undefined, {
+                          {formatServerTime(message.created_at, {
                             hour: "numeric",
                             minute: "2-digit",
                           })}
@@ -341,7 +346,7 @@ export function MessageList({
                       useAccentBubble ? "text-white/70" : "text-[#8694AC]"
                     }`}
                   >
-                    {new Date(message.created_at).toLocaleTimeString(undefined, {
+                    {formatServerTime(message.created_at, {
                       hour: "numeric",
                       minute: "2-digit",
                     })}

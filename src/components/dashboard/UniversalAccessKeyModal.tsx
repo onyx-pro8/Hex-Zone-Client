@@ -6,6 +6,7 @@ import {
   listActivatedUniversalAccessKeys,
   listPrivateUniversalAccessKeys,
   searchPublicUniversalAccessKeys,
+  setPrivateUniversalAccessKeySelected,
   type UniversalAccessKeyRow,
 } from "../../services/api/universalAccess";
 
@@ -42,6 +43,7 @@ export function UniversalAccessKeyModal({ open, onClose, onActivated }: Props) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [privateBusyId, setPrivateBusyId] = useState<number | null>(null);
 
   function fieldStatus(index: number): FieldStatus {
     if (selectedFlags[index]) return "selected";
@@ -122,6 +124,29 @@ export function UniversalAccessKeyModal({ open, onClose, onActivated }: Props) {
     onActivated?.();
     const activatedResult = await listActivatedUniversalAccessKeys();
     setActivated(activatedResult.data ?? []);
+  }
+
+  async function togglePrivate(item: UniversalAccessKeyRow) {
+    const next = item.selected === false;
+    setPrivateBusyId(item.credential_id);
+    setError(null);
+    const result = await setPrivateUniversalAccessKeySelected(
+      item.credential_id,
+      next,
+    );
+    setPrivateBusyId(null);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    setPrivateKeys((prev) =>
+      prev.map((row) =>
+        row.credential_id === item.credential_id
+          ? { ...row, selected: next }
+          : row,
+      ),
+    );
+    onActivated?.();
   }
 
   async function removeActivated(credentialId: number) {
@@ -305,20 +330,46 @@ export function UniversalAccessKeyModal({ open, onClose, onActivated }: Props) {
               <p className="text-sm text-[#8694AC]">No private keys yet.</p>
             ) : (
               <ul className="space-y-1">
-                {privateKeys.map((item) => (
-                  <li
-                    key={item.credential_id}
-                    className="rounded-md border border-[#DCE6F2] px-3 py-2 text-sm text-[#0F2C5C]"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-mono">{item.code}</span>
-                      <CopyKeyButton code={item.code} />
-                    </div>
-                    <span className="mt-0.5 block font-sans text-xs text-[#8694AC]">
-                      {(item.zones ?? []).map((zone) => zone.name).join(", ") || "Zones"}
-                    </span>
-                  </li>
-                ))}
+                {privateKeys.map((item) => {
+                  const selected = item.selected !== false;
+                  const rowBusy = privateBusyId === item.credential_id;
+                  return (
+                    <li
+                      key={item.credential_id}
+                      className={`rounded-xl border px-3 py-2 text-sm text-[#0F2C5C] ${
+                        selected
+                          ? "border-[#16A34A] bg-[rgba(22,163,74,0.06)]"
+                          : "border-[#DCE6F2] bg-white"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          aria-pressed={selected}
+                          disabled={rowBusy}
+                          onClick={() => void togglePrivate(item)}
+                          className="flex min-w-0 flex-1 items-center gap-2 text-left disabled:opacity-60"
+                        >
+                          {selected ? (
+                            <Check className="h-4 w-4 shrink-0 text-[#16A34A]" />
+                          ) : null}
+                          <span className="truncate font-mono">{item.code}</span>
+                          <span
+                            className={`shrink-0 text-[11px] font-bold ${
+                              selected ? "text-[#16A34A]" : "text-[#2F80ED]"
+                            }`}
+                          >
+                            {rowBusy ? "Saving…" : selected ? "Selected" : "Select"}
+                          </span>
+                        </button>
+                        <CopyKeyButton code={item.code} />
+                      </div>
+                      <span className="mt-0.5 block font-sans text-xs text-[#8694AC]">
+                        {(item.zones ?? []).map((zone) => zone.name).join(", ") || "Zones"}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

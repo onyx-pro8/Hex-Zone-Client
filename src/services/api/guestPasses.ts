@@ -115,3 +115,30 @@ export async function revokeGuestPass(
     data: { zone_id: zid },
   });
 }
+
+export async function deleteGuestPass(
+  passId: string,
+): Promise<ApiResult<{ id: string; zone_id: string; event_id: string; deleted: boolean }>> {
+  const pid = passId.trim();
+  if (!pid) {
+    return { data: null, error: "Missing required parameter.", loading: false };
+  }
+  return request({
+    method: "DELETE",
+    url: `/api/access/guest-passes/${encodeURIComponent(pid)}`,
+  });
+}
+
+export async function clearExpiredGuestPasses(
+  zoneId: string,
+): Promise<ApiResult<{ deleted_ids: string[]; deleted_count: number }>> {
+  const zid = zoneId.trim();
+  if (!zid) {
+    return { data: null, error: "Missing required parameter.", loading: false };
+  }
+  return request({
+    method: "POST",
+    url: "/api/access/guest-passes/clear-expired",
+    data: { zone_id: zid },
+  });
+}

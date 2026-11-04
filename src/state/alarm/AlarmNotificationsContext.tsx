@@ -14,7 +14,6 @@ import {
   notificationPermission,
   playAlarmSound,
   showBrowserAlarmNotification,
-  showBrowserMessageNotification,
 } from "../../lib/alarmNotifications";
 import { parseMessageFeatureSocketEvent } from "../../services/socket/messageSocket";
 import { useAuth } from "../../hooks/useAuth";
@@ -57,110 +56,6 @@ export function AlarmNotificationsProvider({ children }: { children: ReactNode }
 
   useEffect(() => {
     if (!lastMessage) return;
-
-    try {
-      const parsed = JSON.parse(lastMessage) as {
-        type?: string;
-        guest_name?: string;
-        guest_id?: string;
-        zone_id?: string;
-        data?: Record<string, unknown>;
-      };
-      if (parsed.type === "unexpected_guest" || parsed.type === "guest_is_here") {
-        const nested =
-          parsed.data != null &&
-          typeof parsed.data === "object" &&
-          !Array.isArray(parsed.data)
-            ? parsed.data
-            : null;
-        const guestId = String(nested?.guest_id ?? parsed.guest_id ?? "").trim();
-        const guestName =
-          String(nested?.guest_name ?? parsed.guest_name ?? "Guest").trim() || "Guest";
-        const zoneId = String(nested?.zone_id ?? parsed.zone_id ?? "").trim();
-        const idKey = guestId
-          ? `guest-arrival:${guestId}`
-          : `guest-arrival:${parsed.type}:${guestName}:${zoneId}`;
-        if (seenIdsRef.current.has(idKey)) return;
-        seenIdsRef.current.add(idKey);
-
-        const isUnexpected = parsed.type === "unexpected_guest";
-        const title = zoneId
-          ? `${zoneId} · ${isUnexpected ? "Guest access request" : "Expected guest"}`
-          : isUnexpected
-            ? "Guest access request"
-            : "Expected guest arrived";
-        const body = isUnexpected
-          ? `${guestName} is requesting access and awaiting approval.`
-          : `${guestName} has arrived.`;
-
-        showBrowserMessageNotification({ title, body, tag: idKey });
-        try {
-          playAlarmSound("SERVICE");
-        } catch {
-          /* ignore audio failures */
-        }
-        pushActiveAlarm(setActiveAlarms, {
-          id: idKey,
-          type: "PERMISSION",
-          title,
-          body,
-          createdAt: new Date().toISOString(),
-        });
-        return;
-      }
-
-      if (parsed.type === "NEW_MESSAGE") {
-        const nested =
-          parsed.data != null &&
-          typeof parsed.data === "object" &&
-          !Array.isArray(parsed.data)
-            ? (parsed.data as Record<string, unknown>)
-            : null;
-        if (!nested) return;
-        const guestId = String(nested.guest_id ?? nested.guestId ?? "").trim();
-        const guestSender = String(
-          nested.guest_sender_id ?? nested.guestSenderId ?? "",
-        ).trim();
-        const senderId = nested.sender_id ?? nested.senderId;
-        const isGuestChat =
-          Boolean(guestId || guestSender) &&
-          (senderId == null || senderId === 0) &&
-          String(nested.type ?? "").toUpperCase() === "CHAT";
-        if (!isGuestChat) return;
-
-        const idKey = String(nested.id ?? `${guestId}:${nested.created_at ?? Date.now()}`);
-        if (seenIdsRef.current.has(idKey)) return;
-        seenIdsRef.current.add(idKey);
-
-        const guestName =
-          String(
-            nested.broadcast_name ??
-              nested.broadcastName ??
-              (nested.msg && typeof nested.msg === "object"
-                ? (nested.msg as Record<string, unknown>).broadcast_name
-                : "") ??
-              "Guest",
-          ).trim() || "Guest";
-        const body = String(nested.message ?? nested.text ?? "New guest message").trim();
-        const title = `${guestName} · Guest chat`;
-        showBrowserMessageNotification({ title, body, tag: idKey });
-        try {
-          playAlarmSound("SERVICE");
-        } catch {
-          /* ignore audio failures */
-        }
-        pushActiveAlarm(setActiveAlarms, {
-          id: idKey,
-          type: "CHAT",
-          title,
-          body,
-          createdAt: String(nested.created_at ?? new Date().toISOString()),
-        });
-        return;
-      }
-    } catch {
-      /* fall through to geo alarm handling */
-    }
 
     const event = parseMessageFeatureSocketEvent(lastMessage);
     if (!event || event.type !== "NEW_GEO_MESSAGE") return;

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ChevronDown, ChevronUp, RefreshCw, Wrench } from "lucide-react";
 import { useRecentServices } from "../../hooks/useRecentServices";
 import { formatTopicPath } from "../../lib/servicePaTopics";
+import { formatServerDateTime } from "../../lib/serverDate";
 import type { Message } from "../../services/api/messages";
 
 const COLLAPSED_COUNT = 3;
@@ -100,7 +101,7 @@ export function RecentServicesDashboardSection({ zoneId }: Props) {
                 <p className="text-sm font-semibold text-[#0F2C5C]">{serviceTitle(row)}</p>
                 <p className="mt-0.5 text-[11px] text-[#8694AC]">
                   {row.created_at
-                    ? new Date(row.created_at).toLocaleString()
+                    ? formatServerDateTime(row.created_at)
                     : "Just now"}
                 </p>
               </div>

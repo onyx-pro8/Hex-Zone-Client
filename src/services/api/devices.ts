@@ -25,6 +25,9 @@ export type DeviceRecord = {
   owner_id?: number | string;
   h3_cell_id?: string | null;
   last_seen?: string | null;
+  webhook?: string;
+  periodical_check_sec?: string;
+  zone_ids?: number[];
   created_at?: string;
   updated_at?: string | null;
   owner?: {
@@ -52,6 +55,9 @@ export type UpsertDevicePayload = {
   active?: boolean;
   status?: boolean;
   is_online?: boolean;
+  webhook?: string;
+  periodical_check_sec?: string;
+  zone_ids?: number[];
 };
 
 export async function registerPushToken(payload: PushTokenPayload) {
@@ -111,6 +117,11 @@ export async function createDevice(payload: UpsertDevicePayload) {
       is_online: payload.is_online ?? true,
       hid: payload.hid,
       name: payload.name,
+      ...(payload.webhook != null ? { webhook: payload.webhook } : {}),
+      ...(payload.periodical_check_sec != null
+        ? { periodical_check_sec: payload.periodical_check_sec }
+        : {}),
+      ...(payload.zone_ids != null ? { zone_ids: payload.zone_ids } : {}),
     },
   });
 }

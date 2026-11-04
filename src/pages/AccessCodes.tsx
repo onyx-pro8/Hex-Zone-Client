@@ -10,6 +10,42 @@ async function copyAccessKey(code: string) {
   }
 }
 
+function ReviewDocument({ label, value }: { label: string; value?: string }) {
+  const uri = (value || "").trim();
+  const isImage = uri.startsWith("data:image/");
+  const isPdf = uri.startsWith("data:application/pdf");
+  return (
+    <div className="mt-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-[#566784]">
+        {label}
+      </p>
+      {isImage ? (
+        <img
+          src={uri}
+          alt={label}
+          className="mt-2 max-h-64 w-full rounded-lg border border-[#DCE6F2] bg-[#F7FAFE] object-contain"
+        />
+      ) : isPdf ? (
+        <iframe
+          title={label}
+          src={uri}
+          className="mt-2 h-64 w-full rounded-lg border border-[#DCE6F2]"
+        />
+      ) : uri ? (
+        <a
+          href={uri}
+          download
+          className="mt-2 inline-flex text-sm font-semibold text-[#2F80ED] hover:underline"
+        >
+          Download document
+        </a>
+      ) : (
+        <p className="mt-1 text-sm text-[#8694AC]">Not provided</p>
+      )}
+    </div>
+  );
+}
+
 function CopyableAccessKey({
   code,
   label = "Access key",
@@ -52,6 +88,7 @@ import {
   type UniversalAccessTargetNetwork,
   type UniversalAccessZone,
 } from "../services/api/universalAccess";
+import { formatServerDateTime } from "../lib/serverDate";
 
 type Tab = "invite" | "place" | "list";
 
@@ -62,6 +99,49 @@ function readFileAsDataUrl(file: File): Promise<string> {
     reader.onerror = () => reject(new Error("Could not read the file."));
     reader.readAsDataURL(file);
   });
+}
+
+function inferredMime(file: File): string {
+  if (file.type) return file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".pdf")) return "application/pdf";
+  if (name.endsWith(".doc")) return "application/msword";
+  if (name.endsWith(".docx")) {
+    return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  }
+  if (name.endsWith(".txt")) return "text/plain";
+  if (name.endsWith(".png")) return "image/png";
+  if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+  if (name.endsWith(".gif")) return "image/gif";
+  if (name.endsWith(".webp")) return "image/webp";
+  return "";
+}
+
+function businessMimeAllowed(mime: string): boolean {
+  return (
+    mime.startsWith("image/") ||
+    mime === "application/pdf" ||
+    mime === "application/msword" ||
+    mime === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    mime === "text/plain"
+  );
+}
+
+const BUSINESS_ACCEPT =
+  "image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,.doc,.docx,.txt";
+
+async function readUpload(file: File, kind: "photo" | "business"): Promise<string> {
+  const mime = inferredMime(file);
+  if (kind === "photo" && !mime.startsWith("image/")) {
+    throw new Error("Photo ID must be an image.");
+  }
+  if (kind === "business" && !businessMimeAllowed(mime)) {
+    throw new Error("Business document must be an image, PDF, Word document, or text file.");
+  }
+  const data = await readFileAsDataUrl(file);
+  if (file.type) return data;
+  const payload = data.includes(",") ? data.slice(data.indexOf(",") + 1) : data;
+  return `data:${mime};base64,${payload}`;
 }
 
 export default function AccessCodes() {
@@ -99,6 +179,10 @@ export default function AccessCodes() {
   const [photo, setPhoto] = useState("");
   const [businessDoc, setBusinessDoc] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [inviteAwaitingReview, setInviteAwaitingReview] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "pending" | "approved" | "rejected"
+  >("all");
 
   const profile = useMemo(
     () => ({
@@ -197,8 +281,8 @@ export default function AccessCodes() {
   }, [networkQuery, target]);
 
   const tabs: { key: Tab; label: string }[] = [
-    ...(canInvite ? [{ key: "invite" as const, label: "Invite" }] : []),
-    { key: "place", label: "Access other" },
+    ...(canInvite ? [{ key: "invite" as const, label: "Key Invitation" }] : []),
+    { key: "place", label: "Request Key" },
     { key: "list", label: "Request List" },
   ];
 
@@ -214,6 +298,7 @@ export default function AccessCodes() {
     setSelectedZoneIds([]);
     setInviteNote("");
     setGeneratedCode(null);
+    setInviteAwaitingReview(false);
     setInviteReadyToRefresh(false);
   }
 
@@ -255,6 +340,7 @@ export default function AccessCodes() {
       return;
     }
     setGeneratedCode(result.data.code);
+    setInviteAwaitingReview(result.data.status === "pending" && keyType === "private");
     setInviteReadyToRefresh(true);
     await reload();
   }
@@ -372,7 +458,7 @@ export default function AccessCodes() {
         <header className="flex items-center gap-2 border-b border-[#DCE6F2] px-4 py-3 sm:px-6">
           <KeyRound className="h-4 w-4 text-[#2F80ED]" />
           <span className="text-xs font-bold uppercase tracking-[0.2em] text-[#0F2C5C]">
-            Universal Access
+            Zone Management
           </span>
         </header>
         <div className="flex flex-wrap gap-4 border-b border-[#DCE6F2] px-4 sm:px-6">
@@ -539,6 +625,11 @@ export default function AccessCodes() {
                 <div className="rounded-md border border-[#DCE6F2] bg-[#F7FAFE] px-3 py-2">
                   <CopyableAccessKey code={generatedCode} />
                 </div>
+              ) : null}
+              {inviteAwaitingReview ? (
+                <p className="rounded-md border border-[#E0992A]/40 bg-[rgba(224,153,42,0.12)] px-3 py-2 text-sm text-[#9A6410]">
+                  Sent for review. The selected user must accept before this key is added to their zones.
+                </p>
               ) : null}
               <button
                 type="submit"
@@ -752,7 +843,9 @@ export default function AccessCodes() {
                   onChange={(event) => {
                     const file = event.target.files?.[0];
                     if (!file) return;
-                    void readFileAsDataUrl(file).then(setPhoto);
+                    void readUpload(file, "photo").then(setPhoto).catch((err: Error) => {
+                      setError(err.message);
+                    });
                   }}
                 />
               </label>
@@ -762,11 +855,15 @@ export default function AccessCodes() {
                 </span>
                 <input
                   type="file"
-                  accept="image/*,application/pdf"
+                  accept={BUSINESS_ACCEPT}
                   onChange={(event) => {
                     const file = event.target.files?.[0];
                     if (!file) return;
-                    void readFileAsDataUrl(file).then(setBusinessDoc);
+                    void readUpload(file, "business")
+                      .then(setBusinessDoc)
+                      .catch((err: Error) => {
+                        setError(err.message);
+                      });
                   }}
                 />
               </label>
@@ -792,7 +889,24 @@ export default function AccessCodes() {
               <p className="text-sm text-[#8694AC]">Loading…</p>
             ) : (
               <div className="space-y-3">
-                <div className="flex items-center justify-end">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label className="inline-flex items-center gap-2 text-xs font-semibold text-[#566784]">
+                    Status
+                    <select
+                      value={statusFilter}
+                      onChange={(event) =>
+                        setStatusFilter(
+                          event.target.value as "all" | "pending" | "approved" | "rejected",
+                        )
+                      }
+                      className="rounded-lg border border-[#DCE6F2] bg-white px-2.5 py-1.5 text-xs font-semibold text-[#0F2C5C] outline-none"
+                    >
+                      <option value="all">All</option>
+                      <option value="pending">Pending</option>
+                      <option value="approved">Approved</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </label>
                   <button
                     type="button"
                     onClick={() => void reload()}
@@ -802,18 +916,23 @@ export default function AccessCodes() {
                     Refresh
                   </button>
                 </div>
-                {rows.map((row) => {
+                {rows
+                  .filter((row) => statusFilter === "all" || row.status === statusFilter)
+                  .map((row) => {
                   const actions = row.viewer_actions;
                   const showApproveReject = Boolean(
                     actions?.can_approve || actions?.can_reject,
                   );
+                  const showSenderReview =
+                    row.viewer_role === "requester" && row.status === "pending";
+                  const showReview = showApproveReject || showSenderReview;
                   return (
                     <div
                       key={row.id}
                       className="rounded-lg border border-[#DCE6F2] px-3 py-3 text-sm text-[#0F2C5C]"
                     >
                       <div className="font-semibold">
-                        {row.request_kind === "place_access" ? "Access other" : "Invite"}
+                        {row.request_kind === "place_access" ? "Request Key" : "Key Invitation"}
                         {row.key_type ? (
                           <span className="ml-2 text-xs font-normal uppercase text-[#8694AC]">
                             {row.key_type}
@@ -822,7 +941,7 @@ export default function AccessCodes() {
                       </div>
                       <div className="text-[#8694AC]">
                         {row.created_at
-                          ? new Date(row.created_at).toLocaleString()
+                          ? formatServerDateTime(row.created_at)
                           : "—"}
                       </div>
                       <div className="font-semibold capitalize text-[#566784]">
@@ -841,15 +960,19 @@ export default function AccessCodes() {
                                 !row.enabled,
                               ).then(() => reload());
                             }}
-                            className="text-xs font-semibold text-[#2F80ED]"
+                            className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                              row.enabled
+                                ? "border-[#E0992A] bg-[rgba(224,153,42,0.12)] text-[#9A6410]"
+                                : "border-[#2FA24A] bg-[rgba(47,162,74,0.10)] text-[#1E7A36]"
+                            }`}
                           >
                             {row.enabled ? "Turn off" : "Turn on"}
                           </button>
                         ) : null}
-                        {showApproveReject ? (
+                        {showReview ? (
                           <button
                             type="button"
-                            className="text-xs font-semibold text-[#2F80ED]"
+                            className="rounded-full border border-[#2F80ED] bg-[rgba(47,128,237,0.08)] px-3 py-1.5 text-xs font-semibold text-[#1B5BB5]"
                             onClick={() => void openDetail(row)}
                           >
                             Review
@@ -858,28 +981,27 @@ export default function AccessCodes() {
                         {actions?.can_edit_docs && row.status === "pending" ? (
                           <button
                             type="button"
-                            className="text-xs font-semibold text-[#2F80ED]"
+                            className="rounded-full border border-[#E0992A] bg-[rgba(224,153,42,0.12)] px-3 py-1.5 text-xs font-semibold text-[#9A6410]"
                             onClick={() => void openEdit(row)}
                           >
                             Edit
                           </button>
                         ) : null}
-                        {actions?.can_remove &&
-                        (row.status === "pending" || row.request_kind === "invite") ? (
+                        {actions?.can_remove ? (
                           <button
                             type="button"
                             disabled={busyId === row.id}
-                            className="text-xs font-semibold text-[#E23B4E]"
+                            className="rounded-full border border-[#E23B4E] bg-[#FCE7EA] px-3 py-1.5 text-xs font-semibold text-[#C4283A]"
                             onClick={() => void onRemove(row)}
                           >
                             Remove
                           </button>
                         ) : null}
-                        {!showApproveReject &&
+                        {!showReview &&
                         !(actions?.can_edit_docs && row.status === "pending") ? (
                           <button
                             type="button"
-                            className="text-xs font-semibold text-[#2F80ED]"
+                            className="rounded-full border border-[#C2D2E6] bg-[#F4F7FB] px-3 py-1.5 text-xs font-semibold text-[#566784]"
                             onClick={() => void openDetail(row)}
                           >
                             Detail
@@ -889,7 +1011,8 @@ export default function AccessCodes() {
                     </div>
                   );
                 })}
-                {rows.length === 0 ? (
+                {rows.filter((row) => statusFilter === "all" || row.status === statusFilter)
+                  .length === 0 ? (
                   <p className="text-sm text-[#8694AC]">Nothing here yet.</p>
                 ) : null}
               </div>
@@ -901,7 +1024,7 @@ export default function AccessCodes() {
       {detail ? (
         <div className="mt-4 rounded-lg border border-[#DCE6F2] bg-white p-5 shadow-sm">
           <h2 className="text-lg font-bold text-[#0F2C5C]">
-            {detail.request_kind === "place_access" ? "Access other" : "Invite"}
+            {detail.request_kind === "place_access" ? "Request Key" : "Key Invitation"}
             {detail.key_type ? (
               <span className="ml-2 text-xs font-normal uppercase text-[#8694AC]">
                 {detail.key_type}
@@ -911,7 +1034,7 @@ export default function AccessCodes() {
           <p className="mt-1 text-sm font-semibold capitalize text-[#566784]">
             {detail.status}
             {detail.created_at
-              ? ` · ${new Date(detail.created_at).toLocaleString()}`
+              ? ` · ${formatServerDateTime(detail.created_at)}`
               : ""}
           </p>
           {detail.request_kind === "invite" &&
@@ -935,11 +1058,39 @@ export default function AccessCodes() {
               {(detail.zones ?? []).map((zone) => zone.name).join(", ") ||
                 detail.place ||
                 "No zones"}
+              {detail.network_id ? (
+                <span className="text-[#8694AC]"> · {detail.network_id}</span>
+              ) : null}
             </p>
-            {detail.network_id ? (
-              <p className="text-xs text-[#8694AC]">{detail.network_id}</p>
-            ) : null}
           </div>
+          {detail.request_kind === "place_access" ? (
+            <>
+              <div className="mt-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[#566784]">
+                  Requester
+                </p>
+                <p className="text-sm text-[#0F2C5C]">
+                  <span className="font-semibold">
+                    {[detail.first_name, detail.last_name].filter(Boolean).join(" ") ||
+                      detail.member_name ||
+                      "—"}
+                  </span>
+                  {detail.email ? ` · ${detail.email}` : ""}
+                </p>
+                <p className="text-xs text-[#8694AC]">{detail.address || "No address"}</p>
+              </div>
+              {detail.note ? (
+                <div className="mt-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-[#566784]">
+                    Note
+                  </p>
+                  <p className="text-sm text-[#0F2C5C]">{detail.note}</p>
+                </div>
+              ) : null}
+              <ReviewDocument label="Photo ID" value={detail.photo_id} />
+              <ReviewDocument label="Business document" value={detail.business_document} />
+            </>
+          ) : null}
           {detail.code ? (
             <div className="mt-3">
               <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[#566784]">
@@ -957,7 +1108,7 @@ export default function AccessCodes() {
                 type="button"
                 disabled={busyId === detail.id}
                 onClick={() => void onApprove(detail)}
-                className="rounded-lg bg-[#2F80ED] px-4 py-2 text-sm font-bold text-white"
+                className="rounded-lg border border-[#2FA24A] bg-[#2FA24A] px-4 py-2 text-sm font-bold text-white"
               >
                 Approve
               </button>
@@ -971,7 +1122,7 @@ export default function AccessCodes() {
                 type="button"
                 disabled={busyId === detail.id}
                 onClick={() => void onReject(detail)}
-                className="rounded-lg border border-[#E23B4E] px-4 py-2 text-sm font-bold text-[#E23B4E]"
+                className="rounded-lg border border-[#E23B4E] bg-[#FCE7EA] px-4 py-2 text-sm font-bold text-[#C4283A]"
               >
                 Reject
               </button>
@@ -1005,7 +1156,9 @@ export default function AccessCodes() {
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   if (!file) return;
-                  void readFileAsDataUrl(file).then(setEditPhoto);
+                  void readUpload(file, "photo").then(setEditPhoto).catch((err: Error) => {
+                    setError(err.message);
+                  });
                 }}
               />
               {editPhoto ? (
@@ -1018,11 +1171,15 @@ export default function AccessCodes() {
               </span>
               <input
                 type="file"
-                accept="image/*,application/pdf"
+                accept={BUSINESS_ACCEPT}
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   if (!file) return;
-                  void readFileAsDataUrl(file).then(setEditBusinessDoc);
+                  void readUpload(file, "business")
+                    .then(setEditBusinessDoc)
+                    .catch((err: Error) => {
+                      setError(err.message);
+                    });
                 }}
               />
               {editBusinessDoc ? (
