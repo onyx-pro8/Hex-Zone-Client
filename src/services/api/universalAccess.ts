@@ -238,3 +238,11 @@ export async function setPrivateUniversalAccessKeySelected(
     data: { selected },
   });
 }
+
+export async function sendUniversalAccessKey(credentialId: number) {
+  return request<UniversalAccessKeyRow & { sent?: boolean }>({
+    method: "POST",
+    url: "/universal-access/keys/send",
+    data: { credential_id: credentialId },
+  });
+}

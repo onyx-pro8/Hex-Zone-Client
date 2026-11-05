@@ -1446,7 +1446,6 @@ export default function Dashboard() {
   );
   const [isCreatingNewZone, setIsCreatingNewZone] = useState(true);
   const [createAsPrimary, setCreateAsPrimary] = useState(false);
-  const [zoneListTab, setZoneListTab] = useState<"mine" | "accessed">("mine");
   const [showAllZones, setShowAllZones] = useState(true);
   const [activeSavedZoneEditable, setActiveSavedZoneEditable] =
     useState<boolean>(false);
@@ -1612,12 +1611,7 @@ export default function Dashboard() {
     () => zoneEntries.filter((entry) => !zoneIsAccessed(entry.zone)),
     [zoneEntries],
   );
-  const accessedZoneEntries = useMemo(
-    () => zoneEntries.filter((entry) => zoneIsAccessed(entry.zone)),
-    [zoneEntries],
-  );
-  const listedZoneEntries =
-    zoneListTab === "mine" ? mineZoneEntries : accessedZoneEntries;
+  const listedZoneEntries = mineZoneEntries;
   const activeZoneEntry = useMemo(
     () => zoneEntries.find((entry) => entry.key === activeSavedZoneKey) ?? null,
     [zoneEntries, activeSavedZoneKey],
@@ -5695,29 +5689,8 @@ export default function Dashboard() {
                     <p className="text-xs text-[#E23B4E]">{zonesError}</p>
                   ) : (
                     <>
-                      <div className="mb-2 flex gap-1 rounded-md bg-[#F4F7FB] p-1">
-                        <button
-                          type="button"
-                          onClick={() => setZoneListTab("mine")}
-                          className={`flex-1 rounded px-2 py-1 text-[11px] font-bold ${
-                            zoneListTab === "mine"
-                              ? "bg-white text-[#1B5BB5] shadow-sm"
-                              : "text-[#566784]"
-                          }`}
-                        >
-                          Mine ({mineZoneEntries.length})
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setZoneListTab("accessed")}
-                          className={`flex-1 rounded px-2 py-1 text-[11px] font-bold ${
-                            zoneListTab === "accessed"
-                              ? "bg-white text-[#1B5BB5] shadow-sm"
-                              : "text-[#566784]"
-                          }`}
-                        >
-                          Accessed ({accessedZoneEntries.length})
-                        </button>
+                      <div className="mb-2 text-[11px] font-bold text-[#1B5BB5]">
+                        Mine ({mineZoneEntries.length})
                       </div>
                       <div className="flex w-full min-w-0 gap-2 overflow-x-auto pb-1">
                         {listedZoneEntries.map((entry) => {
@@ -5764,43 +5737,34 @@ export default function Dashboard() {
                             </div>
                           );
                         })}
-                        {zoneListTab === "mine" ? (
-                          <button
-                            type="button"
-                            onClick={startNewZoneDraft}
-                            disabled={isCreatingNewZone || !canCreateZone}
-                            className={`shrink-0 rounded-md border px-2.5 py-1.5 text-xs transition ${
-                              isCreatingNewZone
-                                ? "border-[#2F80ED] bg-[#EDF3FB] text-[#2F80ED]"
-                                : !canCreateZone
-                                  ? "cursor-not-allowed border-[#DCE6F2] text-[#8694AC]"
-                                  : "border-[#DCE6F2] text-[#566784] hover:border-[#2F80ED]/60"
-                            }`}
-                          >
-                            + New zone
-                          </button>
-                        ) : null}
+                        <button
+                          type="button"
+                          onClick={startNewZoneDraft}
+                          disabled={isCreatingNewZone || !canCreateZone}
+                          className={`shrink-0 rounded-md border px-2.5 py-1.5 text-xs transition ${
+                            isCreatingNewZone
+                              ? "border-[#2F80ED] bg-[#EDF3FB] text-[#2F80ED]"
+                              : !canCreateZone
+                                ? "cursor-not-allowed border-[#DCE6F2] text-[#8694AC]"
+                                : "border-[#DCE6F2] text-[#566784] hover:border-[#2F80ED]/60"
+                          }`}
+                        >
+                          + New zone
+                        </button>
                       </div>
-                      {listedZoneEntries.length > 0 && zoneListTab === "mine" ? (
+                      {listedZoneEntries.length > 0 ? (
                         <p className="mt-2 text-[10px] text-[#8694AC]">
                           Select a zone to edit, or use the trash icon to delete a saved zone.
                         </p>
                       ) : null}
-                      {listedZoneEntries.length === 0 && zoneListTab === "accessed" ? (
-                        <p className="mt-2 text-xs text-[#8694AC]">
-                          No accessed zones yet.
-                        </p>
-                      ) : null}
-                      {mineZoneEntries.length === 0 &&
-                      zoneListTab === "mine" &&
-                      !isCreatingNewZone ? (
+                      {mineZoneEntries.length === 0 && !isCreatingNewZone ? (
                         <p className="mt-2 text-xs text-[#8694AC]">
                           {canCreateZone
                             ? "No saved zones yet. Use + New zone to create your first zone."
                             : createBlockedReason || "No editable zones are currently available."}
                         </p>
                       ) : null}
-                      {zoneListTab === "mine" && !canCreateZone ? (
+                      {!canCreateZone ? (
                         <p className="mt-2 text-xs text-[#E0992A]">
                           {createBlockedReason || "You cannot create more zones."}
                         </p>
